@@ -32,6 +32,7 @@ func TestDefaultsMatchTheDesignDoc(t *testing.T) {
 	if c.DBPath() != "/data/contacts.db" || c.FSRoot() != "/data/fs" {
 		t.Errorf("paths %s %s, want the volume layout from the doc", c.DBPath(), c.FSRoot())
 	}
+	// With only an Anthropic key, Anthropic is the default provider.
 	if c.LLM != "anthropic" || c.Infer != "ort" || c.OnnxFile() != "model_int8.onnx" {
 		t.Errorf("llm=%s infer=%s onnx=%s", c.LLM, c.Infer, c.OnnxFile())
 	}
@@ -43,7 +44,7 @@ func TestDefaultsMatchTheDesignDoc(t *testing.T) {
 func TestFlagsBeatEnvironment(t *testing.T) {
 	t.Parallel()
 	c, err := config.Load(
-		[]string{"-debounce=250ms", "-llm=openai", "-openai-base-urls=http://a/v1, http://b/v1"},
+		[]string{"-debounce=250ms", "-llm=openai", "-openai-base-urls=http://a/v1, http://b/v1", "-openai-models=qwen-coder, small"},
 		env("CONTACTD_DEBOUNCE", "900ms", "CONTACTD_IDLE_TTL", "1m", "CONTACTD_LLM", "fake", "CONTACTD_SYNC_FULL", "true"),
 	)
 	if err != nil {
@@ -58,6 +59,55 @@ func TestFlagsBeatEnvironment(t *testing.T) {
 	if c.LLM != "openai" || len(c.OpenAIBaseURLs) != 2 || c.OpenAIBaseURLs[1] != "http://b/v1" {
 		t.Errorf("llm %s urls %q", c.LLM, c.OpenAIBaseURLs)
 	}
+	if len(c.OpenAIModels) != 2 || c.OpenAIModels[1] != "small" {
+		t.Errorf("openai models %q", c.OpenAIModels)
+	}
+}
+
+func TestProviders(t *testing.T) {
+	t.Parallel()
+
+	t.Run("every provider with credentials is on, and DeepSeek is the default", func(t *testing.T) {
+		t.Parallel()
+		c, err := config.Load(nil, env("ANTHROPIC_API_KEY", "a", "DEEPSEEK_API_KEY", "d", "OPENROUTER_API_KEY", "o", "OLLAMA_API_KEY", "l", "OPENCODE_API_KEY", "c"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(c.Providers(), ","); got != "deepseek,anthropic,openrouter,opencode,ollama" {
+			t.Errorf("providers = %s", got)
+		}
+		if c.LLM != "deepseek" || c.DeepSeekWire != "messages" {
+			t.Errorf("default provider %q on the %q wire", c.LLM, c.DeepSeekWire)
+		}
+		// DeepSeek's documented per-model concurrency, unless overridden.
+		if c.ProviderLimits["deepseek/deepseek-flash"] != 2500 || c.ProviderLimits["deepseek/deepseek-v4-pro"] != 500 {
+			t.Errorf("limits = %v", c.ProviderLimits)
+		}
+		if !c.Checkpoint || c.MaxChildren != 8 {
+			t.Errorf("checkpoint %t, max children %d", c.Checkpoint, c.MaxChildren)
+		}
+	})
+
+	t.Run("an explicit default and overrides", func(t *testing.T) {
+		t.Parallel()
+		c, err := config.Load([]string{
+			"-llm=openrouter", "-summary-provider=deepseek", "-effort=high",
+			"-provider-limits=deepseek/deepseek-v4-pro=40, openrouter=16",
+			"-openrouter-pin=deepseek/deepseek-v4-pro=deepseek, x/y=a|b",
+		}, env("DEEPSEEK_API_KEY", "d", "OPENROUTER_API_KEY", "o"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.LLM != "openrouter" || c.SummaryProvider != "deepseek" || c.Effort != "high" {
+			t.Errorf("llm %s, summary %s, effort %s", c.LLM, c.SummaryProvider, c.Effort)
+		}
+		if c.ProviderLimits["deepseek/deepseek-v4-pro"] != 40 || c.ProviderLimits["openrouter"] != 16 || c.ProviderLimits["deepseek/deepseek-flash"] != 2500 {
+			t.Errorf("limits = %v", c.ProviderLimits)
+		}
+		if got := c.OpenRouterPin; len(got) != 2 || got["deepseek/deepseek-v4-pro"][0] != "deepseek" || len(got["x/y"]) != 2 {
+			t.Errorf("pins = %v", got)
+		}
+	})
 }
 
 func TestValidation(t *testing.T) {
@@ -67,8 +117,16 @@ func TestValidation(t *testing.T) {
 		env  func(string) string
 		want string
 	}{
-		"anthropic without a key": {nil, env(), "ANTHROPIC_API_KEY"},
+		"no provider at all":      {nil, env(), "no model provider is configured"},
+		"a default without a key": {[]string{"-llm=deepseek"}, env("ANTHROPIC_API_KEY", "k"), "llm=deepseek has no credentials"},
 		"unknown provider":        {[]string{"-llm=clippy"}, env(), "llm must be"},
+		"removed provider":        {[]string{"-llm=nous"}, env(), "llm must be"},
+		"summary provider is off": {[]string{"-llm=fake", "-summary-provider=anthropic"}, env(), "summary-provider"},
+		"unknown deepseek wire":   {[]string{"-deepseek-wire=responses"}, env("DEEPSEEK_API_KEY", "k"), "deepseek-wire"},
+		"openai without models":   {nil, env("OPENAI_API_KEY", "k"), "openai-models"},
+		"unknown effort":          {[]string{"-llm=fake", "-effort=extreme"}, env(), "effort must be"},
+		"malformed limit":         {[]string{"-llm=fake", "-provider-limits=deepseek"}, env(), "provider-limits"},
+		"malformed pin":           {[]string{"-llm=fake", "-openrouter-pin=model"}, env(), "openrouter-pin"},
 		"unknown backend":         {[]string{"-llm=fake", "-infer=gpu"}, env(), "infer must be"},
 		"cap below debounce":      {[]string{"-llm=fake", "-debounce=5s"}, env(), "debounce"},
 		"bad duration in env":     {[]string{"-llm=fake"}, env("CONTACTD_GAP", "soon"), "CONTACTD_GAP"},

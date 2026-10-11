@@ -1,0 +1,14 @@
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"The user wants a product. "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"I should run it."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"Let me check."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"","tool_calls":[{"id":"call_k3x9w2ab","index":0,"type":"function","function":{"name":"python","arguments":"{\"code\":\"print(6 * 7)\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"tool_calls"}]}
+
+data: {"id":"chatcmpl-102","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[],"usage":{"prompt_tokens":1520,"completion_tokens":41,"total_tokens":1561}}
+
+data: [DONE]
+

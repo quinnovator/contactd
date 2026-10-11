@@ -34,12 +34,17 @@ type actor struct {
 	// registry samples them to pick hibernation victims.
 	lastActive atomic.Int64
 	busy       atomic.Bool
+	// children counts sub-agents that have not settled. The registry
+	// reserves a slot from a turn's goroutine; the actor gives it back.
+	children atomic.Int32
 
 	contact  core.Contact
 	nextSeq  uint64
 	tail     []core.Event     // hot recent window; append-only, shared with turn snapshots
 	eps      *recall.Index    // Piece 4
 	lastPlan *plan.PromptPlan // Piece 5
+	lastSent *turn.Sent       // the last request sent, for cache prediction
+	affinity string           // pins this contact, or its parent's family, to one backend
 	env      *turn.Env        // Piece 6; holds nothing until a tool needs it
 	subs     []*Subscription  // streaming subscribers
 
@@ -57,6 +62,18 @@ type actor struct {
 	embedQ      []embedItem // messages not yet embedded, in seq order
 	embedBusy   bool
 	summarizing map[uint32]struct{}
+
+	// Checkpoints: at most one fold runs at a time, and ckptSeq/ckptTo
+	// describe the newest checkpoint this actor appended.
+	folding         bool
+	ckptSeq, ckptTo uint64
+
+	// Delegation. notices are settlements waiting for the turn in flight to
+	// end, so that each lands in the log after the reply it did not
+	// interrupt. forkBase and taskOpen are set on a sub-agent.
+	notices  []core.NoticeBody
+	forkBase *plan.PromptPlan
+	taskOpen bool
 }
 
 type inflight struct {
@@ -96,7 +113,7 @@ func (a *actor) run(ctx context.Context) {
 		case <-idle.C:
 			// Idle means no contact activity and no turn. Bookkeeping
 			// commands (embeddings, snapshots) do not keep an actor alive.
-			if a.turn != nil || a.debounceArmed {
+			if a.turn != nil || a.debounceArmed || a.children.Load() > 0 {
 				idle.Reset(cfg.IdleTTL)
 				continue
 			}
@@ -139,6 +156,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// Interrupt first: a reply cut off by this message was said before
 		// it, and must be logged before it.
 		a.interrupt(ctx)
+		a.flushNotices(ctx)
 		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text}, c.Ack)
 		a.pendingBytes += len(c.Text)
 		a.wantTurn = true
@@ -156,7 +174,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 	case unsubscribe:
 		a.dropSub(c.sub)
 	case Hibernate:
-		if a.turn == nil && !a.debounceArmed && a.r.retire(a) {
+		if a.turn == nil && !a.debounceArmed && a.children.Load() == 0 && a.r.retire(a) {
 			a.hibernate(ctx, "pressure")
 			return true
 		}
@@ -194,6 +212,20 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		}
 	case turnDone:
 		a.onTurnDone(ctx, c)
+	case turnAttempt:
+		a.append(ctx, core.KindAttempt, c.body, nil)
+	case task:
+		// A sub-agent's job. Nobody is typing, so there is no burst to wait
+		// out: the turn starts now.
+		a.touch()
+		a.forkBase, a.taskOpen = c.base, true
+		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: taskText(c.text)}, c.ack)
+		a.wantTurn = true
+		a.startTurn(ctx)
+	case settled:
+		a.onSettled(ctx, c)
+	case folded:
+		a.onFolded(ctx, c)
 	case embedded:
 		a.onEmbedded(ctx, c)
 	case summarized:
@@ -231,7 +263,7 @@ func (a *actor) touch() {
 // syncBusy publishes whether the actor has work pending, for the registry's
 // choice of hibernation victims.
 func (a *actor) syncBusy() {
-	a.busy.Store(a.turn != nil || a.debounceArmed)
+	a.busy.Store(a.turn != nil || a.debounceArmed || a.children.Load() > 0)
 }
 
 // hydrate loads the tail (the last N events, a single range scan) and the
@@ -244,6 +276,13 @@ func (a *actor) hydrate(ctx context.Context) error {
 		return err //nolint:wrapcheck // the store's error already names the contact
 	}
 	a.contact, a.tail, a.nextSeq = h.Contact, h.Tail, h.NextSeq
+	// A sub-agent shares its parent's key, so that the family lands on one
+	// backend and the child can read what the parent cached.
+	family := a.id
+	if p := a.contact.Agent.Parent; p != 0 {
+		family = p
+	}
+	a.affinity = deps.Turn.Models.Affinity(family)
 
 	if a.eps, err = recall.NewIndex(cfg.Recall, h.Episodes); err != nil {
 		// The episodes table is derived data: replay events and vectors.
@@ -360,6 +399,8 @@ func (a *actor) drainInbox(err error, closeSubs bool) {
 				c.done <- struct{}{}
 			case turnToolCall:
 				c.ack <- context.Canceled
+			case task:
+				c.ack <- Ack{Err: err}
 			default:
 				// Results from goroutines this actor started: safe to lose.
 			}
@@ -386,7 +427,11 @@ func (a *actor) append(ctx context.Context, kind core.EventKind, body any, ack c
 	now := time.Now().UnixMilli()
 	ev := core.Event{Contact: a.id, Seq: a.nextSeq, TS: now, Kind: kind, Body: raw}
 	a.nextSeq++
-	a.tail = append(a.tail, ev)
+	// An attempt record is for the log only: the planner never reads it, so
+	// it does not take up room in the hot window.
+	if kind != core.KindAttempt {
+		a.tail = append(a.tail, ev)
+	}
 
 	w := core.Write{Contact: a.id, Event: &ev}
 	if kind == core.KindUserMsg {
@@ -444,6 +489,9 @@ func (a *actor) startTurn(ctx context.Context) {
 		Tail:     slices.Clip(a.tail), // the turn must not append into our backing array
 		Episodes: a.eps.Snapshot(),
 		LastPlan: a.lastPlan,
+		Sent:     a.lastSent,
+		Affinity: a.affinity,
+		Base:     a.forkBase,
 		Env:      a.env,
 		Ctl:      t.ctl,
 		Sink:     sink{a: a, id: t.id},
@@ -517,6 +565,10 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 	a.turn = nil
 	t.cancel()
 	a.touch()
+	if c.res.Sent != nil {
+		// Whatever became of the turn, this is what the provider last saw.
+		a.lastSent = c.res.Sent
+	}
 
 	switch {
 	case c.err != nil:
@@ -526,7 +578,8 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 			ev := a.append(ctx, core.KindAgentMsg, core.MsgBody{Text: partial, Interrupted: true}, nil)
 			a.broadcast(core.Delta{Type: core.DeltaInterrupted, Turn: c.id, Seq: ev.Seq})
 		}
-		a.broadcast(core.Delta{Type: core.DeltaError, Turn: c.id, Text: "turn_failed"})
+		a.broadcast(core.Delta{Type: core.DeltaError, Turn: c.id, Text: failureReason(c.err)})
+		a.settle(ctx, &c.res, c.err)
 	default:
 		res := c.res
 		switch {
@@ -542,15 +595,24 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 			a.pendingBytes = 0
 		}
 		if res.Final != "" {
-			ev := a.append(ctx, core.KindAgentMsg, core.MsgBody{Text: res.Final}, nil)
+			// The reasoning behind the reply is stored only where the route
+			// must be given it back; the turn decided that.
+			ev := a.append(ctx, core.KindAgentMsg, core.MsgBody{Text: res.Final, Reasoning: res.Reasoning}, nil)
 			a.broadcast(core.Delta{Type: core.DeltaMessage, Turn: c.id, Text: res.Final, Seq: ev.Seq})
 		}
 		a.lastPlan = res.Plan
-		a.trimTail(res.Plan.TailFrom)
+		a.trimTail(res.Plan)
 		a.summarizeRecalled(ctx, res.Plan.Recall)
 		a.recordSnapshots(ctx, a.env.TakeSnapshots())
+		a.maybeFold(ctx, &res)
+		if !res.Replan {
+			a.settle(ctx, &res, nil)
+		}
 	}
 	a.broadcast(core.Delta{Type: core.DeltaTyping, Turn: c.id})
+	// Settlements that arrived mid-turn go into the log now, after the reply
+	// they waited for, and are answered by the next turn.
+	a.flushNotices(ctx)
 
 	// A message that arrived while a tool was running, or while this turn
 	// was failing, still needs its answer.
@@ -559,18 +621,22 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 	}
 }
 
-// trimTail forgets events the planner has compacted out of the prompt. They
-// stay recallable through their episodes.
-func (a *actor) trimTail(from uint64) {
-	i := 0
-	for i < len(a.tail) && a.tail[i].Seq < from {
-		i++
-	}
-	if i == 0 {
+// trimTail forgets events the planner has compacted or folded out of the
+// prompt. They stay recallable through their episodes. The checkpoint event
+// the plan opens with is kept wherever it sits: the next plan reads its
+// summary from it.
+func (a *actor) trimTail(p *plan.PromptPlan) {
+	if len(a.tail) == 0 || a.tail[0].Seq >= p.TailFrom {
 		return
 	}
 	// Copy rather than reslice so the old backing array can be collected.
-	a.tail = slices.Clone(a.tail[i:])
+	kept := make([]core.Event, 0, len(a.tail))
+	for i := range a.tail {
+		if ev := &a.tail[i]; ev.Seq >= p.TailFrom || (ev.Seq == p.Checkpoint && p.Checkpoint != 0) {
+			kept = append(kept, *ev)
+		}
+	}
+	a.tail = kept
 }
 
 // hibernate snapshots the environment, flushes, and lets go of memory.
@@ -697,4 +763,10 @@ func (s sink) ToolCall(ctx context.Context, call core.ToolCall, enter func() boo
 
 func (s sink) ToolResult(ctx context.Context, name string, res core.ToolResult) error {
 	return s.send(ctx, turnToolResult{id: s.id, name: name, res: res})
+}
+
+// Attempt is delivered even when the turn's own context is already done: a
+// cancelled or failed call is exactly the kind worth having a record of.
+func (s sink) Attempt(ctx context.Context, body core.AttemptBody) {
+	_ = s.send(context.WithoutCancel(ctx), turnAttempt{body: body}) // the actor is gone; nothing to record into
 }

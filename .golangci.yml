@@ -71,12 +71,53 @@ linters:
               desc: adapters are wired in cmd/contactd only
             - pkg: github.com/quinnovator/contactd/internal/infer
               desc: adapters are wired in cmd/contactd only
-            - pkg: github.com/quinnovator/contactd/internal/llm
-              desc: adapters are wired in cmd/contactd only
+            # internal/llm itself is the contract and is importable; its
+            # codecs, provider profiles and fakes are not.
+            - pkg: github.com/quinnovator/contactd/internal/llm/wire
+              desc: wire codecs are reached through llm.Provider
+            - pkg: github.com/quinnovator/contactd/internal/llm/provider
+              desc: provider profiles are wired in cmd/contactd only
+            - pkg: github.com/quinnovator/contactd/internal/llm/fake
+              desc: fakes are for tests and cmd wiring
+            - pkg: github.com/quinnovator/contactd/internal/llm/conform
+              desc: the conformance suite is for provider tests
             - pkg: github.com/quinnovator/contactd/internal/env
               desc: adapters are wired in cmd/contactd only
             - pkg: github.com/quinnovator/contactd/internal/api
               desc: nothing imports the API layer
+        # The provider boundary, from both sides. The contract knows the
+        # core's data types and nothing else of ours; codecs and profiles
+        # know the contract and never the core that drives them.
+        llm-contract-is-a-leaf:
+          files:
+            - "**/internal/llm/*.go"
+            - "!$test"
+          deny:
+            - pkg: github.com/quinnovator/contactd/internal/llm/
+              desc: the contract holds no wire code and names no provider
+            - pkg: github.com/quinnovator/contactd/internal/turn
+              desc: the contract does not know the turn loop
+            - pkg: github.com/quinnovator/contactd/internal/actor
+              desc: the contract does not know the actors
+            - pkg: net/http/httptest
+              desc: the contract does no I/O
+        providers-never-see-the-core:
+          files:
+            - "**/internal/llm/wire/**"
+            - "**/internal/llm/provider/**"
+            - "**/internal/llm/probe/**"
+            - "**/internal/llm/conform/**"
+          deny:
+            - pkg: github.com/quinnovator/contactd/internal/turn
+              desc: a provider is handed a plan and options, and nothing else
+            - pkg: github.com/quinnovator/contactd/internal/actor
+              desc: a provider is handed a plan and options, and nothing else
+            - pkg: github.com/quinnovator/contactd/internal/eventlog
+              desc: a provider never reads the log
+            - pkg: github.com/quinnovator/contactd/internal/api
+              desc: nothing imports the API layer
+            - pkg: github.com/quinnovator/contactd/internal/config
+              desc: profiles take their own Config; cmd/contactd maps the deployment's onto it
     forbidigo:
       analyze-types: true
       forbid:

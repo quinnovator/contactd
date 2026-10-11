@@ -11,8 +11,8 @@ import (
 	"github.com/cespare/xxhash/v2"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/plan"
-	"github.com/quinnovator/contactd/internal/turn"
 )
 
 // Handler serves the fake model over the OpenAI Chat Completions wire
@@ -73,8 +73,9 @@ func (c *chatContent) UnmarshalJSON(b []byte) error {
 
 type chatTool struct {
 	Function struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		Parameters  json.RawMessage `json:"parameters"`
 	} `json:"function"`
 }
 
@@ -126,22 +127,16 @@ func (m *Model) serveChat(w http.ResponseWriter, r *http.Request) {
 	}
 	msgs, tools := fromWire(&req)
 
+	resp := m.Respond(msgs, tools, wireMarks(msgs), time.Now())
 	if !req.Stream {
-		// The only non-streaming caller is the summarizer.
-		text := ""
-		if len(msgs) > 0 {
-			text = Summary(msgs[len(msgs)-1].Text)
-		}
 		stop := "stop"
 		writeJSON(w, chatChunk{
 			ID: "chatcmpl-fake", Object: "chat.completion", Model: req.Model,
-			Choices: []chatChoice{{Message: &chatDelta{Role: "assistant", Content: text}, FinishReason: &stop}},
-			Usage:   &chatUsage{},
+			Choices: []chatChoice{{Message: &chatDelta{Role: "assistant", Content: resp.Text}, FinishReason: &stop}},
+			Usage:   &chatUsage{PromptTokens: resp.Usage.Input, CompletionTokens: resp.Usage.Output},
 		})
 		return
 	}
-
-	resp := m.Respond(msgs, tools, wireMarks(msgs), time.Now())
 	stream := NewStream(r.Context(), resp, m.opt.PerChunk)
 
 	flusher, ok := w.(http.Flusher)
@@ -164,31 +159,38 @@ func (m *Model) serveChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	send(chatChunk{Choices: []chatChoice{{Delta: &chatDelta{Role: "assistant"}}}})
+	started := 0
 	for ev := range stream.Events() {
-		switch ev.Type {
-		case turn.TextDelta:
+		switch ev.Kind {
+		case llm.TextDelta:
 			send(chatChunk{Choices: []chatChoice{{Delta: &chatDelta{Content: ev.Text}}}})
-		case turn.ToolStart:
-			call := chatToolCall{ID: resp.Tool.ID, Type: "function"}
-			call.Function.Name = ev.Name
+		case llm.ToolStart:
+			call := chatToolCall{Index: started, ID: resp.Tools[started].ID, Type: "function"}
+			call.Function.Name = ev.Tool
 			send(chatChunk{Choices: []chatChoice{{Delta: &chatDelta{ToolCalls: []chatToolCall{call}}}}})
+			started++
+		case llm.ReasoningDelta:
 		}
 	}
-	if _, err := stream.Stop(); err != nil {
+	if _, err := stream.Result(); err != nil {
 		return // the client went away mid-stream
 	}
 	reason := "stop"
-	if resp.Tool != nil {
-		args, err := json.Marshal(struct {
-			Code string `json:"code"`
-		}{resp.Tool.Code})
-		if err != nil {
-			return
+	for i := range resp.Tools {
+		args := []byte(resp.Tools[i].Args)
+		if len(args) == 0 {
+			var err error
+			args, err = json.Marshal(struct {
+				Code string `json:"code"`
+			}{resp.Tools[i].Code})
+			if err != nil {
+				return
+			}
 		}
 		// Arguments arrive in pieces, as they do from a real provider.
 		half := len(args) / 2
 		for _, piece := range []string{string(args[:half]), string(args[half:])} {
-			var call chatToolCall
+			call := chatToolCall{Index: i}
 			call.Function.Arguments = piece
 			send(chatChunk{Choices: []chatChoice{{Delta: &chatDelta{ToolCalls: []chatToolCall{call}}}}})
 		}
@@ -197,11 +199,11 @@ func (m *Model) serveChat(w http.ResponseWriter, r *http.Request) {
 	send(chatChunk{Choices: []chatChoice{{Delta: &chatDelta{}, FinishReason: &reason}}})
 
 	usage := &chatUsage{
-		PromptTokens:     resp.Usage.InputTokens,
-		CompletionTokens: resp.Usage.OutputTokens,
-		TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
+		PromptTokens:     resp.Usage.Input,
+		CompletionTokens: resp.Usage.Output,
+		TotalTokens:      resp.Usage.Input + resp.Usage.Output,
 	}
-	usage.Details.CachedTokens = resp.Usage.CachedTokens
+	usage.Details.CachedTokens = resp.Usage.Cached
 	send(chatChunk{Choices: []chatChoice{}, Usage: usage})
 	_, _ = fmt.Fprint(w, "data: [DONE]\n\n")
 	flusher.Flush()
@@ -217,6 +219,8 @@ func fromWire(req *chatRequest) ([]core.Message, []core.ToolDef) {
 		case "assistant":
 			m.Role = core.RoleAssistant
 			if len(wm.ToolCalls) > 0 {
+				// Only the last thing in a prompt decides the reply, so the
+				// first call is enough to stand for the step.
 				tc := wm.ToolCalls[0]
 				var args struct {
 					Code string `json:"code"`
@@ -237,6 +241,16 @@ func fromWire(req *chatRequest) ([]core.Message, []core.ToolDef) {
 	tools := make([]core.ToolDef, len(req.Tools))
 	for i, t := range req.Tools {
 		tools[i] = core.ToolDef{Name: t.Function.Name, Description: t.Function.Description}
+		// A tool whose parameters are not the default single "code" string
+		// has its own schema, and takes its arguments raw.
+		var schema struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		if json.Unmarshal(t.Function.Parameters, &schema) == nil {
+			if _, isCode := schema.Properties["code"]; !isCode && len(schema.Properties) > 0 {
+				tools[i].Input = t.Function.Parameters
+			}
+		}
 	}
 	return msgs, tools
 }

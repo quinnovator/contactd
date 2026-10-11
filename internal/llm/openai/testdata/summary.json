@@ -1,1 +1,0 @@
-{"id":"chatcmpl-9","object":"chat.completion","model":"gpt-small","choices":[{"index":0,"message":{"role":"assistant","content":"Sam asked for the product of 6 and 7. The agent computed 42 with Python.\n","refusal":null},"finish_reason":"stop"}],"usage":{"prompt_tokens":120,"completion_tokens":24,"total_tokens":144}}

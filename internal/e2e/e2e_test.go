@@ -27,7 +27,7 @@ import (
 	"github.com/quinnovator/contactd/internal/infer"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
-	"github.com/quinnovator/contactd/internal/llm/openai"
+	"github.com/quinnovator/contactd/internal/llm/provider/openaicompat"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
 	"github.com/quinnovator/contactd/internal/turn"
@@ -60,10 +60,17 @@ func start(t *testing.T, dbPath string, llmOpt fakellm.Options, tune func(*actor
 	bg.Go(func() { rerankB.Run(base) })
 	embedder, reranker := infer.NewEmbedder(embedB), infer.NewReranker(rerankB)
 
-	llm, err := openai.New(openai.Config{BaseURLs: []string{provider.URL + "/v1"}, Model: "fake", Logger: obs.Discard()})
+	// The real path: the OpenAI-compatible profile and the Chat Completions
+	// codec, over HTTP, behind the client's admission and retries.
+	profile, err := openaicompat.New(openaicompat.Config{
+		BaseURLs:     []string{provider.URL + "/v1"},
+		Models:       []openaicompat.Model{{Name: "fake", ContextWindow: 128_000}},
+		DefaultModel: "fake",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	models := fakellm.NewClient(profile)
 	cfg, pp := actor.DefaultConfig(), plan.DefaultParams()
 	cfg.Debounce, cfg.DebounceCap = 15*time.Millisecond, 60*time.Millisecond
 	cfg.Recall.Tau = 0.2
@@ -71,13 +78,14 @@ func start(t *testing.T, dbPath string, llmOpt fakellm.Options, tune func(*actor
 		tune(&cfg, &pp)
 	}
 	reg := actor.New(base, actor.Deps{
-		Log: store, Hydrate: store, Repair: store, Embed: embedder, Summarize: llm, Snapshots: store,
+		Log: store, Create: store, Hydrate: store, Repair: store, Embed: embedder, Snapshots: store,
+		Summarize: &turn.ModelSummarizer{Models: models},
 		Turn: &turn.Deps{
-			Embed: embedder, Rerank: reranker, Log: store, LLM: llm, Logger: obs.Discard(),
-			Recall: cfg.Recall, Plan: pp, MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
+			Embed: embedder, Rerank: reranker, Log: store, Models: models, Logger: obs.Discard(),
+			Recall: cfg.Recall, Plan: pp, Checkpoint: cfg.Checkpoint, MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
 		},
 	}, cfg, obs.Discard())
-	a := api.New(store, reg, obs.Discard())
+	a := api.New(store, reg, models, obs.Discard())
 	srv := httptest.NewServer(a.Handler())
 
 	var once sync.Once
@@ -227,8 +235,10 @@ func TestConversationSurvivesRestart(t *testing.T) {
 		"ok, doing that now",
 	} {
 		d := s.say(t, id, text, deltas)
-		if d.Seq != uint64(2*i+2) || d.Text == "" {
-			t.Fatalf("turn %d: reply %+v, want seq %d", i, d, 2*i+2)
+		// Each turn logs three events: the message, the record of the
+		// model call, and the reply.
+		if d.Seq != uint64(3*i+3) || d.Text == "" {
+			t.Fatalf("turn %d: reply %+v, want seq %d", i, d, 3*i+3)
 		}
 	}
 	input := testutil.ToFloat64(obs.ProviderInputTokens) - inputBefore
@@ -248,8 +258,8 @@ func TestConversationSurvivesRestart(t *testing.T) {
 	s2 := start(t, db, fakellm.Options{}, nil)
 	deltas2 := s2.stream(t, id)
 	d := s2.say(t, id, "and we are back after the restart", deltas2)
-	if d.Seq != 10 || !strings.Contains(d.Text, "and we are back") {
-		t.Fatalf("after restart: reply %+v, want seq 10 answering the new message", d)
+	if d.Seq != 15 || !strings.Contains(d.Text, "and we are back") {
+		t.Fatalf("after restart: reply %+v, want seq 15 answering the new message", d)
 	}
 }
 

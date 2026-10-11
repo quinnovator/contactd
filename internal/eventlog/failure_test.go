@@ -51,14 +51,14 @@ func TestTransientWriteFailureKeepsOneWriterAndNoGaps(t *testing.T) {
 	s := openAt(t, path, eventlog.Options{BusyTimeout: 150 * time.Millisecond})
 	id := contact(t, s)
 
-	llm := fakellm.New(fakellm.Options{})
+	models := fakellm.NewClient(fakellm.New(fakellm.Options{}))
 	cfg := actor.DefaultConfig()
 	cfg.Debounce, cfg.DebounceCap = 10*time.Millisecond, 50*time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
 	reg := actor.New(ctx, actor.Deps{
 		Log: s, Hydrate: s, Repair: s, Embed: embed{}, Snapshots: s,
 		Turn: &turn.Deps{
-			Embed: embed{}, Rerank: rerank{}, Log: s, LLM: llm, Logger: obs.Discard(),
+			Embed: embed{}, Rerank: rerank{}, Log: s, Models: models, Logger: obs.Discard(),
 			Recall: cfg.Recall, Plan: plan.DefaultParams(), MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
 		},
 	}, cfg, obs.Discard())

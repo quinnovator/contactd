@@ -62,21 +62,23 @@ type PromptPlan struct {
 	Tiers    [NumTiers]Tier
 	Chain    [NumTiers]uint64 // Chain[i] = H(Chain[i-1], Tiers[i].Hash)
 	Recall   []uint32         // episode IDs in tier 2, in order
-	TailFrom uint64           // first seq in tier 3
-	BuiltAt  int64            // unix ms
+	TailFrom uint64           // first seq rendered verbatim in tier 3
+	// Checkpoint is the seq of the checkpoint event whose summary opens
+	// tier 3, or 0 when there is none.
+	Checkpoint uint64
+	BuiltAt    int64 // unix ms
 
-	// Contact, Model, MaxTokens and Tools ride along so an LLM adapter needs
-	// nothing but the plan. Contact lets an adapter pin a contact to one
-	// inference replica; it is not part of any hash. Tools are part of the
-	// static tier's hash.
-	Contact   core.ContactID
-	Model     string
-	MaxTokens int
-	Tools     []core.ToolDef
+	// Tools ride along with the static tier, whose hash covers them. The
+	// plan says nothing about who it is for or which model reads it: a
+	// provider gets the route and the call options separately.
+	Tools []core.ToolDef
 
 	// tailMarks[i] is the tail tier's rolling hash after message i. It lets
 	// FirstChanged tell an append-only extension from a rewrite.
 	tailMarks []uint64
+	// tailSrc says where each tail message came from, for choosing the span
+	// a checkpoint folds.
+	tailSrc []entry
 }
 
 // Params tunes the planner. The zero value is not usable; start from
@@ -87,6 +89,13 @@ type Params struct {
 	K               int     // most episodes recalled per turn
 	Delta           float32 // margin a new episode needs to displace a warm recall set
 	CacheTTL        int64   // ms the provider cache is assumed to stay warm
+
+	// HardBudget, when above TailBudget, is where the tail is cut outright.
+	// It is set where checkpoints are in use: TailBudget then triggers a
+	// fold, and the cut is only the guard behind it.
+	HardBudget int
+	// FoldFraction is the share of the tail one checkpoint folds.
+	FoldFraction float64
 
 	// Slide compacts a little every turn instead of in steps, and
 	// NoHysteresis re-picks recall every turn. Both exist only so the cache
@@ -103,6 +112,7 @@ func DefaultParams() Params {
 		K:               4,
 		Delta:           1.0,
 		CacheTTL:        5 * 60 * 1000,
+		FoldFraction:    0.5,
 	}
 }
 
@@ -115,20 +125,27 @@ type Recalled struct {
 
 // Input is everything Build needs besides the previous plan and the clock.
 type Input struct {
-	Contact core.ContactID
 	Agent   *core.AgentConfig
 	Profile string
+	// Route is the ID of the model route the prompt is for. A stored
+	// reasoning payload is rendered only when it came from this route.
+	Route string
 	// Tail is the contact's hot window in ascending seq order. It ends with
 	// the user message(s) this turn answers.
 	Tail []core.Event
+	// Base, when set, makes this a fork: tiers 0 to 2 and the head of the
+	// tail are taken from Base verbatim, so the request begins with the
+	// exact bytes Base's owner last sent and reads its cache. Recall is not
+	// consulted.
+	Base *PromptPlan
 }
 
 // Build lays out the prompt for one turn. prev is the plan of the last
 // committed turn, or nil after hydration. now is unix ms.
 func Build(prev *PromptPlan, in Input, recalled []Recalled, now int64, pr Params) (*PromptPlan, error) {
-	p := &PromptPlan{BuiltAt: now, Contact: in.Contact}
+	p := &PromptPlan{BuiltAt: now}
 	if in.Agent != nil {
-		p.Model, p.MaxTokens, p.Tools = in.Agent.Model, in.Agent.MaxTokens, in.Agent.Tools
+		p.Tools = in.Agent.Tools
 	}
 
 	// Tier 0: static.
@@ -163,15 +180,27 @@ func Build(prev *PromptPlan, in Input, recalled []Recalled, now int64, pr Params
 	}
 
 	// Tiers 3 and 4: tail and live.
-	tail, live, err := layoutTail(prev, in.Tail, pr)
+	tail, live, err := layoutTail(prev, in.Tail, in.Route, pr)
 	if err != nil {
 		return nil, err
 	}
 	p.TailFrom = firstSeq(tail, live)
-	tailMsgs := make([]core.Message, len(tail))
-	for i := range tail {
-		tailMsgs[i] = tail[i].msg
+	if len(tail) > 0 {
+		p.Checkpoint = tail[0].ckpt
 	}
+	var tailMsgs []core.Message
+	if b := in.Base; b != nil {
+		// A fork: everything the parent's request began with, unchanged.
+		p.Tools = b.Tools
+		p.Tiers[TierStatic], p.Tiers[TierProfile], p.Tiers[TierRecall] = b.Tiers[TierStatic], b.Tiers[TierProfile], b.Tiers[TierRecall]
+		p.Recall = b.Recall
+		tailMsgs = slices.Clone(b.Tiers[TierTail].Msgs)
+		p.tailSrc = make([]entry, len(tailMsgs)) // synthetic: never folded
+	}
+	for i := range tail {
+		tailMsgs = append(tailMsgs, tail[i].msg)
+	}
+	p.tailSrc = append(p.tailSrc, tail...)
 	p.Tiers[TierTail], p.tailMarks = newMarkedTier(tailMsgs)
 
 	liveMsgs := make([]core.Message, 0, len(live)+1)
@@ -203,8 +232,8 @@ type Pending struct {
 // normalization and compaction as Build, so the two cannot disagree about
 // which messages are new: a message logged while a tool was running is new
 // even though the tool result follows it in the log.
-func Layout(prev *PromptPlan, events []core.Event, pr Params) (Pending, error) {
-	tail, live, err := layoutTail(prev, events, pr)
+func Layout(prev *PromptPlan, events []core.Event, route string, pr Params) (Pending, error) {
+	tail, live, err := layoutTail(prev, events, route, pr)
 	if err != nil {
 		return Pending{}, err
 	}
@@ -226,12 +255,12 @@ func Layout(prev *PromptPlan, events []core.Event, pr Params) (Pending, error) {
 
 // layoutTail splits a hot window into the tail and the live messages,
 // applying the compaction policy.
-func layoutTail(prev *PromptPlan, events []core.Event, pr Params) (tail, live []entry, err error) {
-	from := uint64(0)
+func layoutTail(prev *PromptPlan, events []core.Event, route string, pr Params) (tail, live []entry, err error) {
+	w := window{route: route}
 	if prev != nil {
-		from = prev.TailFrom
+		w.from, w.ckpt = prev.TailFrom, prev.Checkpoint
 	}
-	entries, err := normalize(events, from)
+	entries, err := normalize(events, w)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -250,7 +279,7 @@ func layoutTail(prev *PromptPlan, events []core.Event, pr Params) (tail, live []
 // prompt that produced them.
 func (p *PromptPlan) AppendTail(call core.ToolCall, res core.ToolResult) {
 	msgs := append(slices.Clip(p.Tiers[TierLive].Msgs),
-		core.Message{Role: core.RoleAssistant, Text: call.Text, ToolCall: &call},
+		core.Message{Role: core.RoleAssistant, Text: call.Text, ToolCall: &call, Reasoning: call.Reasoning},
 		core.Message{Role: core.RoleTool, ToolResult: &res},
 	)
 	p.Tiers[TierLive] = newTier(msgs)
@@ -426,7 +455,10 @@ func mix(a, b uint64) uint64 {
 func EstimateTokens(m *core.Message) int {
 	n := len(m.Text)
 	if m.ToolCall != nil {
-		n += len(m.ToolCall.Name) + len(m.ToolCall.Code)
+		n += len(m.ToolCall.Name) + len(m.ToolCall.Code) + len(m.ToolCall.Args)
+	}
+	if m.Reasoning != nil {
+		n += len(m.Reasoning.Data)
 	}
 	if m.ToolResult != nil {
 		n += len(m.ToolResult.Output)

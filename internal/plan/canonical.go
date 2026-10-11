@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"unicode/utf8"
 
+	"github.com/cespare/xxhash/v2"
+
 	"github.com/quinnovator/contactd/internal/core"
 )
 
@@ -20,19 +22,38 @@ func Canonical(m *core.Message) []byte { return appendMessage(nil, m) }
 func CanonicalTools(tools []core.ToolDef) []byte { return appendTools(nil, tools) }
 
 func appendMessage(b []byte, m *core.Message) []byte {
-	b = append(b, `{"role":`...)
+	b = append(b, '{')
+	if r := m.Reasoning; r != nil {
+		// The payload is opaque and can be large; its hash stands in for it.
+		b = append(b, `"reasoning":{"data":"`...)
+		b = strconv.AppendUint(b, xxhash.Sum64(r.Data), 16)
+		b = append(b, `","route":`...)
+		b = appendString(b, r.Route)
+		b = append(b, `},`...)
+	}
+	b = append(b, `"role":`...)
 	b = appendString(b, m.Role.String())
 	if m.Text != "" {
 		b = append(b, `,"text":`...)
 		b = appendString(b, m.Text)
 	}
 	if c := m.ToolCall; c != nil {
-		b = append(b, `,"tool_call":{"code":`...)
+		b = append(b, `,"tool_call":{`...)
+		if len(c.Args) > 0 {
+			b = append(b, `"args":`...)
+			b = append(b, c.Args...)
+			b = append(b, ',')
+		}
+		b = append(b, `"code":`...)
 		b = appendString(b, c.Code)
 		b = append(b, `,"id":`...)
 		b = appendString(b, c.ID)
 		b = append(b, `,"name":`...)
 		b = appendString(b, c.Name)
+		if c.Sibling > 0 {
+			b = append(b, `,"sibling":`...)
+			b = strconv.AppendInt(b, int64(c.Sibling), 10)
+		}
 		b = append(b, '}')
 	}
 	if r := m.ToolResult; r != nil {
@@ -69,7 +90,12 @@ func appendTools(b []byte, tools []core.ToolDef) []byte {
 		}
 		b = append(b, `],"tier":`...)
 		b = strconv.AppendUint(b, uint64(t.Env.Tier), 10)
-		b = append(b, `},"name":`...)
+		b = append(b, '}')
+		if len(t.Input) > 0 {
+			b = append(b, `,"input":`...)
+			b = append(b, t.Input...)
+		}
+		b = append(b, `,"name":`...)
 		b = appendString(b, t.Name)
 		b = append(b, '}')
 	}

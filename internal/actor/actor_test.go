@@ -353,7 +353,7 @@ func TestStreamLifecycle(t *testing.T) {
 					final = d
 				}
 			}
-			if final.Text == "" || final.Text != text.String() || final.Seq != seq+1 {
+			if final.Text == "" || final.Text != text.String() || final.Seq != seq+2 { // the attempt record sits between
 				t.Errorf("streamed %q, committed %q at seq %d", text.String(), final.Text, final.Seq)
 			}
 			if last := ds[len(ds)-1]; last.Type != core.DeltaTyping || last.Typing {

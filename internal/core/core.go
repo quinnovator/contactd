@@ -4,6 +4,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strconv"
@@ -28,6 +29,9 @@ const (
 	KindToolResult
 	KindSummary     // lazily generated episode summary
 	KindEnvSnapshot // pointer to a REPL snapshot, not the snapshot itself
+	KindAttempt     // one model call: what was sent and how it went; never shown to the model
+	KindCheckpoint  // a summary that replaces the oldest span of the tail
+	KindNotice      // the runtime telling the agent something, such as a sub-agent settling
 )
 
 func (k EventKind) String() string {
@@ -44,6 +48,12 @@ func (k EventKind) String() string {
 		return "summary"
 	case KindEnvSnapshot:
 		return "env_snapshot"
+	case KindAttempt:
+		return "attempt"
+	case KindCheckpoint:
+		return "checkpoint"
+	case KindNotice:
+		return "notice"
 	default:
 		return "unknown"
 	}
@@ -73,10 +83,22 @@ type Contact struct {
 // AgentConfig is what a contact is: its system prompt, model and tools. It is
 // stored with the contact and forms the static tier of every prompt.
 type AgentConfig struct {
-	System    string    `json:"system"`
-	Model     string    `json:"model,omitempty"`
+	System string `json:"system"`
+	// Provider and Model name the route that serves this contact. Either may
+	// be empty to take the deployment's default. They are resolved strictly:
+	// a name the deployment does not know is an error, never a fallback.
+	Provider string `json:"provider,omitempty"`
+	Model    string `json:"model,omitempty"`
+	// Effort is the reasoning effort on the neutral scale: none, low,
+	// medium, high, xhigh or max. Empty leaves it to the route.
+	Effort    string    `json:"effort,omitempty"`
 	MaxTokens int       `json:"max_tokens,omitempty"`
 	Tools     []ToolDef `json:"tools,omitempty"`
+	// Delegate gives the agent the delegate tool, which starts sub-agents.
+	Delegate bool `json:"delegate,omitempty"`
+	// Parent is set on a sub-agent: the contact that started it. A
+	// sub-agent cannot delegate, whatever Delegate says.
+	Parent ContactID `json:"parent,omitempty"`
 }
 
 // ToolDef declares a code-execution tool. Every tool takes a single "code"
@@ -85,6 +107,10 @@ type ToolDef struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	Env         EnvSpec `json:"env"`
+	// Input is a JSON Schema for the tool's arguments. Empty means the
+	// default: one string, "code", which is what every REPL tool takes. A
+	// tool with its own schema receives its arguments raw, in ToolCall.Args.
+	Input json.RawMessage `json:"input,omitempty"`
 }
 
 // EnvSpec describes the REPL environment a tool needs.
@@ -119,6 +145,19 @@ type MsgBody struct {
 	// Interrupted marks an agent reply that was cut off by a new user
 	// message, so the model knows it never finished the thought.
 	Interrupted bool `json:"interrupted,omitempty"`
+	// Reasoning is the provider's payload for this reply, stored only on
+	// routes that require it back on later turns.
+	Reasoning *Reasoning `json:"reasoning,omitempty"`
+}
+
+// Reasoning is a provider's own record of a model's reasoning for one
+// assistant turn: thinking blocks with their signatures, a reasoning_content
+// string, or whatever else the route needs returned. It is opaque to the
+// core, which stores it and hands it back untouched, and only ever to the
+// route that produced it.
+type Reasoning struct {
+	Route string `json:"route"` // the llm route ID allowed to receive it back
+	Data  []byte `json:"data"`
 }
 
 // ToolCall is the body of a KindToolCall event and the model's request to run
@@ -128,16 +167,22 @@ type ToolCall struct {
 	Name string  `json:"name"`
 	Code string  `json:"code"`
 	Env  EnvSpec `json:"env"`
-	// Text is whatever the model said before calling the tool in the same step.
+	// Args is the call's arguments as the model wrote them, for a tool that
+	// declares its own Input schema. Code is empty for such a call.
+	Args json.RawMessage `json:"args,omitempty"`
+	// Sibling is the call's position among the calls the model made in one
+	// step: 0 for the first, and above 0 for a call that belongs to the same
+	// assistant message as the call before it. Calls are run and logged one
+	// at a time; this is what lets a request put them back together.
+	Sibling int `json:"sibling,omitempty"`
+	// Text is whatever the model said before calling the tool in the same
+	// step. It is set on the first call of a step only.
 	Text string `json:"text,omitempty"`
-	// Replay is the provider's own wire form of the assistant turn that made
-	// this call (for Anthropic, its content blocks including thinking). An
-	// adapter sets it and, for the rest of the same turn, sends it back
-	// verbatim instead of rebuilding the turn from Text and Code: providers
-	// require reasoning blocks to be returned unchanged during a tool loop.
-	// It is never logged. Such blocks are only valid behind the exact prompt
-	// that produced them, which holds within a turn and not across turns.
-	Replay []byte `json:"-"`
+	// Reasoning is the provider's payload for the assistant turn that made
+	// this call, on the first call of a step only. Within the turn it is
+	// always carried, so a tool loop can return it; it is logged only on
+	// routes that need it on later turns.
+	Reasoning *Reasoning `json:"reasoning,omitempty"`
 }
 
 // ToolResult is the body of a KindToolResult event.
@@ -155,6 +200,51 @@ type SummaryBody struct {
 	Start uint64 `json:"start"`
 	End   uint64 `json:"end"`
 	Text  string `json:"text"`
+}
+
+// AttemptBody is the body of a KindAttempt event: the record of one model
+// call. The request itself is not stored; it is reconstructable from the log
+// and the planner, and BodyHash is there to prove a reconstruction right.
+type AttemptBody struct {
+	Turn uint64 `json:"turn"`
+	Step int    `json:"step"`
+	// Purpose is empty for a turn's own calls, and names the job otherwise:
+	// "checkpoint" or "summary".
+	Purpose  string `json:"purpose,omitempty"`
+	Route    string `json:"route"`
+	BodyHash string `json:"body_hash"` // hex xxhash64 of the request bytes
+	Bytes    int    `json:"bytes"`
+	Effort   string `json:"effort,omitempty"` // as sent, after mapping
+	Tries    int    `json:"tries"`
+	// Estimated and Predicted are the planner's estimates: the size of the
+	// prompt, and how much of it was expected to come from the provider's
+	// cache. Input, Cached, Output and Reasoning are what the provider
+	// reported, in its own tokens.
+	Estimated int    `json:"estimated"`
+	Predicted int    `json:"predicted"`
+	Input     int    `json:"input"`
+	Cached    int    `json:"cached"`
+	Output    int    `json:"output"`
+	Reasoning int    `json:"reasoning,omitempty"`
+	Stop      string `json:"stop,omitempty"`
+	Error     string `json:"error,omitempty"` // error class when the call failed
+	MS        int64  `json:"ms"`
+}
+
+// CheckpointBody is the body of a KindCheckpoint event: a summary that
+// stands in for the tail events with From <= seq <= To.
+type CheckpointBody struct {
+	From uint64 `json:"from"`
+	To   uint64 `json:"to"`
+	Text string `json:"text"`
+}
+
+// NoticeBody is the body of a KindNotice event. Source says what kind of
+// runtime message it is, so the model and the log can tell it from anything
+// a contact wrote.
+type NoticeBody struct {
+	Source string `json:"source"` // e.g. "subagent-settled"
+	Text   string `json:"text"`
 }
 
 // EnvSnapshotBody is the body of a KindEnvSnapshot event.
@@ -198,6 +288,11 @@ type Message struct {
 	Text       string      `json:"text,omitempty"`
 	ToolCall   *ToolCall   `json:"tool_call,omitempty"`
 	ToolResult *ToolResult `json:"tool_result,omitempty"`
+	// Reasoning accompanies an assistant message on routes that replay it.
+	// The planner sets it, for a tool call as for a reply, and only when the
+	// payload belongs to the route the prompt is being built for. It is the
+	// one place a wire codec reads reasoning from.
+	Reasoning *Reasoning `json:"reasoning,omitempty"`
 }
 
 // DeltaType tags what a Delta carries.
@@ -212,6 +307,7 @@ const (
 	DeltaMessage     DeltaType = "message"     // the committed reply; Text and Seq are set
 	DeltaInterrupted DeltaType = "interrupted" // the reply in flight was cut off
 	DeltaError       DeltaType = "error"       // the turn failed; Text is a short reason
+	DeltaNotice      DeltaType = "notice"      // the runtime told the agent something; Text and Seq are set
 )
 
 // Delta is one item on a contact's live stream.
@@ -239,4 +335,7 @@ var (
 	ErrUnknownTool = errors.New("unknown tool")
 	// ErrNoEnvProvider means no provider is configured for a tool's tier.
 	ErrNoEnvProvider = errors.New("no environment provider for tier")
+	// ErrTooManyChildren means a contact already has as many sub-agents
+	// running as it may.
+	ErrTooManyChildren = errors.New("too many active sub-agents")
 )

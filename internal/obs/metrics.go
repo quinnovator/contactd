@@ -34,6 +34,22 @@ var (
 		Help:    "Share of input tokens the planner predicted would be cached, per turn.",
 		Buckets: prometheus.LinearBuckets(0, 0.1, 11),
 	})
+	// Checkpoints counts tail checkpoints by outcome.
+	Checkpoints = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "checkpoints_total",
+		Help: "Tail checkpoints (folds of the oldest history into a summary) by outcome.",
+	}, []string{"outcome"})
+	// Delegations counts sub-agents started, by mode.
+	Delegations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "delegations_total",
+		Help: "Sub-agents started, by mode (spawn or fork).",
+	}, []string{"mode"})
+	// CachePredictionMisses counts model calls where the provider reported
+	// a clearly smaller cached share than the planner predicted.
+	CachePredictionMisses = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "cache_prediction_misses_total",
+		Help: "Model calls whose reported cached share fell well below the prediction (routes that report cache usage only).",
+	})
 	ProviderInputTokens = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "provider_input_tokens_total",
 		Help: "Input tokens sent to the model provider.",

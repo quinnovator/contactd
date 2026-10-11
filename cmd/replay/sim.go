@@ -186,7 +186,7 @@ func simulate(ctx context.Context, msgs []message, m *models, pr params, v varia
 		now := fresh[len(fresh)-1].TS
 
 		// Recall, exactly as turn.Run does it.
-		lay, err := plan.Layout(prev, log.events, pp)
+		lay, err := plan.Layout(prev, log.events, "", pp)
 		if err != nil {
 			return fmt.Errorf("lay out tail: %w", err)
 		}
@@ -231,7 +231,7 @@ func simulate(ctx context.Context, msgs []message, m *models, pr params, v varia
 				}
 			}
 		}
-		p, err := plan.Build(prev, plan.Input{Contact: 1, Agent: &pr.agent, Tail: log.events}, recalled, now, pp)
+		p, err := plan.Build(prev, plan.Input{Agent: &pr.agent, Tail: log.events}, recalled, now, pp)
 		if err != nil {
 			return fmt.Errorf("build plan: %w", err)
 		}
@@ -242,14 +242,14 @@ func simulate(ctx context.Context, msgs []message, m *models, pr params, v varia
 		}
 		resp := provider.Respond(prompt, p.Tools, p.PrefixMarks(), time.UnixMilli(now))
 		res.Turns++
-		res.InputTokens += int64(resp.Usage.InputTokens)
-		res.CachedTokens += int64(resp.Usage.CachedTokens)
+		res.InputTokens += int64(resp.Usage.Input)
+		res.CachedTokens += int64(resp.Usage.Cached)
 		res.predicted += int64(p.PredictCached(prev, pp))
 		res.BreakTier[p.FirstChanged(prev)]++
 		if prev != nil && now-prev.BuiltAt < pp.CacheTTL {
 			res.WarmTurns++
-			res.WarmInput += int64(resp.Usage.InputTokens)
-			res.WarmCached += int64(resp.Usage.CachedTokens)
+			res.WarmInput += int64(resp.Usage.Input)
+			res.WarmCached += int64(resp.Usage.Cached)
 		}
 
 		// The reply: the fixture's if it has one, else the fake model's.

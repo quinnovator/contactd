@@ -76,12 +76,12 @@ func BenchmarkDensity(b *testing.B) {
 		}
 		cfg := actor.DefaultConfig()
 		cfg.TailEvents = tailMsgs
-		llm := fakellm.New(fakellm.Options{})
+		models := fakellm.NewClient(fakellm.New(fakellm.Options{}))
 		ctx, cancel := context.WithCancel(context.Background())
 		reg := actor.New(ctx, actor.Deps{
 			Log: log, Hydrate: log, Repair: log, Embed: directEmbed{}, Snapshots: log,
 			Turn: &turn.Deps{
-				Embed: directEmbed{}, Rerank: directRerank{}, Log: log, LLM: llm, Logger: obs.Discard(),
+				Embed: directEmbed{}, Rerank: directRerank{}, Log: log, Models: models, Logger: obs.Discard(),
 				Recall: cfg.Recall, Plan: plan.DefaultParams(), MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
 			},
 		}, cfg, obs.Discard())

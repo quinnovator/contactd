@@ -2,63 +2,45 @@ package turn
 
 import (
 	"context"
-	"iter"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/plan"
 )
 
-// LLM streams one model call for a laid-out prompt. Adapters translate the
-// plan's tiers into their wire format and put a cache breakpoint at the end
-// of each non-empty tier 0-3 where the provider takes explicit breakpoints.
-type LLM interface {
-	Stream(ctx context.Context, p *plan.PromptPlan) (Stream, error)
-}
-
-// Stream is one in-flight model call.
+// Models is the turn loop's way to a model. *llm.Client implements it.
 //
-// Events yields deltas until the model stops, the context is cancelled, or
-// the call fails. It may be ranged over once. Breaking out of the loop early
-// releases the underlying connection. Stop is valid only after Events has
-// returned; it reports how the call ended, or the error that ended it.
-type Stream interface {
-	Events() iter.Seq[StreamEvent]
-	Stop() (Stop, error)
+// The core reaches every provider through this and the llm contract's types,
+// and acts only on a route's declared capabilities. It never names a
+// provider.
+type Models interface {
+	// Route resolves the names in an agent config, strictly: an unknown
+	// provider or model is an error, never a default.
+	Route(ctx context.Context, provider, model string) (llm.Route, error)
+	// Affinity returns the key that pins a contact to one backend.
+	Affinity(contact core.ContactID) string
+	// Call freezes and starts one model call. When it fails after a request
+	// was frozen, the returned call is still non-nil so that the attempt can
+	// be recorded.
+	Call(ctx context.Context, r llm.Route, p *plan.PromptPlan, o llm.Options) (*llm.Call, error)
 }
 
-// StreamEventType tags a StreamEvent.
-type StreamEventType uint8
-
-const (
-	// TextDelta carries a fragment of reply text in Text.
-	TextDelta StreamEventType = iota + 1
-	// ToolStart announces a tool call as soon as its name is known, before
-	// its arguments have finished streaming. Name is set.
-	ToolStart
-)
-
-// StreamEvent is one item from a model stream.
-type StreamEvent struct {
-	Type StreamEventType
-	Text string
-	Name string
+// Delegator starts sub-agents (the registry implements it).
+type Delegator interface {
+	// Delegate starts a sub-agent and returns its ID without waiting for it.
+	// The parent hears how it went later, as a notice.
+	Delegate(ctx context.Context, parent core.ContactID, d Delegation) (core.ContactID, error)
 }
 
-// Stop is how a model call ended.
-type Stop struct {
-	// Text is the full reply text of this call.
-	Text string
-	// ToolCall is set when the model stopped to run a tool. ID, Name and Code
-	// are filled by the adapter; the turn loop fills Env and Text.
-	ToolCall *core.ToolCall
-	Usage    Usage
-}
-
-// Usage is the provider's token accounting for one call.
-type Usage struct {
-	InputTokens  int // every input token, cached or not
-	CachedTokens int // input tokens served from the provider's prompt cache
-	OutputTokens int
+// Delegation is one request to start a sub-agent.
+type Delegation struct {
+	Task string
+	// Agent is the parent's own config: the child gets its system prompt,
+	// tools and route.
+	Agent *core.AgentConfig
+	// Base is set for a fork: the parent's prompt up to its last completed
+	// turn. The child's first request then begins with those exact bytes.
+	Base *plan.PromptPlan
 }
 
 // Summarizer writes a short summary of an episode transcript with a small,

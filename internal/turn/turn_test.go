@@ -13,6 +13,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/core"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
+	"github.com/quinnovator/contactd/internal/llm"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
@@ -336,10 +337,11 @@ func TestEnvIdleExpiry(t *testing.T) {
 // --- Run ---
 
 type sink struct {
-	mu      sync.Mutex
-	text    strings.Builder
-	calls   []core.ToolCall
-	results []core.ToolResult
+	mu       sync.Mutex
+	text     strings.Builder
+	calls    []core.ToolCall
+	results  []core.ToolResult
+	attempts []core.AttemptBody
 }
 
 func (s *sink) Delta(_ context.Context, d core.Delta) error {
@@ -366,6 +368,12 @@ func (s *sink) ToolResult(_ context.Context, _ string, r core.ToolResult) error 
 	defer s.mu.Unlock()
 	s.results = append(s.results, r)
 	return nil
+}
+
+func (s *sink) Attempt(_ context.Context, a core.AttemptBody) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.attempts = append(s.attempts, a)
 }
 
 type embedder struct {
@@ -420,9 +428,9 @@ func input(s *sink, l *leaser, text string) turn.Input {
 	}
 }
 
-func deps(llm turn.LLM) *turn.Deps {
+func deps(p llm.Provider) *turn.Deps {
 	return &turn.Deps{
-		Embed: embedder{}, Rerank: reranker{}, LLM: llm, Logger: obs.Discard(),
+		Embed: embedder{}, Rerank: reranker{}, Models: fakellm.NewClient(p), Logger: obs.Discard(),
 		Recall: recall.DefaultParams(), Plan: plan.DefaultParams(),
 		MaxToolSteps: 3, MaxToolOutput: 200, QueryTokens: 128,
 	}
@@ -441,7 +449,7 @@ func TestRun(t *testing.T) {
 		if res.Final == "" || res.Final != s.text.String() || res.Replan || res.StepLimit {
 			t.Errorf("result = %+v, streamed %q", res, s.text.String())
 		}
-		if res.Usage.InputTokens == 0 || res.Usage.OutputTokens == 0 {
+		if res.Usage.Input == 0 || res.Usage.Output == 0 {
 			t.Errorf("usage not reported: %+v", res.Usage)
 		}
 	})
@@ -494,7 +502,7 @@ func TestRun(t *testing.T) {
 	t.Run("a model that only ever calls tools hits the step limit", func(t *testing.T) {
 		t.Parallel()
 		s := &sink{}
-		res, err := turn.Run(t.Context(), input(s, &leaser{}, "go"), deps(loopLLM{}))
+		res, err := turn.Run(t.Context(), input(s, &leaser{}, "go"), deps(loopLLM{fakellm.New(fakellm.Options{})}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -547,11 +555,11 @@ func TestRun(t *testing.T) {
 }
 
 // loopLLM calls a tool on every step, forever.
-type loopLLM struct{}
+type loopLLM struct{ *fakellm.Provider }
 
-func (loopLLM) Stream(ctx context.Context, _ *plan.PromptPlan) (turn.Stream, error) {
-	call := &core.ToolCall{ID: "c", Name: "python", Code: "pass"}
-	return fakellm.NewStream(ctx, fakellm.Response{Tool: call}, 0), nil
+func (loopLLM) Send(ctx context.Context, _ *llm.Frozen) (llm.Stream, error) {
+	call := core.ToolCall{ID: "c", Name: "python", Code: "pass"}
+	return fakellm.NewStream(ctx, fakellm.Response{Tools: []core.ToolCall{call}}, 0), nil
 }
 
 // TestRecallQueryIsTheMessageBeingAnswered covers the cases where the new

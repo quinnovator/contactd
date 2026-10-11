@@ -1,0 +1,10 @@
+data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"Six times seven "},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":"is 42."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"stop"}]}
+
+data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[],"usage":{"prompt_tokens":2312,"completion_tokens":9,"total_tokens":2321}}
+
+data: [DONE]
+

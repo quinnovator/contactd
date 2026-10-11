@@ -209,6 +209,21 @@ func (s *Snapshot) Get(id uint32) *Episode {
 	return s.closed[i]
 }
 
+// Within returns the closed episodes that lie wholly inside the event range
+// from..to, oldest first.
+func (s *Snapshot) Within(from, to uint64) []*Episode {
+	if s == nil {
+		return nil
+	}
+	var out []*Episode
+	for _, e := range s.closed {
+		if e.Start >= from && e.End <= to {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 // IsOpen reports whether id is the episode still being extended.
 func (s *Snapshot) IsOpen(id uint32) bool {
 	return s != nil && s.cur != nil && s.cur.ID == id
