@@ -29,9 +29,7 @@ import (
 	"github.com/quinnovator/contactd/internal/eventlog"
 	"github.com/quinnovator/contactd/internal/infer"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
-	"github.com/quinnovator/contactd/internal/llm/anthropic"
-	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
-	"github.com/quinnovator/contactd/internal/llm/openai"
+	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
 	"github.com/quinnovator/contactd/internal/recall"
@@ -39,7 +37,11 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load(os.Args[1:], os.Getenv)
+	args := os.Args[1:]
+	if len(args) > 0 && args[0] == "probe" {
+		os.Exit(probeMain(args[1:]))
+	}
+	cfg, err := config.Load(args, os.Getenv)
 	if errors.Is(err, flag.ErrHelp) {
 		return
 	}
@@ -52,12 +54,6 @@ func main() {
 		log.Error("contactd stopped with an error", "error", err)
 		os.Exit(1)
 	}
-}
-
-// provider is what main needs from a model adapter.
-type provider interface {
-	turn.LLM
-	turn.Summarizer
 }
 
 func run(cfg *config.Config, log *slog.Logger) (err error) {
@@ -124,7 +120,8 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	})
 	embedder, reranker := infer.NewEmbedder(embedBatcher), infer.NewReranker(rerankBatcher)
 
-	llm, err := modelProvider(cfg, log)
+	// The provider core: every configured profile behind one client.
+	client, err := models(base, cfg, log)
 	if err != nil {
 		return err
 	}
@@ -140,36 +137,47 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	recallParams.Tau, recallParams.GapMS, recallParams.Theta = float32(cfg.Tau), cfg.Gap.Milliseconds(), float32(cfg.Theta)
 	planParams := plan.DefaultParams()
 	planParams.TailBudget, planParams.K = cfg.TailBudget, cfg.RecallK
-	planParams.Delta, planParams.CacheTTL = float32(cfg.Delta), cfg.CacheTTL.Milliseconds()
+	planParams.Delta = float32(cfg.Delta)
+	// The cache lifetime is not a setting any more: each route declares its
+	// own, and the turn loop applies it.
 
 	actorCfg := actor.DefaultConfig()
 	actorCfg.IdleTTL, actorCfg.Debounce, actorCfg.DebounceCap = cfg.IdleTTL, cfg.Debounce, cfg.DebounceCap
 	actorCfg.EnvIdleTTL, actorCfg.Recall = cfg.EnvIdleTTL, recallParams
 	actorCfg.MaxHydrated = cfg.HydratedLimit(memLimit)
+	actorCfg.Checkpoint, actorCfg.MaxChildren = cfg.Checkpoint, cfg.MaxChildren
 
+	turnDeps := &turn.Deps{
+		Embed:            embedder,
+		Rerank:           reranker,
+		Log:              store,
+		Models:           client,
+		Logger:           log,
+		Recall:           recallParams,
+		Plan:             planParams,
+		Checkpoint:       cfg.Checkpoint,
+		DefaultEffort:    cfg.Effort,
+		DefaultMaxOutput: cfg.MaxTokens,
+		MaxToolSteps:     cfg.MaxToolSteps,
+		MaxToolOutput:    16 << 10,
+		QueryTokens:      128,
+	}
 	registry := actor.New(base, actor.Deps{
 		Log:       store,
+		Create:    store,
 		Hydrate:   store,
 		Repair:    store,
 		Embed:     embedder,
-		Summarize: llm,
+		Summarize: summarizer(cfg, client),
 		Envs:      envs,
 		Snapshots: store,
-		Turn: &turn.Deps{
-			Embed:         embedder,
-			Rerank:        reranker,
-			Log:           store,
-			LLM:           llm,
-			Logger:        log,
-			Recall:        recallParams,
-			Plan:          planParams,
-			MaxToolSteps:  cfg.MaxToolSteps,
-			MaxToolOutput: 16 << 10,
-			QueryTokens:   128,
-		},
+		Turn:      turnDeps,
 	}, actorCfg, log)
+	// The registry is what starts sub-agents, and the turn loop is what
+	// asks for them; each needs the other.
+	turnDeps.Delegate = registry
 
-	server := api.New(store, registry, log)
+	server := api.New(store, registry, client, log)
 	httpServer := &http.Server{
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -219,6 +227,20 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	return nil
 }
 
+// summarizer picks the route for lazy episode summaries. A summary is a
+// small job, so where the operator names no model and the provider has a
+// small one, that is used instead of the provider's default.
+func summarizer(cfg *config.Config, client *llm.Client) *turn.ModelSummarizer {
+	provider, model := cfg.SummaryProvider, cfg.SummaryModel
+	if provider == "" {
+		provider = cfg.LLM
+	}
+	if model == "" && provider == "anthropic" {
+		model = "claude-haiku-5-5"
+	}
+	return &turn.ModelSummarizer{Models: client, Provider: provider, Model: model}
+}
+
 // inference returns the embedding and reranking pipelines for the configured
 // backend.
 func inference(cfg *config.Config, log *slog.Logger) (infer.Pipeline[string, []float32], infer.Pipeline[infer.Pair, float32], func() error, error) {
@@ -230,45 +252,6 @@ func inference(cfg *config.Config, log *slog.Logger) (infer.Pipeline[string, []f
 		log.Warn("local inference is unreliable on this platform", "detail", hazard)
 	}
 	return openModels(cfg)
-}
-
-func modelProvider(cfg *config.Config, log *slog.Logger) (provider, error) {
-	switch cfg.LLM {
-	case "fake":
-		log.Warn("using the fake model provider: replies are scripted")
-		return fakellm.New(fakellm.Options{PerChunk: 20 * time.Millisecond, FirstToken: 100 * time.Millisecond}), nil
-	case "openai":
-		c, err := openai.New(openai.Config{
-			APIKey:       cfg.OpenAIKey,
-			BaseURLs:     cfg.OpenAIBaseURLs,
-			Model:        cfg.Model,
-			SummaryModel: cfg.SummaryModel,
-			MaxTokens:    cfg.MaxTokens,
-			// The key hint only helps OpenAI's own routing; self-hosted
-			// servers may reject the field.
-			PromptCacheKey: len(cfg.OpenAIBaseURLs) == 0,
-			Logger:         log,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("configure openai provider: %w", err)
-		}
-		return c, nil
-	default:
-		c, err := anthropic.New(anthropic.Config{
-			APIKey:       cfg.AnthropicKey,
-			BaseURL:      cfg.AnthropicBaseURL,
-			Model:        cfg.Model,
-			SummaryModel: cfg.SummaryModel,
-			MaxTokens:    cfg.MaxTokens,
-			Effort:       cfg.Effort,
-			NoFallback:   cfg.NoRefusalFallback,
-			Logger:       log,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("configure anthropic provider: %w", err)
-		}
-		return c, nil
-	}
 }
 
 // environments builds the tier-0 and tier-1 providers that are configured. A

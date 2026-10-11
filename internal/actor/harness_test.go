@@ -2,6 +2,7 @@ package actor_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/core"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
+	"github.com/quinnovator/contactd/internal/llm"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
@@ -55,6 +57,11 @@ func (l *memLog) addContact(agent core.AgentConfig, profile string) core.Contact
 	id := core.ContactID(len(l.contacts) + 1)
 	l.contacts[id] = core.Contact{ID: id, Agent: agent, Profile: profile}
 	return id
+}
+
+// CreateContact implements actor.Creator.
+func (l *memLog) CreateContact(_ context.Context, agent core.AgentConfig, profile string, _ int64) (core.ContactID, error) {
+	return l.addContact(agent, profile), nil
 }
 
 func (l *memLog) Submit(w core.Write) {
@@ -191,10 +198,35 @@ func (l *memLog) LatestOfKind(_ context.Context, id core.ContactID, kind core.Ev
 	return out, nil
 }
 
+// all returns a contact's log as a conversation: every event except the
+// per-call attempt records, which attempts returns.
 func (l *memLog) all(id core.ContactID) []core.Event {
+	return l.filter(id, func(k core.EventKind) bool { return k != core.KindAttempt })
+}
+
+func (l *memLog) attempts(id core.ContactID) []core.AttemptBody {
+	events := l.filter(id, func(k core.EventKind) bool { return k == core.KindAttempt })
+	out := make([]core.AttemptBody, 0, len(events))
+	for _, ev := range events {
+		var a core.AttemptBody
+		if err := json.Unmarshal(ev.Body, &a); err != nil {
+			l.t.Fatalf("decode attempt: %v", err)
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+func (l *memLog) filter(id core.ContactID, keep func(core.EventKind) bool) []core.Event {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return append([]core.Event(nil), l.events[id]...)
+	var out []core.Event
+	for _, ev := range l.events[id] {
+		if keep(ev.Kind) {
+			out = append(out, ev)
+		}
+	}
+	return out
 }
 
 func (l *memLog) episodeCount(id core.ContactID) int {
@@ -245,16 +277,21 @@ type modelCall struct {
 	recall []uint32
 }
 
-// recLLM wraps the fake model and records every call.
+// recLLM wraps the fake provider and records every model call a turn makes.
+// Summaries and checkpoints go through it too but are not recorded: a turn's
+// prompt is the one that ends with the time note.
 type recLLM struct {
-	inner *fakellm.LLM
+	*fakellm.Provider
 	start time.Time
 	mu    sync.Mutex
 	calls []modelCall
+	// frozen holds every request, turn or not, in the order it was frozen.
+	frozen []*llm.Frozen
 }
 
-func (r *recLLM) Stream(ctx context.Context, p *plan.PromptPlan) (turn.Stream, error) {
+func (r *recLLM) Prepare(ctx context.Context, route llm.Route, p *plan.PromptPlan, o llm.Options) (*llm.Frozen, error) {
 	var shape strings.Builder
+	isTurn := false
 	for _, tier := range []plan.TierKind{plan.TierTail, plan.TierLive} {
 		for _, m := range p.Tiers[tier].Msgs {
 			switch {
@@ -264,6 +301,11 @@ func (r *recLLM) Stream(ctx context.Context, p *plan.PromptPlan) (turn.Stream, e
 				shape.WriteByte('R')
 			case strings.HasPrefix(m.Text, "<now>"):
 				shape.WriteByte('N')
+				isTurn = true
+			case strings.HasPrefix(m.Text, "<notice"):
+				shape.WriteByte('n')
+			case strings.HasPrefix(m.Text, "[Summary of the conversation"):
+				shape.WriteByte('K')
 			case m.Role == core.RoleUser:
 				shape.WriteByte('U')
 			case m.Role == core.RoleAssistant:
@@ -273,18 +315,33 @@ func (r *recLLM) Stream(ctx context.Context, p *plan.PromptPlan) (turn.Stream, e
 			}
 		}
 	}
+	f, err := r.Provider.Prepare(ctx, route, p, o)
 	r.mu.Lock()
-	r.calls = append(r.calls, modelCall{
-		at:     time.Since(r.start),
-		shape:  shape.String(),
-		recall: append([]uint32(nil), p.Recall...),
-	})
+	if isTurn {
+		r.calls = append(r.calls, modelCall{
+			at:     time.Since(r.start),
+			shape:  shape.String(),
+			recall: append([]uint32(nil), p.Recall...),
+		})
+	}
+	if f != nil {
+		r.frozen = append(r.frozen, f)
+	}
 	r.mu.Unlock()
-	return r.inner.Stream(ctx, p)
+	return f, err
 }
 
-func (r *recLLM) Summarize(ctx context.Context, transcript string) (string, error) {
-	return r.inner.Summarize(ctx, transcript)
+// requests returns every request frozen so far whose body contains marker.
+func (r *recLLM) requests(marker string) []*llm.Frozen {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []*llm.Frozen
+	for _, f := range r.frozen {
+		if strings.Contains(string(f.Body), marker) {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func (r *recLLM) seen() []modelCall {
@@ -378,6 +435,7 @@ type options struct {
 	embedWait time.Duration
 	summarize bool
 	turn      func(*turn.Deps)
+	agent     func(*core.AgentConfig)
 }
 
 func pythonAgent() core.AgentConfig {
@@ -404,15 +462,17 @@ func newHarnessOn(t *testing.T, log *memLog, mods ...func(*options)) *harness {
 	h := &harness{
 		t:     t,
 		log:   log,
-		llm:   &recLLM{inner: fakellm.New(o.llm), start: time.Now()},
+		llm:   &recLLM{Provider: fakellm.New(o.llm), start: time.Now()},
 		env:   &fakeLeaser{execDelay: o.execDelay},
 		start: time.Now(),
 	}
+	models := fakellm.NewClient(h.llm)
 	td := &turn.Deps{
 		Embed:         directEmbed{},
 		Rerank:        directRerank{},
 		Log:           log,
-		LLM:           h.llm,
+		Models:        models,
+		Checkpoint:    o.cfg.Checkpoint,
 		Logger:        obs.Discard(),
 		Recall:        o.cfg.Recall,
 		Plan:          plan.DefaultParams(),
@@ -425,6 +485,7 @@ func newHarnessOn(t *testing.T, log *memLog, mods ...func(*options)) *harness {
 	}
 	deps := actor.Deps{
 		Log:       log,
+		Create:    log,
 		Hydrate:   log,
 		Repair:    log,
 		Embed:     directEmbed{delay: o.embedWait},
@@ -433,11 +494,16 @@ func newHarnessOn(t *testing.T, log *memLog, mods ...func(*options)) *harness {
 		Turn:      td,
 	}
 	if o.summarize {
-		deps.Summarize = h.llm
+		deps.Summarize = &turn.ModelSummarizer{Models: models}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	h.reg = actor.New(ctx, deps, o.cfg, obs.Discard())
-	h.id = log.addContact(pythonAgent(), "")
+	td.Delegate = h.reg
+	agent := pythonAgent()
+	if o.agent != nil {
+		o.agent(&agent)
+	}
+	h.id = log.addContact(agent, "")
 	t.Cleanup(func() {
 		h.reg.Shutdown(ctx)
 		cancel()
@@ -479,6 +545,12 @@ func kindsOf(events []core.Event) string {
 			b.WriteByte('S')
 		case core.KindEnvSnapshot:
 			b.WriteByte('E')
+		case core.KindCheckpoint:
+			b.WriteByte('K')
+		case core.KindNotice:
+			b.WriteByte('n')
+		case core.KindAttempt:
+			// One per model call; left out so the log reads as a conversation.
 		}
 	}
 	return b.String()

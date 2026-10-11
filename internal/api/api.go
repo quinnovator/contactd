@@ -18,6 +18,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/obs"
 )
 
@@ -44,17 +45,26 @@ type Contacts interface {
 	Unsubscribe(id core.ContactID, sub *actor.Subscription)
 }
 
+// Routes resolves the provider and model an agent config names. *llm.Client
+// implements it.
+type Routes interface {
+	Route(ctx context.Context, provider, model string) (llm.Route, error)
+}
+
 // Server holds the handlers' dependencies.
 type Server struct {
 	store    Store
 	contacts Contacts
+	routes   Routes
 	log      *slog.Logger
 	draining atomic.Bool
 }
 
-// New builds the API server.
-func New(store Store, contacts Contacts, log *slog.Logger) *Server {
-	return &Server{store: store, contacts: contacts, log: log}
+// New builds the API server. routes checks the model an agent config names
+// when a contact is created, so that a typo is a 400 there and not a failed
+// first turn.
+func New(store Store, contacts Contacts, routes Routes, log *slog.Logger) *Server {
+	return &Server{store: store, contacts: contacts, routes: routes, log: log}
 }
 
 // Drain makes /healthz report 503 so load balancers stop sending traffic.
@@ -92,6 +102,10 @@ func (s *Server) createContact(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
 	}
+	if _, err := s.routes.Route(r.Context(), req.Agent.Provider, req.Agent.Model); err != nil {
+		s.fail(w, r, http.StatusBadRequest, fmt.Errorf("agent: %w", err))
+		return
+	}
 	id, err := s.store.CreateContact(r.Context(), req.Agent, req.Profile, time.Now().UnixMilli())
 	if err != nil {
 		s.fail(w, r, statusOf(err), err)
@@ -111,6 +125,9 @@ func validateAgent(a *core.AgentConfig) error {
 			return fmt.Errorf("agent.tools: duplicate tool %q", t.Name)
 		}
 		seen[t.Name] = struct{}{}
+		if len(t.Input) > 0 {
+			return fmt.Errorf("agent.tools: %q declares an input schema; tools take code, and only the built-in delegate tool takes anything else", t.Name)
+		}
 		if t.Env.Tier > 1 {
 			return fmt.Errorf("agent.tools: %q has tier %d; tiers are 0 and 1", t.Name, t.Env.Tier)
 		}
@@ -123,6 +140,12 @@ func validateAgent(a *core.AgentConfig) error {
 	}
 	if a.MaxTokens < 0 {
 		return errors.New("agent.max_tokens must not be negative")
+	}
+	if _, err := llm.ParseEffort(a.Effort); err != nil {
+		return fmt.Errorf("agent.effort: %w", err)
+	}
+	if a.Parent != 0 {
+		return errors.New("agent.parent is set by the runtime when it starts a sub-agent")
 	}
 	return nil
 }

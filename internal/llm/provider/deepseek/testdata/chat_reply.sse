@@ -1,0 +1,16 @@
+: keep-alive
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[{"index":0,"delta":{"reasoning_content":"Simple arithmetic."},"finish_reason":null}]}
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[{"index":0,"delta":{"content":"Six times seven "},"finish_reason":null}]}
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[{"index":0,"delta":{"content":"is 42."},"finish_reason":null}]}
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: {"id":"c1","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-flash","choices":[],"usage":{"prompt_tokens":1060,"completion_tokens":27,"total_tokens":1087,"prompt_cache_hit_tokens":1024,"prompt_cache_miss_tokens":36,"completion_tokens_details":{"reasoning_tokens":12}}}
+
+data: [DONE]
+

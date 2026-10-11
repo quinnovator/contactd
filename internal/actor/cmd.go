@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/plan"
 	"github.com/quinnovator/contactd/internal/recall"
 	"github.com/quinnovator/contactd/internal/turn"
 )
@@ -85,6 +86,32 @@ type turnDone struct {
 	err error
 }
 
+// turnAttempt asks the actor to log the record of one model call.
+type turnAttempt struct{ body core.AttemptBody }
+
+// task starts a sub-agent on its job. base is set for a fork: the parent's
+// prompt up to its last completed turn. ack is buffered.
+type task struct {
+	text string
+	base *plan.PromptPlan
+	ack  chan<- Ack
+}
+
+// settled tells a parent that one of its sub-agents has finished, one way or
+// another.
+type settled struct {
+	child  core.ContactID
+	notice core.NoticeBody
+}
+
+// folded returns a checkpoint summary for a span of the tail.
+type folded struct {
+	span    plan.Span
+	text    string
+	attempt *core.AttemptBody
+	err     error
+}
+
 // embedded returns vectors for the first n queued messages.
 type embedded struct {
 	n    int
@@ -117,6 +144,10 @@ func (turnDelta) isCmd()      {}
 func (turnToolCall) isCmd()   {}
 func (turnToolResult) isCmd() {}
 func (turnDone) isCmd()       {}
+func (turnAttempt) isCmd()    {}
+func (task) isCmd()           {}
+func (settled) isCmd()        {}
+func (folded) isCmd()         {}
 func (embedded) isCmd()       {}
 func (summarized) isCmd()     {}
 func (writeFailed) isCmd()    {}
@@ -153,10 +184,18 @@ type Repairer interface {
 	ReplaceEpisodes(ctx context.Context, id core.ContactID, rows []core.EpisodeRow) error
 }
 
+// Creator makes new contacts. Sub-agents are contacts of their own.
+type Creator interface {
+	CreateContact(ctx context.Context, agent core.AgentConfig, profile string, now int64) (core.ContactID, error)
+}
+
 // Deps are the services actors use. They are shared by every contact.
 type Deps struct {
-	Log       Writer
-	Hydrate   Hydrator
+	Log     Writer
+	Hydrate Hydrator
+	// Create makes the contact behind each sub-agent; nil disables
+	// delegation.
+	Create    Creator
 	Repair    Repairer
 	Embed     recall.Embedder
 	Summarize turn.Summarizer // optional; nil disables lazy summaries
@@ -181,7 +220,12 @@ type Config struct {
 	// Past it new messages are refused with core.ErrBacklog, so a client that
 	// sends faster than the model answers cannot grow the prompt without limit.
 	MaxPendingBytes int
-	Recall          recall.Params
+	// Checkpoint folds the oldest part of an over-budget tail into a summary
+	// written by the contact's own model, instead of cutting it.
+	Checkpoint bool
+	// MaxChildren bounds the sub-agents one contact may have running.
+	MaxChildren int
+	Recall      recall.Params
 }
 
 // DefaultConfig returns the starting values from the design doc.
@@ -198,6 +242,8 @@ func DefaultConfig() Config {
 		// About 32k tokens: far more than a person types between replies,
 		// well inside any model's context window.
 		MaxPendingBytes: 128 << 10,
+		Checkpoint:      true,
+		MaxChildren:     8,
 		Recall:          recall.DefaultParams(),
 	}
 }

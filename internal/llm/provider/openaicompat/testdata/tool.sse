@@ -1,0 +1,20 @@
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"role":"assistant","content":""},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"reasoning_content":"The user wants a product. "},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"reasoning_content":"I should run it."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"content":"Let me check."},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"tool_calls":[{"id":"chatcmpl-tool-9f","type":"function","index":0,"function":{"name":"python"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"code\": \"pri"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"nt(6 * 7)\"}"}}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"qwen-test","choices":[],"usage":{"prompt_tokens":1520,"completion_tokens":41,"total_tokens":1561,"prompt_tokens_details":{"cached_tokens":1500}}}
+
+data: [DONE]
+

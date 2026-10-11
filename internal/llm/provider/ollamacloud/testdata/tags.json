@@ -1,0 +1,64 @@
+{
+  "models": [
+    {
+      "name": "deepseek-v4.1-flash",
+      "model": "deepseek-v4.1-flash",
+      "modified_at": "2026-09-10T03:00:00Z",
+      "size": 486723007816,
+      "digest": "97308b916fc3",
+      "details": {
+        "parent_model": "",
+        "format": "",
+        "family": "",
+        "families": null,
+        "parameter_size": "",
+        "quantization_level": ""
+      }
+    },
+    {
+      "name": "gpt-oss:120b",
+      "model": "gpt-oss:120b",
+      "modified_at": "2025-08-05T00:00:00Z",
+      "size": 65290180781,
+      "digest": "d98fe6ba01e6",
+      "details": {
+        "parent_model": "",
+        "format": "",
+        "family": "",
+        "families": null,
+        "parameter_size": "",
+        "quantization_level": ""
+      }
+    },
+    {
+      "name": "gemma4:31b",
+      "model": "gemma4:31b",
+      "modified_at": "2026-04-02T09:00:00-08:00",
+      "size": 62546177752,
+      "digest": "221b330d11a8",
+      "details": {
+        "parent_model": "",
+        "format": "",
+        "family": "",
+        "families": null,
+        "parameter_size": "",
+        "quantization_level": ""
+      }
+    },
+    {
+      "name": "mistral-large-4",
+      "model": "mistral-large-4",
+      "modified_at": "2026-10-06T06:00:00-07:00",
+      "size": 0,
+      "digest": "52309cacf736",
+      "details": {
+        "parent_model": "",
+        "format": "",
+        "family": "",
+        "families": null,
+        "parameter_size": "",
+        "quantization_level": ""
+      }
+    }
+  ]
+}

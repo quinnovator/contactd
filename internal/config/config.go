@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -27,21 +28,52 @@ type Config struct {
 	SyncFull bool
 
 	// Model provider.
-	LLM              string // anthropic | openai | fake
+	// LLM is the default provider: the one an agent config gets when it
+	// names none. Every provider with credentials is available to agents
+	// that name it. Empty picks the first configured one, DeepSeek first.
+	LLM string
+
 	AnthropicKey     string
 	AnthropicBaseURL string
-	OpenAIKey        string
-	OpenAIBaseURLs   []string // more than one: contacts are rendezvous-hashed across replicas
-	Model            string   // default model when an agent names none
-	SummaryModel     string
-	MaxTokens        int
-	// Effort is sent to Anthropic as output_config.effort when set.
-	Effort string
-	// NoRefusalFallback stops the Anthropic adapter from asking the API to
-	// re-run a classifier-declined request on another model.
+	// NoRefusalFallback stops Anthropic re-running a declined request on
+	// another model.
 	NoRefusalFallback bool
 
-	// Local inference.
+	DeepSeekKey     string
+	DeepSeekBaseURL string
+	DeepSeekWire    string // messages (default) | chat
+
+	OpenRouterKey     string
+	OpenRouterBaseURL string
+	OpenRouterCatalog string              // path to a saved model catalog; empty fetches it at start-up
+	OpenRouterPin     map[string][]string // model -> the upstreams it may be served by
+	OpenRouterReferer string
+	OpenRouterTitle   string
+
+	OpenCodeKey     string
+	OpenCodeBaseURL string
+
+	OllamaKey     string
+	OllamaBaseURL string
+
+	OpenAIKey      string
+	OpenAIBaseURLs []string // more than one: contacts are rendezvous-hashed across replicas
+	OpenAIModels   []string // the models the endpoint serves; the first is its default
+	OpenAIContext  int      // context window of those models
+
+	Model           string // default model on the default provider; empty takes the provider's own
+	SummaryProvider string // provider for lazy episode summaries; empty uses the default provider
+	SummaryModel    string
+	MaxTokens       int    // default output cap for agents that set none
+	Effort          string // default effort for agents that set none
+	// ProviderLimits caps concurrent model calls, keyed by provider
+	// ("deepseek") or route ("deepseek/deepseek-v4-pro").
+	ProviderLimits map[string]int
+	// AffinitySecret keys the hash that stands in for a contact ID when a
+	// provider is asked to pin a conversation. Empty keeps one in the data
+	// directory.
+	AffinitySecret string
+
 	Infer        string // ort | fake
 	ModelsDir    string // holds embedder/ and reranker/
 	ModelVariant string // int8 | fp32
@@ -69,9 +101,13 @@ type Config struct {
 	Theta        float64
 	RecallK      int
 	Delta        float64
-	CacheTTL     time.Duration
 	TailBudget   int
 	MaxToolSteps int
+	// Checkpoint folds the oldest part of an over-budget tail into a
+	// summary instead of cutting it.
+	Checkpoint bool
+	// MaxChildren bounds the sub-agents one contact may have running.
+	MaxChildren int
 }
 
 // Load parses flags and environment into a Config. args excludes the program
@@ -88,17 +124,37 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l.dur(&c.ShutdownGrace, "shutdown-grace", 20*time.Second, "how long in-flight turns get to finish on SIGTERM")
 	l.boolean(&c.SyncFull, "sync-full", false, "use synchronous=FULL: never lose an acknowledged message on power loss")
 
-	l.str(&c.LLM, "llm", "anthropic", "model provider: anthropic, openai or fake")
+	l.str(&c.LLM, "llm", "", "default model provider: "+strings.Join(providerNames(), ", ")+"; empty picks the first one that is configured")
 	l.strEnv(&c.AnthropicKey, "anthropic-api-key", "ANTHROPIC_API_KEY", "", "Anthropic API key")
 	l.str(&c.AnthropicBaseURL, "anthropic-base-url", "", "override the Anthropic API base URL")
-	l.strEnv(&c.OpenAIKey, "openai-api-key", "OPENAI_API_KEY", "", "API key for the OpenAI-compatible endpoint")
-	var openaiURLs string
-	l.str(&openaiURLs, "openai-base-urls", "", "comma-separated OpenAI-compatible base URLs; several replicas are consistent-hashed by contact")
-	l.str(&c.Model, "model", "", "default model when an agent config names none")
-	l.str(&c.SummaryModel, "summary-model", "", "small model for lazy episode summaries")
-	l.integer(&c.MaxTokens, "max-tokens", 0, "default max output tokens per model call")
-	l.str(&c.Effort, "effort", "", "Anthropic effort level (low, medium, high, xhigh, max); empty uses the model default")
 	l.boolean(&c.NoRefusalFallback, "no-refusal-fallback", false, "do not let Anthropic re-run a declined request on another model (billed at that model's rates)")
+	l.strEnv(&c.DeepSeekKey, "deepseek-api-key", "DEEPSEEK_API_KEY", "", "DeepSeek API key")
+	l.str(&c.DeepSeekBaseURL, "deepseek-base-url", "", "override the DeepSeek API base URL")
+	l.str(&c.DeepSeekWire, "deepseek-wire", "messages", "DeepSeek endpoint to use: messages (Anthropic format) or chat (Chat Completions)")
+	l.strEnv(&c.OpenRouterKey, "openrouter-api-key", "OPENROUTER_API_KEY", "", "OpenRouter API key")
+	l.str(&c.OpenRouterBaseURL, "openrouter-base-url", "", "override the OpenRouter API base URL")
+	l.str(&c.OpenRouterCatalog, "openrouter-catalog", "", "path to a saved copy of the OpenRouter model catalog; empty fetches it at start-up")
+	var openrouterPin string
+	l.str(&openrouterPin, "openrouter-pin", "", "upstreams each OpenRouter model may be served by: model=provider[|provider],model=provider")
+	l.str(&c.OpenRouterReferer, "openrouter-referer", "", "HTTP-Referer sent to OpenRouter to identify this app")
+	l.str(&c.OpenRouterTitle, "openrouter-title", "", "X-OpenRouter-Title sent to OpenRouter to identify this app")
+	l.strEnv(&c.OpenCodeKey, "opencode-api-key", "OPENCODE_API_KEY", "", "OpenCode Go API key")
+	l.str(&c.OpenCodeBaseURL, "opencode-base-url", "", "override the OpenCode Go base URL")
+	l.strEnv(&c.OllamaKey, "ollama-api-key", "OLLAMA_API_KEY", "", "Ollama Cloud API key")
+	l.str(&c.OllamaBaseURL, "ollama-base-url", "", "override the Ollama Cloud base URL")
+	l.strEnv(&c.OpenAIKey, "openai-api-key", "OPENAI_API_KEY", "", "API key for the OpenAI-compatible endpoint")
+	var openaiURLs, openaiModels string
+	l.str(&openaiURLs, "openai-base-urls", "", "comma-separated OpenAI-compatible base URLs; several replicas are consistent-hashed by contact")
+	l.str(&openaiModels, "openai-models", "", "comma-separated models the OpenAI-compatible endpoint serves; the first is its default")
+	l.integer(&c.OpenAIContext, "openai-context", 128000, "context window, in tokens, of the OpenAI-compatible endpoint's models")
+	l.str(&c.Model, "model", "", "default model on the default provider; empty takes the provider's own default")
+	l.str(&c.SummaryProvider, "summary-provider", "", "provider for lazy episode summaries; empty uses the default provider")
+	l.str(&c.SummaryModel, "summary-model", "", "small model for lazy episode summaries; empty uses the summary provider's default")
+	l.integer(&c.MaxTokens, "max-tokens", 0, "default max output tokens per model call, for agents that set none")
+	l.str(&c.Effort, "effort", "", "default reasoning effort for agents that set none: none, low, medium, high, xhigh or max; each provider sends the nearest value it accepts")
+	var limits string
+	l.str(&limits, "provider-limits", "", "concurrent model calls allowed per provider or route: deepseek/deepseek-v4-pro=500,openrouter=64")
+	l.str(&c.AffinitySecret, "affinity-secret", "", "secret that keys the per-contact hash sent to providers that pin conversations; empty keeps one in the data directory")
 
 	l.str(&c.Infer, "infer", "ort", "local inference backend: ort or fake")
 	l.str(&c.ModelsDir, "models-dir", "/models", "directory holding embedder/ and reranker/")
@@ -127,9 +183,10 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l.float(&c.Theta, "theta", 0, "rerank score an episode must clear to be recalled")
 	l.integer(&c.RecallK, "recall-k", 4, "most episodes recalled per turn")
 	l.float(&c.Delta, "delta", 1.0, "margin a new episode needs to displace a warm recall set")
-	l.dur(&c.CacheTTL, "cache-ttl", 5*time.Minute, "how long the provider prompt cache is assumed warm")
-	l.integer(&c.TailBudget, "tail-budget", 24000, "tokens the tail may reach before step compaction")
+	l.integer(&c.TailBudget, "tail-budget", 24000, "tokens the tail may reach before it is folded or cut (capped at half the model's context window)")
 	l.integer(&c.MaxToolSteps, "max-tool-steps", 8, "model calls allowed per turn")
+	l.boolean(&c.Checkpoint, "checkpoint", true, "fold the oldest part of an over-budget tail into a summary written by the contact's model, instead of cutting it")
+	l.integer(&c.MaxChildren, "max-children", 8, "sub-agents one contact may have running at once")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, fmt.Errorf("parse flags: %w", err)
@@ -139,9 +196,26 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	}
 
 	c.BytesPerActor = int64(bytesPerActor)
-	for u := range strings.SplitSeq(openaiURLs, ",") {
-		if u = strings.TrimSpace(u); u != "" {
-			c.OpenAIBaseURLs = append(c.OpenAIBaseURLs, u)
+	c.OpenAIBaseURLs, c.OpenAIModels = list(openaiURLs), list(openaiModels)
+	var err error
+	if c.OpenRouterPin, err = parsePins(openrouterPin); err != nil {
+		return Config{}, err
+	}
+	if c.ProviderLimits, err = parseLimits(limits); err != nil {
+		return Config{}, err
+	}
+	// DeepSeek counts concurrency per account and model; staying under its
+	// documented limits beats finding them by 429.
+	if c.DeepSeekKey != "" {
+		for route, n := range map[string]int{"deepseek/deepseek-flash": 2500, "deepseek/deepseek-v4-pro": 500} {
+			if _, set := c.ProviderLimits[route]; !set {
+				c.ProviderLimits[route] = n
+			}
+		}
+	}
+	if c.LLM == "" {
+		if on := c.Providers(); len(on) > 0 {
+			c.LLM = on[0]
 		}
 	}
 	if c.InferWorkers <= 0 {
@@ -169,9 +243,17 @@ func (c *Config) validate() error {
 			errs = append(errs, fmt.Errorf(format, args...))
 		}
 	}
-	check(c.LLM == "anthropic" || c.LLM == "openai" || c.LLM == "fake", "llm must be anthropic, openai or fake, not %q", c.LLM)
-	check(c.LLM != "anthropic" || c.AnthropicKey != "", "llm=anthropic needs ANTHROPIC_API_KEY")
-	check(c.LLM != "openai" || len(c.OpenAIBaseURLs) > 0 || c.OpenAIKey != "", "llm=openai needs OPENAI_API_KEY or openai-base-urls")
+	on := c.Providers()
+	check(c.LLM != "", "no model provider is configured: set an API key (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, OPENCODE_API_KEY, OLLAMA_API_KEY, or OPENAI_API_KEY / openai-base-urls) or llm=fake")
+	check(c.LLM == "" || slices.Contains(providerNames(), c.LLM), "llm must be one of %s, not %q", strings.Join(providerNames(), ", "), c.LLM)
+	check(c.LLM == "" || !slices.Contains(providerNames(), c.LLM) || slices.Contains(on, c.LLM), "llm=%s has no credentials configured", c.LLM)
+	check(c.SummaryProvider == "" || slices.Contains(on, c.SummaryProvider), "summary-provider=%s is not a configured provider", c.SummaryProvider)
+	check(c.DeepSeekWire == "messages" || c.DeepSeekWire == "chat", "deepseek-wire must be messages or chat, not %q", c.DeepSeekWire)
+	check(!slices.Contains(on, "openai") || len(c.OpenAIModels) > 0 || c.Model != "" && c.LLM == "openai",
+		"the OpenAI-compatible provider needs openai-models: unknown model names are refused, not passed through")
+	check(c.OpenAIContext > 0, "openai-context must be positive")
+	check(c.MaxChildren > 0, "max-children must be positive")
+	check(slices.Contains([]string{"", "none", "low", "medium", "high", "xhigh", "max"}, c.Effort), "effort must be none, low, medium, high, xhigh or max, not %q", c.Effort)
 	check(c.Infer == "ort" || c.Infer == "fake", "infer must be ort or fake, not %q", c.Infer)
 	check(c.ModelVariant == "int8" || c.ModelVariant == "fp32", "model-variant must be int8 or fp32, not %q", c.ModelVariant)
 	check(c.Debounce > 0 && c.DebounceCap >= c.Debounce, "debounce must be positive and no longer than debounce-cap")
@@ -181,6 +263,70 @@ func (c *Config) validate() error {
 	check(c.MaxToolSteps > 0, "max-tool-steps must be positive")
 	check(c.BytesPerActor > 0, "bytes-per-actor must be positive")
 	return errors.Join(errs...)
+}
+
+// Providers lists the providers that have credentials, in the order the
+// default is picked from.
+func (c *Config) Providers() []string {
+	var on []string
+	add := func(name string, ok bool) {
+		if ok {
+			on = append(on, name)
+		}
+	}
+	add("deepseek", c.DeepSeekKey != "")
+	add("anthropic", c.AnthropicKey != "")
+	add("openrouter", c.OpenRouterKey != "")
+	add("opencode", c.OpenCodeKey != "")
+	add("ollama", c.OllamaKey != "")
+	add("openai", c.OpenAIKey != "" || len(c.OpenAIBaseURLs) > 0)
+	add("fake", c.LLM == "fake")
+	return on
+}
+
+func providerNames() []string {
+	return []string{"deepseek", "anthropic", "openrouter", "opencode", "ollama", "openai", "fake"}
+}
+
+func list(csv string) []string {
+	var out []string
+	for v := range strings.SplitSeq(csv, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// parsePins reads "model=provider|provider,model=provider".
+func parsePins(s string) (map[string][]string, error) {
+	pins := make(map[string][]string)
+	for _, item := range list(s) {
+		model, ups, ok := strings.Cut(item, "=")
+		if !ok || model == "" || ups == "" {
+			return nil, fmt.Errorf("openrouter-pin: %q is not model=provider[|provider]", item)
+		}
+		for up := range strings.SplitSeq(ups, "|") {
+			if up = strings.TrimSpace(up); up != "" {
+				pins[model] = append(pins[model], up)
+			}
+		}
+	}
+	return pins, nil
+}
+
+// parseLimits reads "provider=n,provider/model=n".
+func parseLimits(s string) (map[string]int, error) {
+	limits := make(map[string]int)
+	for _, item := range list(s) {
+		key, v, ok := strings.Cut(item, "=")
+		n, err := strconv.Atoi(v)
+		if !ok || key == "" || err != nil || n <= 0 {
+			return nil, fmt.Errorf("provider-limits: %q is not provider=n with n above zero", item)
+		}
+		limits[key] = n
+	}
+	return limits, nil
 }
 
 // DBPath is the SQLite file.

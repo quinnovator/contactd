@@ -1,0 +1,14 @@
+: OPENROUTER PROCESSING
+
+data: {"id":"gen-1760000000-aaaa","provider":"DeepSeek","model":"deepseek/deepseek-v4.1-flash","object":"chat.completion.chunk","created":1760000000,"choices":[{"index":0,"delta":{"role":"assistant","content":"Six times seven "},"finish_reason":null,"native_finish_reason":null}]}
+
+: OPENROUTER PROCESSING
+
+data: {"id":"gen-1760000000-aaaa","provider":"DeepSeek","model":"deepseek/deepseek-v4.1-flash","object":"chat.completion.chunk","created":1760000000,"choices":[{"index":0,"delta":{"role":"assistant","content":"is 42."},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1760000000-aaaa","provider":"DeepSeek","model":"deepseek/deepseek-v4.1-flash","object":"chat.completion.chunk","created":1760000000,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"stop","native_finish_reason":"stop"}]}
+
+data: {"id":"gen-1760000000-aaaa","provider":"DeepSeek","model":"deepseek/deepseek-v4.1-flash","object":"chat.completion.chunk","created":1760000000,"choices":[],"usage":{"prompt_tokens":2312,"completion_tokens":9,"total_tokens":2321,"cost":0.00002,"prompt_tokens_details":{"cached_tokens":2048,"cache_write_tokens":0},"completion_tokens_details":{"reasoning_tokens":0}}}
+
+data: [DONE]
+

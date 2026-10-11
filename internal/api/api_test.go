@@ -65,19 +65,20 @@ func start(t *testing.T) *server {
 	writerDone := make(chan struct{})
 	go func() { store.Run(wctx); close(writerDone) }()
 
-	llm := fakellm.New(fakellm.Options{PerChunk: time.Millisecond})
+	models := fakellm.NewClient(fakellm.New(fakellm.Options{PerChunk: time.Millisecond}))
 	cfg := actor.DefaultConfig()
 	cfg.Debounce, cfg.DebounceCap = 20*time.Millisecond, 100*time.Millisecond
 	ctx, cancel := context.WithCancel(context.Background())
 	reg := actor.New(ctx, actor.Deps{
-		Log: store, Hydrate: store, Repair: store, Embed: embed{}, Summarize: llm, Snapshots: store,
+		Log: store, Create: store, Hydrate: store, Repair: store, Embed: embed{}, Snapshots: store,
+		Summarize: &turn.ModelSummarizer{Models: models},
 		Turn: &turn.Deps{
-			Embed: embed{}, Rerank: rerank{}, Log: store, LLM: llm, Logger: obs.Discard(),
+			Embed: embed{}, Rerank: rerank{}, Log: store, Models: models, Logger: obs.Discard(),
 			Recall: cfg.Recall, Plan: plan.DefaultParams(), MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
 		},
 	}, cfg, obs.Discard())
 
-	a := api.New(store, reg, obs.Discard())
+	a := api.New(store, reg, models, obs.Discard())
 	ts := httptest.NewServer(a.Handler())
 	t.Cleanup(func() {
 		reg.Shutdown(ctx)
@@ -190,14 +191,18 @@ func TestMessageRoundTripOverSSE(t *testing.T) {
 		t.Fatalf("post message: %d %v, want 202 with seq 1", status, body)
 	}
 	reply := waitMessage(t, deltas)
-	if !strings.Contains(reply.Text, "hello there") || reply.Seq != 2 {
+	// Seq 2 is the record of the model call that produced the reply.
+	if !strings.Contains(reply.Text, "hello there") || reply.Seq != 3 {
 		t.Errorf("reply = %+v", reply)
 	}
 
 	status, body = s.do(http.MethodGet, "/v1/contacts/"+id+"/events", "")
 	events, _ := body["events"].([]any)
-	if status != http.StatusOK || len(events) != 2 {
+	if status != http.StatusOK || len(events) != 3 {
 		t.Fatalf("events: %d %v", status, body)
+	}
+	if attempt, _ := events[1].(map[string]any); attempt["kind"] != "attempt" {
+		t.Errorf("event 2 = %v, want the attempt record", attempt)
 	}
 	first, _ := events[0].(map[string]any)
 	if first["kind"] != "user_msg" || first["seq"] != float64(1) {
@@ -212,7 +217,7 @@ func TestMessageRoundTripOverSSE(t *testing.T) {
 	if got, _ := page["events"].([]any); len(got) != 1 || page["next_after"] != float64(1) {
 		t.Errorf("page 1 = %v", page)
 	}
-	_, page = s.do(http.MethodGet, "/v1/contacts/"+id+"/events?after=2", "")
+	_, page = s.do(http.MethodGet, "/v1/contacts/"+id+"/events?after=3", "")
 	if got, _ := page["events"].([]any); len(got) != 0 || page["next_after"] != nil {
 		t.Errorf("page past the end = %v", page)
 	}
@@ -287,6 +292,12 @@ func TestValidationAndErrors(t *testing.T) {
 		{"tool without a base", http.MethodPost, "/v1/contacts", `{"agent":{"tools":[{"name":"a","env":{}}]}}`, http.StatusBadRequest},
 		{"network on tier 0", http.MethodPost, "/v1/contacts", `{"agent":{"tools":[{"name":"a","env":{"base":"x","network":true}}]}}`, http.StatusBadRequest},
 		{"tier out of range", http.MethodPost, "/v1/contacts", `{"agent":{"tools":[{"name":"a","env":{"tier":2,"base":"x"}}]}}`, http.StatusBadRequest},
+		{"unknown model", http.MethodPost, "/v1/contacts", `{"agent":{"model":"no-such-model"}}`, http.StatusBadRequest},
+		{"unknown provider", http.MethodPost, "/v1/contacts", `{"agent":{"provider":"elsewhere"}}`, http.StatusBadRequest},
+		{"unknown effort", http.MethodPost, "/v1/contacts", `{"agent":{"effort":"extreme"}}`, http.StatusBadRequest},
+		{"client-set parent", http.MethodPost, "/v1/contacts", `{"agent":{"parent":7}}`, http.StatusBadRequest},
+		{"tool with its own schema", http.MethodPost, "/v1/contacts", `{"agent":{"tools":[{"name":"a","env":{"base":"x"},"input":{"type":"object"}}]}}`, http.StatusBadRequest},
+		{"named route and effort", http.MethodPost, "/v1/contacts", `{"agent":{"provider":"fake","model":"fake-1","effort":"high","delegate":true}}`, http.StatusCreated},
 		{"no thread endpoints", http.MethodPost, "/v1/contacts/" + id + "/threads", `{}`, http.StatusNotFound},
 	}
 	for _, tc := range cases {

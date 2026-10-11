@@ -4,7 +4,7 @@ One Go binary, backed by SQLite and two small local ONNX models, that lets a cli
 
 Threads, prompt-cache layout and the REPL environment are not stored objects. Each turn derives them just in time from one append-only event log.
 
-The design is in [docs/DESIGN.md](docs/DESIGN.md). This README covers running it, what was measured, and where the implementation departs from the design.
+The original design is in [docs/DESIGN.md](docs/DESIGN.md). This README covers running it, the provider core that was added afterwards, what was measured, and where the implementation departs from the design.
 
 ## Quick start
 
@@ -36,9 +36,11 @@ mise run deps:wasm      # CPython 3.12 and QuickJS WASI builds into third_party/
 mise run models:fetch   # export + int8-quantize bge-small-en-v1.5 and ms-marco-MiniLM-L6-v2 into models/
 mise run build          # bin/contactd, built with -tags ORT
 
-ANTHROPIC_API_KEY=... GOMEMLIMIT=3GiB bin/contactd \
+DEEPSEEK_API_KEY=... GOMEMLIMIT=3GiB bin/contactd \
   -data-dir=./data -models-dir=./models -wasm-dir=./third_party/wasm
 ```
+
+Any provider whose key is in the environment is available; see [Model providers](#model-providers).
 
 Or as a container (`mise run image`), with one volume at `/data`. `GOMEMLIMIT` is not cgroup-aware: set it to the container memory limit minus room for ONNX Runtime's native memory.
 
@@ -48,12 +50,23 @@ There are no thread endpoints; that's the point.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/v1/contacts` | Create a contact from an agent config (`system`, `model`, `tools`) and an optional `profile` |
+| POST | `/v1/contacts` | Create a contact from an agent config (below) and an optional `profile`. An unknown provider, model or effort is a 400 here |
 | POST | `/v1/contacts/{id}/messages` | Send `{"text": ...}`; returns 202 with the durable `seq` |
-| GET | `/v1/contacts/{id}/stream` | SSE: `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `error` |
+| GET | `/v1/contacts/{id}/stream` | SSE: `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `error` |
 | GET | `/v1/contacts/{id}/live` | WebSocket: send `{"type":"message","text":...}` and `{"type":"typing"}`; receive `ack` plus the same deltas |
-| GET | `/v1/contacts/{id}/events?after={seq}&limit={n}` | Page through history |
+| GET | `/v1/contacts/{id}/events?after={seq}&limit={n}` | Page through the log: messages, tool events, and the bookkeeping kinds (`attempt`, `checkpoint`, `notice`, `summary`, `env_snapshot`) |
 | GET | `/metrics`, `/healthz` | Prometheus metrics; liveness (503 while draining) |
+
+An agent config:
+
+| Field | Meaning |
+| --- | --- |
+| `system` | The system prompt |
+| `provider`, `model` | The route that serves this contact. Either may be omitted to take the deployment's default. Names resolve strictly: a model the provider does not serve is an error, never a substitute |
+| `effort` | Reasoning effort on one scale for every provider: `none`, `low`, `medium`, `high`, `xhigh`, `max`. The provider sends the nearest value the model accepts, and the log records what was sent |
+| `max_tokens` | Output cap per model call |
+| `tools` | Code-execution tools (below) |
+| `delegate` | `true` gives the agent the built-in `delegate` tool, which starts sub-agents |
 
 A tool is a code-execution tool: it takes one `code` argument and names the environment it runs in.
 
@@ -64,21 +77,75 @@ A tool is a code-execution tool: it takes one `code` argument and names the envi
 
 Tier 0 runs in-process under wazero (`python-3.12`, `quickjs`). Tier 1 is a thin client to an external snapshot-sandbox service (`-sandbox-url`).
 
+### Sub-agents
+
+With `delegate` on, the model can call `delegate({"task": ..., "mode": "spawn" | "fork"})`. The call returns at once with the sub-agent's ID; the model cannot wait for it or poll it. A sub-agent is a contact of its own, with its own log (readable at `/v1/contacts/{child}/events`) and its parent's instructions, tools and route.
+
+- **`spawn`** starts it from the instructions and the task.
+- **`fork`** also gives it the parent's conversation up to the parent's last finished reply. Its first request begins with the exact bytes the parent last sent, so it reads the parent's prompt cache.
+- **Settlement** arrives in the parent's log as a `notice` event, and starts a turn so the agent can act on it. It never interrupts a reply in progress, and a sub-agent that fails settles the same way: as a notice, with a diagnostic of at most 4,096 bytes.
+- **Limits:** one level deep, and `-max-children` (8) running at once per contact. Interrupting the parent does not stop its sub-agents.
+
 ## Configuration
 
 Every setting is a flag and an environment variable (`CONTACTD_` + the flag name in upper snake case); flags win. `contactd -h` lists them all. The ones that matter first:
 
 | Flag | Default | Notes |
 | --- | --- | --- |
-| `-llm` | `anthropic` | `anthropic`, `openai` (also vLLM, SGLang and `cmd/fakellm`), or `fake` |
-| `-model`, `-summary-model` | adapter defaults | The Anthropic adapter defaults to `claude-opus-5-5` for replies and `claude-haiku-5-5` for lazy summaries |
-| `-openai-base-urls` | | Several replicas are rendezvous-hashed by contact, so a contact's KV prefix stays on one GPU |
+| `-llm` | first configured | The default provider: `deepseek`, `anthropic`, `openrouter`, `opencode`, `ollama`, `openai` or `fake`. Every provider with credentials is available to agents that name it |
+| `-model` | the provider's own | Default model on the default provider. OpenRouter has no default of its own and needs this |
+| `-effort`, `-max-tokens` | none | Defaults for agents that set none |
+| `-summary-provider`, `-summary-model` | the default route | Where lazy episode summaries are written; point it at something small |
+| `-provider-limits` | DeepSeek's documented limits | Concurrent model calls per provider or route: `deepseek/deepseek-v4-pro=500,openrouter=64` |
+| `-checkpoint` | on | Fold the oldest part of an over-budget tail into a summary instead of cutting it |
+| `-max-children` | 8 | Sub-agents one contact may have running |
 | `-infer` | `ort` | `fake` swaps in a deterministic bag-of-words embedder and lexical reranker |
 | `-model-variant` | `int8` | or `fp32` |
 | `-sync-full` | off | `synchronous=FULL`: never lose an acknowledged message on power loss |
 | `-max-hydrated` | derived | From `GOMEMLIMIT` ÷ 2 ÷ `-bytes-per-actor` |
 | `-tau`, `-gap`, `-theta`, `-delta`, `-tail-budget` | doc values | Tune with `cmd/replay` before changing them |
 | `-no-refusal-fallback` | off | See "Anthropic specifics" below |
+
+`-cache-ttl` is gone: how long a prompt cache stays warm is declared by each model route, not set for the deployment.
+
+## Model providers
+
+The core reaches every provider through one typed contract (`internal/llm`) and acts only on what a model route declares it can do: how its cache is driven and for how long, where a pinning key goes, which reasoning efforts it accepts, whether reasoning must be sent back, whether it can be held to one tool call per step. The core never names a provider; `depguard` enforces the boundary from both sides.
+
+| Provider (`-llm`) | Credentials | Wire | Cache | Effort | Reasoning replay |
+| --- | --- | --- | --- | --- | --- |
+| `deepseek` | `DEEPSEEK_API_KEY` | Messages at `api.deepseek.com/anthropic` by default; `-deepseek-wire=chat` for Chat Completions | Automatic by prefix, assumed warm 1 hour | `low`, `high`, `max`, or off | Every turn |
+| `anthropic` | `ANTHROPIC_API_KEY` | Messages | Breakpoints, 5 minutes | `low` to `max` | Within a turn |
+| `openrouter` | `OPENROUTER_API_KEY` | Chat Completions | Per model, from the catalog's prices; pinned with `session_id` | Per model, from the catalog | Every turn where the model reasons |
+| `opencode` | `OPENCODE_API_KEY` | Per model: Chat Completions or Messages (Responses-only models are refused) | Automatic, or breakpoints where a cached-write price is listed; pinned with `x-opencode-session` | None declared | Every turn for DeepSeek models, within a turn for Claude |
+| `ollama` | `OLLAMA_API_KEY` | Chat Completions at `ollama.com/v1` | None declared | Per model, from `/api/show` | None declared |
+| `openai` | `OPENAI_API_KEY` and/or `-openai-base-urls`, plus `-openai-models` | Chat Completions | Automatic by prefix per replica | None | None |
+
+Each profile's source file states where every declared value comes from and what is a guess. OpenRouter, OpenCode Go and Ollama Cloud read their model catalogs once at start-up; `-openrouter-catalog` starts from a saved copy instead.
+
+### Probing a route
+
+A capability is a claim, and `contactd probe` checks the claims against the live endpoint:
+
+```sh
+DEEPSEEK_API_KEY=... bin/contactd probe -provider deepseek -model deepseek-flash
+```
+
+It sends about ten small requests (one of them a 20,000-token prompt, twice, to see what is reported as cached) and prints a table of declared against observed. It exits 1 when the endpoint contradicts the profile. Run it when adding a model, and when a provider changes something.
+
+What the probe found on Oct 11, 2026, with real keys:
+
+| Route | Result |
+| --- | --- |
+| `deepseek/deepseek-flash` and `deepseek-v4-pro`, Messages wire | Every check passed. Cache hits are reported in the Anthropic-style usage fields (21,504 of 21,692 tokens on a repeated prompt). Two tool calls came back in one step. All four effort settings were accepted |
+| `deepseek/deepseek-flash`, Chat Completions wire | Every check passed. The cache is shared with the Messages endpoint. This wire also reports reasoning tokens, which the Messages wire does not |
+| `openrouter/deepseek/deepseek-v4.1-flash` | Every check passed, including `reasoning_details` going back unmodified |
+| `opencode/deepseek-v4.1-flash` (Chat Completions) | Passed after two corrections: the gateway refuses any request without `x-opencode-session` (HTTP 400 `MissingSessionID`), and it does report cached tokens |
+| `opencode/qwen3.8-flash` (Messages) | The Messages route answers and reports breakpoint cache hits. The model did not call the tool when asked, so the tool checks did not run |
+
+On every DeepSeek route, a tool loop that left the model's reasoning out was still accepted, though DeepSeek's documentation says the Chat Completions endpoint rejects it. The profiles keep replaying reasoning on every turn, which is the documented contract and costs little when it is read from cache.
+
+Not probed: `anthropic` and `ollama` (no key was available), and every OpenRouter and OpenCode Go model other than the ones above.
 
 ## How it is laid out
 
@@ -89,13 +156,18 @@ cmd/contactd      wiring, signals, graceful shutdown
 cmd/replay        cache simulator + recall benchmark over testdata/transcripts
 cmd/fakellm       fake model server (OpenAI wire format) for load tests
 internal/core     ContactID, Event, bodies, Message, sentinel errors
-internal/actor    Pieces 2 + 7: actor loop, registry, debounce, interruption, hibernation
-internal/turn     Piece 8: the turn loop, the environment handle; declares LLM and EnvLeaser
+internal/actor    Pieces 2 + 7: actor loop, registry, debounce, interruption, hibernation; sub-agents, checkpoints
+internal/turn     Piece 8: the turn loop, the environment handle, the delegate tool; declares Models and EnvLeaser
 internal/recall   Piece 4: episodes, segmentation, two-stage recall; declares Embedder and Reranker
-internal/plan     Piece 5: tiers, canonical bytes, hash chain, hysteresis, step compaction (pure)
+internal/plan     Piece 5: tiers, canonical bytes, hash chain, hysteresis, compaction, checkpoints, forks (pure)
 internal/eventlog Piece 1: SQLite store, group-commit writer, migrations (sqlcgen/ is generated)
 internal/infer    Piece 3: micro-batcher; hugot/ (ONNX Runtime, tag ORT), fake/
-internal/llm      anthropic/, openai/, fake/
+internal/llm      the provider contract, and the client: routing, admission, retries, attempt records
+  wire/           chat/ and messages/: a plan becomes bytes, a stream becomes events
+  provider/       one profile per provider: deepseek, anthropic, openrouter, opencodego, ollamacloud, openaicompat
+  conform/        the conformance suite every profile runs
+  probe/          the live capability check behind `contactd probe`
+  fake/           the scripted provider and its HTTP server
 internal/env      Piece 6: wasm/ (tier 0, wazero), remote/ (tier 1)
 internal/api      HTTP, SSE, WebSocket
 internal/e2e      integration tier (tag integration)
@@ -147,7 +219,9 @@ On an Apple M-series laptop (18 cores, darwin/arm64), Go race detector off unles
 - **Rerank does not beat stage 1 on this data, so the doc's first recall target is not demonstrated.** Recall@4 on the 12 labelled callbacks is 100% for the bi-encoder alone and 83% after the cross-encoder at θ = 0 (92% at θ = -2). Eight cleanly separated topics are too easy for stage 1 to miss, so all the reranker can do here is veto. Transcripts with overlapping topics are needed before θ is worth tuning; the sweep is built for that.
 - **Passage content mattered more than any threshold.** Quoting only an episode's first and last message gave 58% recall after rerank; filling the same 256-token budget with as much of the episode as fits gave 83%.
 
-**Not measured:** anything against a live model provider (no API key was available, so the Anthropic and OpenAI adapters are tested only against replayed fixtures and the fake server), the tier-1 sandbox client against a real service, and any latency on linux/amd64 (CI passes there; nothing was timed).
+**Run against live providers:** the probe results above, and one conversation through the real binary on `deepseek-flash`: two turns that each ran Python in the tier-0 sandbox, then a delegated sub-agent whose result came back as a notice. Reasoning was stored and replayed on every later request, and the provider's reported cache hits tracked the predictions (for example 512 of 649 input tokens reported cached against 290 of 384 estimated).
+
+**Not measured:** the Anthropic and Ollama Cloud profiles against their live endpoints (tested against written fixtures and the conformance suite only), the tier-1 sandbox client against a real service, checkpoints and forks against a live provider's cache, and any latency on linux/amd64 (CI passes there; nothing was timed).
 
 ## Where this departs from the design doc
 
@@ -187,12 +261,28 @@ Each of these is a place where following the doc to the letter would have been w
 
 **Providers and environments**
 
-- **The Anthropic adapter is hand-written HTTP, not the official Go SDK.** It was built that way for byte-exact control of the request. Anthropic's guidance is to use the SDK; porting is a contained change behind `turn.LLM`.
-- **Anthropic specifics.** Replies default to `claude-opus-5-5`, summaries to `claude-haiku-5-5`. Refusal fallback is on by default (`fallbacks: "default"` with its beta header), as Anthropic recommends for this model: a classifier-declined request is re-run server-side on another model and billed at that model's rates. `-no-refusal-fallback` turns it off, which a gateway that rejects the header will need.
-- **The OpenAI adapter sends tiers 0-2 as one system message**, because many self-hosted chat templates reject more than one.
-- **Every tool is a code-execution tool.** The doc's turn loop only knows `ToolCall.Code` and `ToolCall.Env`; arbitrary function tools are not modelled.
+- **Wire codecs are hand-written HTTP, not the vendors' SDKs.** Requests are frozen to exact bytes before they are sent, so that a retry resends the same request and the prompt cache can be reasoned about; golden tests pin those bytes. An SDK can replace the transport inside a codec later if it passes the same tests and exposes raw usage and reasoning payloads.
+- **Anthropic specifics.** Replies default to `claude-opus-5-5` and lazy summaries to `claude-haiku-5-5`. Refusal fallback is on by default (`fallbacks: "default"` with its beta header), as Anthropic recommends for this model: a classifier-declined request is re-run server-side on another model and billed at that model's rates. `-no-refusal-fallback` turns it off, which a gateway that rejects the header will need.
+- **Chat Completions routes send tiers 0-2 as one system message**, because many self-hosted chat templates reject more than one.
+- **Every tool an agent config defines is a code-execution tool.** The one exception is the built-in `delegate` tool, which has its own argument schema; arbitrary function tools are still not modelled.
 - **Tier-0 Python starts in about 48 ms, not single-digit milliseconds.** That is CPython's own initialization; the provider's overhead is about 1.5 ms, which is what QuickJS shows. Variables persist within a lease and files persist always, as the doc's open question allowed.
 - **The image runs as a non-root user** with `/data` owned by it.
+
+**Provider core** (against the "Provider core" section of the design)
+
+- **The turn loop's port is `turn.Models`** (resolve a route, get an affinity key, start a call), not the old `turn.LLM`. The loop needs the route's capabilities, so hiding the route behind a one-method port would have hidden what it acts on.
+- **A provider is given an opaque affinity key, never a contact ID.** The client computes a keyed hash and blanks it for routes that take none. `Options` also carries the previous request's prefix marks, which is what the cache prediction is made against.
+- **An attempt record is an event in the contact's log** (`attempt`): route, a hash and size of the request bytes, the effort actually sent, tries, predicted and reported cache figures, stop reason or error class, and duration. The request bytes themselves are not stored; the hash is there to check a reconstruction.
+- **No Responses codec and no native Ollama codec.** OpenCode Go's Responses-only models (GPT Luna, Grok, Muse Spark) resolve to a clear "wire format not supported" error. Ollama Cloud uses `/v1`.
+- **DeepSeek `xhigh` is sent as `max`.** The neutral scale maps to the nearest accepted effort and prefers the stronger of two equally near; DeepSeek's own remapping would send `high`. The log shows what was sent.
+- **A route's maximum output is a ceiling, not the default.** A call that names no cap asks for 8,192 tokens (64,000 on Anthropic), not the 384,000 a DeepSeek model can write.
+- **A checkpoint leaves the cut in place as a guard.** The tail is folded when it passes its budget and cut only at one and a half times it, which is where a tail ends up if checkpoints keep failing.
+- **A checkpoint doubles as an episode summary only when the folded span is exactly one unsummarized episode.** A span that covers several conversations has one summary and several episodes; giving them all the same text would make recall worse.
+- **A sub-agent is shown the `delegate` tool and refused when it calls it.** Hiding the tool would change the tool list, and with it the first bytes of the prompt, so a child could never read its parent's cache.
+- **A fork starts from the prompt of the parent's turn in progress, less that turn**: the same static tier, profile, recalled episodes and history the parent just sent, without the message it is answering.
+- **A settlement waits for the turn in flight.** It is held in memory until that turn commits, then logged after the reply. If the process stops while a sub-agent is running, its parent is never told; the sub-agent's own log still has the result.
+- **A sub-agent's result is its last message.** The proposal's optional structured value is not built.
+- **A reply cut off mid-stream stores no reasoning**, because the stream never finished. On an all-turns route the next request carries that one assistant message without it.
 
 **Platform notes**
 

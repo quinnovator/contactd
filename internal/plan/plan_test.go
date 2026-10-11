@@ -99,7 +99,7 @@ func TestGolden(t *testing.T) {
 		"first_message": func(t *testing.T) *PromptPlan {
 			t.Helper()
 			log := new(logBuilder).user("hey, are you around?")
-			return mustBuild(t, nil, Input{Contact: 7, Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
+			return mustBuild(t, nil, Input{Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
 		},
 		"all_tiers": func(t *testing.T) *PromptPlan {
 			t.Helper()
@@ -110,7 +110,7 @@ func TestGolden(t *testing.T) {
 				agent("There are 42 rows.").
 				user("great — and \"quoted\"\ttabs?\nplus unicode: naïve café ☕").
 				user("one more thing")
-			in := Input{Contact: 7, Agent: testAgent(), Profile: "Prefers short answers. Based in Lisbon.", Tail: log.events}
+			in := Input{Agent: testAgent(), Profile: "Prefers short answers. Based in Lisbon.", Tail: log.events}
 			recalled := []Recalled{
 				{ID: 3, Text: "[2025-09-30] contact: the migration is stuck\n...\nyou: rerun it with --lock-timeout"},
 				{ID: 9, Text: "[2025-10-02] Summary: planned the Lisbon trip."},
@@ -120,7 +120,7 @@ func TestGolden(t *testing.T) {
 		"tool_step_appended": func(t *testing.T) *PromptPlan {
 			t.Helper()
 			log := new(logBuilder).user("what is 6 * 7?")
-			p := mustBuild(t, nil, Input{Contact: 7, Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
+			p := mustBuild(t, nil, Input{Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
 			p.AppendTail(
 				core.ToolCall{ID: "c9", Name: "python", Code: "print(6*7)", Text: "Let me compute that."},
 				core.ToolResult{ID: "c9", Output: "42"},
@@ -135,7 +135,7 @@ func TestGolden(t *testing.T) {
 				user("actually, run this").
 				call("c2", "import time; time.sleep(999)").
 				user("never mind")
-			return mustBuild(t, nil, Input{Contact: 7, Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
+			return mustBuild(t, nil, Input{Agent: testAgent(), Tail: log.events}, nil, t0, DefaultParams())
 		},
 	}
 	for name, build := range cases {
@@ -302,7 +302,7 @@ func TestNormalize(t *testing.T) {
 	t.Run("user message during a tool run moves after the result", func(t *testing.T) {
 		t.Parallel()
 		log := new(logBuilder).user("go").call("c1", "x").user("wait").result("c1", "ok").agent("done")
-		es, err := normalize(log.events, 0)
+		es, err := normalize(log.events, window{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -313,7 +313,7 @@ func TestNormalize(t *testing.T) {
 	t.Run("a call with no result gets a placeholder", func(t *testing.T) {
 		t.Parallel()
 		log := new(logBuilder).user("go").call("c1", "x").user("hello?")
-		es, err := normalize(log.events, 0)
+		es, err := normalize(log.events, window{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -327,7 +327,7 @@ func TestNormalize(t *testing.T) {
 	t.Run("a result whose call was compacted away is dropped", func(t *testing.T) {
 		t.Parallel()
 		log := new(logBuilder).user("go").call("c1", "x").user("wait").result("c1", "ok").agent("done")
-		es, err := normalize(log.events, 3) // start at "wait"
+		es, err := normalize(log.events, window{from: 3}) // start at "wait"
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -338,7 +338,7 @@ func TestNormalize(t *testing.T) {
 	t.Run("interrupted replies say so", func(t *testing.T) {
 		t.Parallel()
 		log := new(logBuilder).user("story").cut("Once upon").user("stop")
-		es, err := normalize(log.events, 0)
+		es, err := normalize(log.events, window{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -348,7 +348,7 @@ func TestNormalize(t *testing.T) {
 	})
 	t.Run("bad body is an error", func(t *testing.T) {
 		t.Parallel()
-		_, err := normalize([]core.Event{{Seq: 1, Kind: core.KindUserMsg, Body: []byte("{")}}, 0)
+		_, err := normalize([]core.Event{{Seq: 1, Kind: core.KindUserMsg, Body: []byte("{")}}, window{})
 		if err == nil {
 			t.Error("want an error for an undecodable body")
 		}

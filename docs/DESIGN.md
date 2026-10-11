@@ -2,6 +2,8 @@
 
 Oct 11, 2026 · @Jack
 
+> This file is a snapshot of the design document as it stood when the first build started. Two sections were added to the living document afterwards and are not in this copy: "Deviations in the implementation" and "Provider core" (the contract between the core and model providers, the provider profiles, checkpoints and sub-agents, and what the live probes found). The README covers both as built: see "Model providers" and "Where this departs from the design doc".
+
 ## Overview
 
 We build a single Go binary, backed by SQLite and two small local ONNX models, that lets a client talk to an AI contact the way it would talk to a person. There is one continuous relationship per contact. Threads, prompt-cache layout and the REPL environment are not stored objects; each turn derives them just in time from one append-only event log.
