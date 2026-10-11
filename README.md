@@ -158,7 +158,6 @@ Each of these is a place where following the doc to the letter would have been w
 - **Go 1.26.9, not 1.25.** Go 1.25 is past end of support. `govulncheck`, which the doc makes a CI gate, reports nine standard-library vulnerabilities in 1.25.14 (mostly in the `net/http` server) that are fixed only from 1.26.9. Everything the doc wants from 1.25 (container-aware GOMAXPROCS, stable `testing/synctest`) is in 1.26.
 - **Hugot is pinned at v0.7.0.** Later releases need a newer Go and moved to different ONNX Runtime bindings. v0.7.0 matches the doc's description (ORT backend, statically linked Rust tokenizer).
 - **One build tag, `ORT`.** The doc uses both `ort` and `ORT`. Hugot only honours the uppercase one, so it is used everywhere.
-- **`pipx:sqlfluff`**, since mise has no `pypi:` backend.
 
 **Prompt layout (Piece 5)**
 

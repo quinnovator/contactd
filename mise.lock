@@ -87,11 +87,11 @@ url = "https://github.com/golangci/golangci-lint/releases/download/v2.14.0/golan
 url_api = "https://api.github.com/repos/golangci/golangci-lint/releases/assets/585813793"
 provenance = "github-attestations"
 
-[[tools."pipx:sqlfluff"]]
+[[tools."pypi:sqlfluff"]]
 version = "3.5.0"
-backend = "pipx:sqlfluff"
+backend = "pypi:sqlfluff"
 specifiers = ["3"]
-uv = { path = ".mise/locks/pipx-sqlfluff/3.5.0", digest = "sha256:ef9638d452199dd35e1ac8bf47c749683c4089f7de17776b3d79c727eed87bad" }
+uv = { path = ".mise/locks/pypi-sqlfluff/3.5.0", digest = "sha256:f82e7e75dd7637ca63ce2142523365007fb92faeaedb6b89005ac6e2ea589d05" }
 
 [[tools.sqlc]]
 version = "1.31.1"
