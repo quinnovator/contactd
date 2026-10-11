@@ -147,7 +147,7 @@ On an Apple M-series laptop (18 cores, darwin/arm64), Go race detector off unles
 - **Rerank does not beat stage 1 on this data, so the doc's first recall target is not demonstrated.** Recall@4 on the 12 labelled callbacks is 100% for the bi-encoder alone and 83% after the cross-encoder at θ = 0 (92% at θ = -2). Eight cleanly separated topics are too easy for stage 1 to miss, so all the reranker can do here is veto. Transcripts with overlapping topics are needed before θ is worth tuning; the sweep is built for that.
 - **Passage content mattered more than any threshold.** Quoting only an episode's first and last message gave 58% recall after rerank; filling the same 256-token budget with as much of the episode as fits gave 83%.
 
-**Not measured:** anything against a live model provider (no API key was available, so the Anthropic and OpenAI adapters are tested only against replayed fixtures and the fake server), the tier-1 sandbox client against a real service, and linux/amd64.
+**Not measured:** anything against a live model provider (no API key was available, so the Anthropic and OpenAI adapters are tested only against replayed fixtures and the fake server), the tier-1 sandbox client against a real service, and any latency on linux/amd64 (CI passes there; nothing was timed).
 
 ## Where this departs from the design doc
 
@@ -199,7 +199,7 @@ Each of these is a place where following the doc to the letter would have been w
 
 - **ONNX Runtime 1.24 on Apple Silicon miscomputes when a signal lands mid-inference**, and Go preempts goroutines with signals. Linux is unaffected. `mise.toml` sets `GODEBUG=asyncpreemptoff=1`, and the binary warns at startup when it is missing on macOS. Avoid CPU profiling there.
 - **int8 is not faster than fp32 on arm64.** It is 10-25% slower on the hardware measured, and a quarter of the size. It stays the default, as the doc specifies, because recall is unchanged; x86 with VNNI was not measured.
-- **linux/amd64 has not been run.** Its native-library checksums are pinned but that branch of the fetch script was never executed.
+- **linux/amd64 is covered by CI only.** The GitHub Actions run fetches the native libraries, exports the models and passes every test tier there, but no latency was measured on it and the container image was only built and run on linux/arm64.
 
 **Not built**
 
