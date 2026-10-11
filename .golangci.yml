@@ -1,0 +1,116 @@
+version: "2"
+run:
+  # ORT is Hugot's own tag for its ONNX Runtime backend; our adapter reuses it.
+  build-tags: [ORT, integration]
+  relative-path-mode: gomod
+formatters:
+  enable: [gofumpt, gci]
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+    gci:
+      sections: [standard, default, localmodule]
+linters:
+  default: none
+  enable:
+    - depguard
+    - forbidigo
+    - containedctx
+    - contextcheck
+    - noctx
+    - errcheck
+    - errorlint
+    - nilerr
+    - wrapcheck
+    - sloglint
+    - gochecknoglobals
+    - gochecknoinits
+    - exhaustive
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+    - musttag
+    - gosec
+    - paralleltest
+    - tparallel
+    - thelper
+    - usetesting
+    - modernize
+    - intrange
+    - perfsprint
+    - prealloc
+    - nolintlint
+  settings:
+    depguard:
+      rules:
+        domain-stays-pure:
+          files:
+            - "**/internal/core/**"
+            - "**/internal/actor/**"
+            - "**/internal/turn/**"
+            - "**/internal/recall/**"
+            - "**/internal/plan/**"
+            # Tests may import the fakes that live beside the adapters
+            # (infer/fake, llm/fake) and a real event log; rule 10 depends on it.
+            - "!$test"
+          deny:
+            - pkg: database/sql
+              desc: domain code talks to storage through ports
+            - pkg: net/http
+              desc: HTTP belongs in api/ and adapters
+            - pkg: github.com/knights-analytics/hugot
+              desc: inference goes through recall.Embedder / recall.Reranker
+            - pkg: github.com/tetratelabs/wazero
+              desc: execution goes through turn.EnvLeaser
+            - pkg: github.com/quinnovator/contactd/internal/eventlog
+              desc: adapters are wired in cmd/contactd only
+            - pkg: github.com/quinnovator/contactd/internal/infer
+              desc: adapters are wired in cmd/contactd only
+            - pkg: github.com/quinnovator/contactd/internal/llm
+              desc: adapters are wired in cmd/contactd only
+            - pkg: github.com/quinnovator/contactd/internal/env
+              desc: adapters are wired in cmd/contactd only
+            - pkg: github.com/quinnovator/contactd/internal/api
+              desc: nothing imports the API layer
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          msg: use log/slog
+        - pattern: ^log\.
+          msg: use log/slog
+        - pattern: ^time\.Now$
+          msg: plan is pure; pass now in
+        - pattern: ^rand\.
+          msg: plan is deterministic
+    sloglint:
+      no-global: all
+      static-msg: true
+      key-naming-case: snake
+    exhaustive:
+      default-signifies-exhaustive: false
+    govet:
+      enable-all: true
+      disable: [fieldalignment, shadow]
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: strict
+    rules:
+      # time.Now / rand are banned only inside plan. The match is on the
+      # rule's message, since the reported expression may be a method on a
+      # *rand.Rand value rather than the package name.
+      - path-except: internal/plan/
+        text: "plan is (pure|deterministic)"
+        linters: [forbidigo]
+      # Prometheus collectors are the one allowed global
+      - path: internal/obs/
+        linters: [gochecknoglobals]
+      - path: _test\.go
+        linters: [wrapcheck, gosec]

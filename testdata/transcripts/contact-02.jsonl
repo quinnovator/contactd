@@ -1,0 +1,110 @@
+{"t":0,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":12,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":121,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":142,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":236839,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":236861,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":237008,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":237018,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":237109,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":237132,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":572672,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":572688,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":572788,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":572800,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":572928,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":572951,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":573058,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":573073,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":675704,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":675711,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":675875,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":675897,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":675923,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":675945,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":919012,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":919023,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":919070,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":919088,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":919188,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":919200,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1047134,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1047149,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1047169,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1047176,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1116142,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":1116155,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1116227,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":1116249,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":1457743,"role":"user","text":"about guitar practice again, how many minutes a day did you suggest","topic":"guitar","callback":true}
+{"t":1457758,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1457896,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":1457911,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1457979,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1457996,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1458042,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1458056,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1779177,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1779184,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1779243,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1779250,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1950210,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":1950226,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1950265,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1950281,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2166044,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":2166054,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":2166127,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":2166148,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":2166310,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":2166323,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":2166438,"role":"user","text":"when should I add compost to the raised bed","topic":"garden"}
+{"t":2166442,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":2486556,"role":"user","text":"about that postgres migration from before, what lock_timeout did you suggest","topic":"postgres","callback":true}
+{"t":2486570,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":2486691,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":2486713,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":2486812,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":2486822,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":2612217,"role":"user","text":"remind me about lisbon, how do I get from the airport with luggage","topic":"lisbon","callback":true}
+{"t":2612238,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":2612322,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":2612339,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":2861019,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":2861041,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":2861193,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":2861200,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":3013363,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":3013372,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":3013524,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":3013537,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":3013618,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":3013637,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3013721,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":3013741,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":3206236,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":3206254,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":3206393,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":3206401,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":3206474,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":3206480,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":3273854,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":3273875,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":3273962,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":3273980,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":3274064,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":3274074,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3274124,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":3274134,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":3298939,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":3298946,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":3299101,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":3299114,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":3578070,"role":"user","text":"about that postgres migration from before, what lock_timeout did you suggest","topic":"postgres","callback":true}
+{"t":3578087,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":3578136,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":3578140,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":3578272,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":3578276,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":3578376,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":3578383,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}

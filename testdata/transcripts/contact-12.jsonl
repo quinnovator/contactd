@@ -1,0 +1,100 @@
+{"t":0,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":17,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":70,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":92,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":235543,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":235558,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":235677,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":235689,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":313469,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":313475,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":313503,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":313521,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":313552,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":313572,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":535573,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":535579,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":535702,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":535724,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":535774,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":535791,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":772663,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":772679,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":772828,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":772846,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":773023,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":773042,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":773129,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":773143,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":888909,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":888924,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":889099,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":889116,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":889255,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":889270,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":889309,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":889323,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1208014,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":1208025,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1208045,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":1208058,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":1232303,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":1232321,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":1232474,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":1232491,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":1232650,"role":"user","text":"we rolled back the deployment and the oomkills stopped","topic":"kubernetes"}
+{"t":1232666,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":1232741,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":1232748,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":1540421,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":1540439,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":1540604,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":1540613,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":1540644,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":1540661,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":1804167,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1804181,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1804333,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":1804355,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1804442,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":1804449,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1804521,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":1804534,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2068283,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":2068306,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":2068450,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":2068465,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":2068532,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":2068546,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":2068652,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":2068664,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":2273453,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":2273464,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":2273532,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":2273542,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":2349484,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":2349501,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":2349524,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":2349546,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":2349706,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":2349711,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":2611794,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":2611817,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2611958,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":2611968,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":2859085,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":2859093,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":2859146,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":2859156,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":2859232,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":2859240,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2859338,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":2859350,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":3171664,"role":"user","text":"back to the marathon training, how much slower should the long run be","topic":"marathon","callback":true}
+{"t":3171679,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3171796,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":3171818,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":3171967,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":3171978,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":3172077,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":3172091,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}

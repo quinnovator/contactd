@@ -1,0 +1,20 @@
+tools [{"description":"Run Python.","env":{"base":"python-3.12","network":false,"packages":[],"tier":0},"name":"python"},{"description":"Run a shell command.","env":{"base":"debian","network":true,"packages":["jq","curl"],"tier":1},"name":"shell"}]
+tier 0 static hash=0b4dc9b472f223ce tokens=74
+  {"role":"system","text":"You are Ada, a thoughtful colleague."}
+tier 1 profile hash=0000000000000000 tokens=0
+tier 2 recall hash=0000000000000000 tokens=0
+tier 3 tail hash=e47c56542ed0d3bb tokens=63
+  {"role":"user","text":"tell me a long story"}
+  {"role":"assistant","text":"Once upon a\n\n[this reply was cut off before it finished]"}
+  {"role":"user","text":"actually, run this"}
+  {"role":"assistant","tool_call":{"code":"import time; time.sleep(999)","id":"c2","name":"python"}}
+  {"role":"tool","tool_result":{"id":"c2","is_error":true,"output":"[no result: the tool run did not finish]"}}
+tier 4 live hash=73f3dcea777989f8 tokens=21
+  {"role":"user","text":"never mind"}
+  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday)</now>"}
+chain 0 7b86d10b8f809363
+chain 1 53a5507f4d9404f7
+chain 2 e58ed09a9cd3ccb6
+chain 3 723b28e838cda542
+chain 4 cc9c6126b8c55480
+recall [] tail_from 1

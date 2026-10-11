@@ -1,0 +1,96 @@
+{"t":0,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":15,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":153,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":160,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":324,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":328,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":417,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":430,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":4408,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":4429,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":4570,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":4588,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":4698,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":4703,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":4834,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":4848,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":138291,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":138307,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":138453,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":138474,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":420835,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":420846,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":420866,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":420872,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":420998,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":421002,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":463593,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":463610,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":463654,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":463671,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":463748,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":463753,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":463794,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":463798,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":558467,"role":"user","text":"about the sourdough starter again, which flour wakes it up faster","topic":"sourdough","callback":true}
+{"t":558479,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":558624,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":558631,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":558685,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":558708,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":872918,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":872929,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":873074,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":873097,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":873201,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":873209,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1070060,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1070065,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1070231,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":1070237,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1070275,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":1070298,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1334829,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":1334836,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1334980,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":1334993,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1335119,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1335133,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1423046,"role":"user","text":"memory limits are set to two gigabytes on the api deployment","topic":"kubernetes"}
+{"t":1423064,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":1423223,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":1423236,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":1567917,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":1567921,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":1567948,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":1567954,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":1568013,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":1568031,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1914940,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1914958,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1915128,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":1915133,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1915164,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":1915176,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2050145,"role":"user","text":"about those kubernetes pods again, what did the rollback tell us","topic":"kubernetes","callback":true}
+{"t":2050163,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":2050326,"role":"user","text":"memory limits are set to two gigabytes on the api deployment","topic":"kubernetes"}
+{"t":2050341,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":2227788,"role":"user","text":"back to the sourdough, why did you say my loaf came out gummy","topic":"sourdough","callback":true}
+{"t":2227801,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":2227827,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":2227847,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":2227872,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":2227892,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2527656,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":2527669,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":2527763,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":2527767,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":2527938,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":2527946,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2528108,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":2528113,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":2822100,"role":"user","text":"back to the sourdough, why did you say my loaf came out gummy","topic":"sourdough","callback":true}
+{"t":2822104,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":2822180,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":2822191,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}

@@ -1,0 +1,8 @@
+data: {"id":"chatcmpl-10","choices":[{"index":0,"delta":{"role":"assistant","content":"On it."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-10","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_half","type":"function","function":{"name":"python","arguments":"{\"code\": \"pri"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-10","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

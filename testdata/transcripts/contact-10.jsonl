@@ -1,0 +1,100 @@
+{"t":0,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":4,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":30,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":50,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":196,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":209,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":19678,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":19701,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":19785,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":19797,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":19959,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":19964,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":19992,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":20011,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":70724,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":70739,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":70896,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":70910,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":71049,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":71063,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":71203,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":71225,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":96348,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":96356,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":96407,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":96421,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":96535,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":96553,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":96670,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":96676,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":143589,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":143609,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":143779,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":143791,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":143866,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":143886,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":144008,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":144023,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":212880,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":212901,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":212948,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":212953,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":213017,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":213029,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":286138,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":286161,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":286222,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":286243,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":286408,"role":"user","text":"we rolled back the deployment and the oomkills stopped","topic":"kubernetes"}
+{"t":286414,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":286583,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":286597,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":494460,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":494479,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":494516,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":494521,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":494575,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":494590,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":644992,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":645009,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":645099,"role":"user","text":"memory limits are set to two gigabytes on the api deployment","topic":"kubernetes"}
+{"t":645108,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":645237,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":645255,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":887643,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":887651,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":887795,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":887813,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":887873,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":887892,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1207827,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":1207847,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":1207943,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":1207956,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":1208122,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":1208126,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":1208199,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":1208213,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1350721,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1350738,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1350768,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":1350787,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1562542,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":1562565,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1562678,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1562686,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1562773,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":1562777,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1907321,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":1907341,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":1907382,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":1907393,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":1907436,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":1907456,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":1907477,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":1907489,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":2053634,"role":"user","text":"back to the tax return, can I deduct the home office while renting","topic":"taxes","callback":true}
+{"t":2053647,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2053791,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":2053801,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}

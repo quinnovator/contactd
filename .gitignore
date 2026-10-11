@@ -1,0 +1,13 @@
+# Native libraries and WASM runtimes, fetched by mise tasks and pinned by checksum.
+/third_party/
+# ONNX models, produced by `mise run models:fetch`.
+/models/
+# Build output and local data.
+/bin/
+/data/
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+.venv/
+/replay-results.json

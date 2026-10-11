@@ -1,0 +1,12 @@
+.git
+bin
+data
+*.db
+*.db-shm
+*.db-wal
+third_party
+docs
+testdata
+**/__pycache__
+# The image ships the int8 models only.
+models/**/model.onnx

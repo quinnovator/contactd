@@ -1,0 +1,6 @@
+data: {"id":"chatcmpl-5","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_bad","type":"function","function":{"name":"python","arguments":"{\"code\": \"print(\"oops\")\"}"}}]},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-5","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: [DONE]
+

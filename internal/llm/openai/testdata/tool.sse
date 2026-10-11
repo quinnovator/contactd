@@ -1,0 +1,20 @@
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"role":"assistant","content":"Let me "},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"content":"check."},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_abc123","type":"function","function":{"name":"python","arguments":""}}]},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"co"}}]},"finish_reason":null}],"usage":null}
+
+: pause
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"de\": \"print(6 * 7)\\nprint(\\\"<done>\\\")\\n"}}]},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"}"}}]},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":null}
+
+data: {"id":"chatcmpl-2","object":"chat.completion.chunk","model":"gpt-test","choices":[],"usage":{"prompt_tokens":1520,"completion_tokens":41,"total_tokens":1561,"prompt_tokens_details":{"cached_tokens":1500}}}
+
+data: [DONE]
+

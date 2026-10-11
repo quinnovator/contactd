@@ -1,0 +1,118 @@
+{"t":0,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":10,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":61,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":74,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":206,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":217,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":75036,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":75044,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":75188,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":75203,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":312143,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":312147,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":312324,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":312330,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":312395,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":312414,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":494701,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":494719,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":494889,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":494903,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":494967,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":494975,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":495030,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":495038,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":662287,"role":"user","text":"back to the garden, why are the tomato leaves turning yellow","topic":"garden","callback":true}
+{"t":662309,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":662335,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":662339,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":662466,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":662486,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":662544,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":662552,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":828949,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":828955,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":829020,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":829037,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":956800,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":956815,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":956902,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":956909,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1105927,"role":"user","text":"about the tomatoes again, how often did you say to water them","topic":"garden","callback":true}
+{"t":1105950,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1106071,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":1106088,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1259516,"role":"user","text":"back to the garden, why are the tomato leaves turning yellow","topic":"garden","callback":true}
+{"t":1259520,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":1259560,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":1259583,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1259656,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":1259660,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1294361,"role":"user","text":"back to the tax return, can I deduct the home office while renting","topic":"taxes","callback":true}
+{"t":1294367,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1294460,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1294471,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1294557,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":1294568,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":1294603,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":1294619,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1468496,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":1468506,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":1468542,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":1468560,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":1610722,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":1610744,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1610822,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":1610845,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1693174,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":1693181,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1693216,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1693222,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1777952,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":1777972,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":1778143,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":1778147,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1934402,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1934411,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1934512,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":1934529,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1934708,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1934729,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1934784,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1934797,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":2217479,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":2217493,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":2217584,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":2217604,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":2504333,"role":"user","text":"memory limits are set to two gigabytes on the api deployment","topic":"kubernetes"}
+{"t":2504346,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":2504378,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":2504401,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":2504536,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":2504552,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":2504676,"role":"user","text":"we rolled back the deployment and the oomkills stopped","topic":"kubernetes"}
+{"t":2504699,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":2834769,"role":"user","text":"about that postgres migration from before, what lock_timeout did you suggest","topic":"postgres","callback":true}
+{"t":2834786,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":2834851,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":2834868,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":2834958,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":2834967,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":2835126,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":2835143,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":3098545,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":3098567,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":3098644,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":3098661,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":3098702,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":3098725,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":3098826,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":3098838,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":3360829,"role":"user","text":"about the tomatoes again, how often did you say to water them","topic":"garden","callback":true}
+{"t":3360837,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":3360971,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":3360989,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":3361076,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":3361097,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":3361205,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":3361225,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}

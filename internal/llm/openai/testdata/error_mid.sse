@@ -1,0 +1,4 @@
+data: {"id":"chatcmpl-8","choices":[{"index":0,"delta":{"role":"assistant","content":"Half a rep"},"finish_reason":null}]}
+
+data: {"error":{"message":"The server had an error while processing your request.","type":"server_error","param":null,"code":null}}
+

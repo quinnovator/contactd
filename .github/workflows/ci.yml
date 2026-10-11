@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs every tool at the version in mise.toml / mise.lock, so CI and
+      # local runs are identical.
+      - uses: jdx/mise-action@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: go-${{ runner.os }}-${{ hashFiles('go.sum') }}
+          restore-keys: go-${{ runner.os }}-
+
+      # Native libraries, WASM runtimes and exported models are pinned by the
+      # scripts that fetch them, so their hashes are a complete cache key.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            third_party
+            models
+          key: artifacts-${{ runner.os }}-${{ hashFiles('scripts/**') }}
+
+      # Each gate is a mise task; `mise run ci` runs the same list locally.
+      - name: Formatting, linters, SQL style
+        run: mise run lint
+      - name: Stale go.mod or generated query code
+        run: mise run gen:check
+      - name: Unit, inference and integration tests
+        run: mise run test:all
+      - name: Known vulnerabilities
+        run: mise run vuln

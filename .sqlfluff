@@ -1,0 +1,8 @@
+[sqlfluff]
+dialect = sqlite
+max_line_length = 100
+# sqlc reads `?` placeholders and `-- name:` annotations as plain SQL.
+templater = raw
+
+[sqlfluff:indentation]
+tab_space_size = 4

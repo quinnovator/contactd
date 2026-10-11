@@ -1,0 +1,110 @@
+{"t":0,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":20,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":151,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":162,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":243,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":255,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":59102,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":59123,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":59215,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":59227,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":59262,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":59281,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":345895,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":345906,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":346004,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":346012,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":346164,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":346185,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":346209,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":346222,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":627386,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":627406,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":627526,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":627536,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":873260,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":873283,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":873416,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":873430,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":873609,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":873620,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1202290,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":1202304,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1202332,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":1202343,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1202378,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":1202389,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1206581,"role":"user","text":"back to the postgres thing, did we decide to build the orders index concurrently","topic":"postgres","callback":true}
+{"t":1206596,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1206669,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":1206673,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":1404071,"role":"user","text":"back to the guitar, why does my barre chord buzz","topic":"guitar","callback":true}
+{"t":1404093,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1404271,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1404285,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1727116,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1727128,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1727228,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":1727239,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1727268,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1727288,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1727414,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":1727430,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1839428,"role":"user","text":"back to the guitar, why does my barre chord buzz","topic":"guitar","callback":true}
+{"t":1839432,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1839496,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":1839513,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1839589,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1839609,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":2026276,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":2026298,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":2026387,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":2026404,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":2026438,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":2026461,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":2026625,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":2026632,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":2068236,"role":"user","text":"back to the guitar, why does my barre chord buzz","topic":"guitar","callback":true}
+{"t":2068248,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":2068383,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":2068402,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":2068474,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":2068486,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":2068595,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":2068606,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":2103778,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":2103787,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":2103815,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":2103837,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2103914,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":2103929,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":2104032,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":2104042,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":2111890,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":2111897,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":2111951,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":2111955,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":2447806,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":2447820,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":2447854,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":2447871,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":2447990,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":2447997,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":2533664,"role":"user","text":"back to the guitar, why does my barre chord buzz","topic":"guitar","callback":true}
+{"t":2533678,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":2533734,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":2533746,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":2846178,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":2846186,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":2846321,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":2846328,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2846482,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":2846505,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":2891492,"role":"user","text":"back to the sourdough, why did you say my loaf came out gummy","topic":"sourdough","callback":true}
+{"t":2891502,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":2891597,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":2891615,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":2891781,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":2891785,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2891956,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":2891979,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}

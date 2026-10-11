@@ -1,0 +1,112 @@
+{"t":0,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":13,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":186,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":201,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":344,"role":"user","text":"when should I add compost to the raised bed","topic":"garden"}
+{"t":358,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":235455,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":235471,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":235598,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":235614,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":235764,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":235782,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":266096,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":266118,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":266213,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":266232,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":270994,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":270999,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":271123,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":271131,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":271229,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":271251,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":279806,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":279824,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":279989,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":280002,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":280028,"role":"user","text":"we rolled back the deployment and the oomkills stopped","topic":"kubernetes"}
+{"t":280034,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":522077,"role":"user","text":"about guitar practice again, how many minutes a day did you suggest","topic":"guitar","callback":true}
+{"t":522092,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":522115,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":522128,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":751102,"role":"user","text":"back to the guitar, why does my barre chord buzz","topic":"guitar","callback":true}
+{"t":751115,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":751255,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":751262,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":906885,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":906906,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":907023,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":907036,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":907062,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":907077,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":1039065,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1039085,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1039208,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":1039221,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1039302,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":1039308,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":1309938,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":1309959,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":1310007,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":1310030,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":1310172,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":1310184,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":1310348,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":1310369,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":1371325,"role":"user","text":"about my taxes again, when are the quarterly payments due","topic":"taxes","callback":true}
+{"t":1371337,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":1371439,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":1371460,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1648374,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":1648386,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":1648485,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":1648505,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":1648569,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":1648579,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":1648694,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":1648701,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":1751774,"role":"user","text":"back to the sourdough, why did you say my loaf came out gummy","topic":"sourdough","callback":true}
+{"t":1751782,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1751946,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":1751969,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1752112,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":1752121,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1752199,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":1752218,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1985056,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":1985070,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1985211,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1985224,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1985336,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1985354,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":2282990,"role":"user","text":"about my taxes again, when are the quarterly payments due","topic":"taxes","callback":true}
+{"t":2283001,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":2283073,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":2283085,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2283160,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":2283180,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":2283299,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":2283307,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":2447270,"role":"user","text":"about my taxes again, when are the quarterly payments due","topic":"taxes","callback":true}
+{"t":2447275,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":2447436,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":2447459,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":2447488,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":2447510,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":2447596,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":2447605,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":2724473,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":2724486,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":2724660,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":2724680,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":2724847,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":2724862,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3013079,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":3013097,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3013143,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":3013166,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":3013247,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":3013263,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":3013327,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":3013339,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}

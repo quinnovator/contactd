@@ -1,0 +1,93 @@
+# One file defines how the repo is built, linted and tested. `mise install`
+# puts every tool at the version CI uses; exact versions and checksums are in
+# mise.lock (regenerate with `mise lock`).
+
+[tools]
+# 1.25, which the design doc names, is past end of support and fails the
+# vuln gate: its net/http fixes landed in 1.26.9. 1.26 has everything the doc
+# relies on.
+go = "1.26.9"
+golangci-lint = "2"
+sqlc = "1"
+"go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+"pipx:sqlfluff" = "3"
+uv = "latest"          # runs scripts/*.py (ONNX export, quantization)
+
+[env]
+CGO_ENABLED = "1"
+# The pinned toolchain is the toolchain: never let go.mod fetch another.
+GOTOOLCHAIN = "local"
+CGO_LDFLAGS = "-L{{config_root}}/third_party/lib"
+LD_LIBRARY_PATH = "{{config_root}}/third_party/lib"
+DYLD_LIBRARY_PATH = "{{config_root}}/third_party/lib"
+ONNXRUNTIME_LIB_DIR = "{{config_root}}/third_party/lib"
+# ONNX Runtime 1.24 on Apple Silicon miscomputes when a signal lands
+# mid-inference, and Go preempts goroutines with signals. Harmless elsewhere.
+GODEBUG = "asyncpreemptoff=1"
+
+[tasks."deps:native"]
+description = "Fetch pinned libonnxruntime + libtokenizers.a into third_party/lib"
+run = "./scripts/fetch-native-deps.sh"
+sources = ["scripts/fetch-native-deps.sh"]
+outputs = { auto = true }
+
+[tasks."deps:wasm"]
+description = "Fetch the pinned tier-0 WASM runtimes into third_party/wasm"
+run = "./scripts/fetch-wasm-runtimes.sh"
+sources = ["scripts/fetch-wasm-runtimes.sh"]
+outputs = { auto = true }
+
+[tasks."models:fetch"]
+description = "Download, export and quantize the embedder + reranker into models/"
+run = "uv run scripts/export_onnx.py --out models/"
+sources = ["scripts/export_onnx.py", "scripts/quantize.py"]
+outputs = ["models/embedder/model_int8.onnx", "models/reranker/model_int8.onnx"]
+
+[tasks.fmt]
+description = "Format Go (gofumpt + gci)"
+run = "golangci-lint fmt"
+
+[tasks.lint]
+description = "Formatting drift, every linter, and SQL style"
+run = ["golangci-lint fmt --diff", "golangci-lint run", "sqlfluff lint sql/ --dialect sqlite"]
+
+[tasks.gen]
+description = "Regenerate typed query code from sql/queries"
+run = "sqlc generate"
+
+[tasks."gen:check"]
+description = "Fail on a stale go.mod or stale generated query code"
+run = ["go mod tidy -diff", "sqlc diff"]
+
+[tasks.build]
+description = "Build contactd with the ONNX Runtime backend"
+depends = ["deps:native"]
+run = "go build -tags ORT -trimpath -o bin/contactd ./cmd/contactd"
+
+[tasks.test]
+description = "Unit tests: needs cgo for SQLite only"
+run = "go test -race -shuffle=on ./..."
+
+[tasks."test:all"]
+description = "Unit, inference (ORT) and integration tests"
+depends = ["deps:native", "deps:wasm", "models:fetch"]
+run = "go test -race -shuffle=on -tags ORT,integration ./..."
+
+[tasks.vuln]
+run = "govulncheck ./..."
+
+[tasks.bench]
+description = "Micro-benchmarks, then the cache simulator and recall benchmark"
+run = ["go test -run '^$' -bench . -benchtime 1s ./internal/...", "go run ./cmd/replay -fixtures testdata/transcripts -sweep"]
+
+[tasks.replay]
+description = "Cache simulator + recall benchmark over testdata transcripts"
+run = "go run ./cmd/replay -fixtures testdata/transcripts"
+
+[tasks.image]
+description = "Build the container image"
+run = "docker build -f deploy/Dockerfile -t contactd:dev ."
+
+[tasks.ci]
+description = "Everything CI runs, in order"
+run = ["mise run lint", "mise run gen:check", "mise run test:all", "mise run vuln"]

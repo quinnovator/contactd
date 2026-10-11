@@ -1,0 +1,68 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            third_party
+            models
+          key: artifacts-${{ runner.os }}-${{ hashFiles('scripts/**') }}
+
+      - name: Micro-benchmarks
+        run: go test -run '^$' -bench . -benchtime 1s ./internal/... | tee bench.txt
+
+      - name: Cache simulator and recall benchmark (real models)
+        run: |
+          mise run deps:native
+          mise run models:fetch
+          go run -tags ORT ./cmd/replay -infer ort -sweep -out replay-results.json | tee replay.txt
+
+      # Results are kept for trend and compared against the last run.
+      - name: Restore the previous results
+        uses: actions/cache/restore@v4
+        with:
+          path: previous
+          key: replay-results-${{ github.run_id }}
+          restore-keys: replay-results-
+
+      - name: Compare against the last run
+        run: |
+          now=$(jq '.variants[0].warm_cached_share' replay-results.json)
+          rr=$(jq '.variants[0].recall_at_4_rerank' replay-results.json)
+          echo "warm cached share: $now   recall@4 with rerank: $rr"
+          if [ -f previous/replay-results.json ]; then
+            was=$(jq '.variants[0].warm_cached_share' previous/replay-results.json)
+            was_rr=$(jq '.variants[0].recall_at_4_rerank' previous/replay-results.json)
+            echo "last run:          $was   $was_rr"
+            # Fail on a drop of more than two points in either headline number.
+            jq -en --argjson a "$now" --argjson b "$was" --argjson c "$rr" --argjson d "$was_rr" \
+              '($a >= $b - 0.02) and ($c >= $d - 0.02)' > /dev/null
+          fi
+          mkdir -p previous && cp replay-results.json previous/
+
+      - uses: actions/cache/save@v4
+        with:
+          path: previous
+          key: replay-results-${{ github.run_id }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-${{ github.run_id }}
+          path: |
+            bench.txt
+            replay.txt
+            replay-results.json

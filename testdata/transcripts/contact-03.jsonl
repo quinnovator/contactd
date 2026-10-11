@@ -1,0 +1,94 @@
+{"t":0,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":17,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":168,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":191,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":40660,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":40671,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":40718,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":40724,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":171340,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":171362,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":171462,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":171484,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":220937,"role":"user","text":"back to the garden, why are the tomato leaves turning yellow","topic":"garden","callback":true}
+{"t":220959,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":221022,"role":"user","text":"when should I add compost to the raised bed","topic":"garden"}
+{"t":221031,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":451900,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":451914,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":452036,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":452043,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":575496,"role":"user","text":"back to the garden, why are the tomato leaves turning yellow","topic":"garden","callback":true}
+{"t":575512,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":575598,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":575603,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":786648,"role":"user","text":"memory limits are set to two gigabytes on the api deployment","topic":"kubernetes"}
+{"t":786666,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":786762,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":786782,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":819217,"role":"user","text":"back to the tax return, can I deduct the home office while renting","topic":"taxes","callback":true}
+{"t":819233,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":819386,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":819404,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":977989,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":977994,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":978061,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":978079,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":978181,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":978196,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":978330,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":978344,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1038951,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":1038966,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":1039050,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":1039062,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":1039105,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":1039112,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1039226,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":1039234,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":1200232,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":1200236,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1200284,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":1200290,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1447536,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":1447540,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1447574,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":1447588,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1447699,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1447716,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1500245,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":1500258,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":1500282,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":1500302,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":1500412,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":1500430,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":1500526,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":1500530,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":1845781,"role":"user","text":"back to the postgres thing, did we decide to build the orders index concurrently","topic":"postgres","callback":true}
+{"t":1845790,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":1845965,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":1845987,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":1846037,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":1846054,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":1954193,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":1954200,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1954296,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":1954319,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2291375,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":2291387,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":2291543,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":2291552,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":2291695,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":2291700,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":2291842,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":2291851,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":2600986,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":2600991,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2601084,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":2601099,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":2734814,"role":"user","text":"the postgres migration is stuck on the orders table again","topic":"postgres"}
+{"t":2734818,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":2734901,"role":"user","text":"autovacuum was running on orders when the migration started","topic":"postgres"}
+{"t":2734913,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":2735037,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":2735047,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}

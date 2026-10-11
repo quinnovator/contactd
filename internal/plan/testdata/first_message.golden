@@ -1,0 +1,15 @@
+tools [{"description":"Run Python.","env":{"base":"python-3.12","network":false,"packages":[],"tier":0},"name":"python"},{"description":"Run a shell command.","env":{"base":"debian","network":true,"packages":["jq","curl"],"tier":1},"name":"shell"}]
+tier 0 static hash=0b4dc9b472f223ce tokens=74
+  {"role":"system","text":"You are Ada, a thoughtful colleague."}
+tier 1 profile hash=0000000000000000 tokens=0
+tier 2 recall hash=0000000000000000 tokens=0
+tier 3 tail hash=0000000000000000 tokens=0
+tier 4 live hash=bf56f0068722b909 tokens=23
+  {"role":"user","text":"hey, are you around?"}
+  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday)</now>"}
+chain 0 7b86d10b8f809363
+chain 1 53a5507f4d9404f7
+chain 2 e58ed09a9cd3ccb6
+chain 3 8ba95ad737e7cca1
+chain 4 52d955dd23068840
+recall [] tail_from 1

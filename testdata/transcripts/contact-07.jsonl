@@ -1,0 +1,114 @@
+{"t":0,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":7,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":176,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":186,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":285,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":298,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":336,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":341,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":276751,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":276767,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":276893,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":276899,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":277010,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":277028,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":277069,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":277080,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":385848,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":385860,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":386005,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":386021,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":583024,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":583039,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":583163,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":583173,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":610213,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":610234,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":610312,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":610323,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":638496,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":638512,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":638661,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":638681,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":811315,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":811326,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":811431,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":811451,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":811623,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":811633,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":811681,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":811700,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":969669,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":969676,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":969780,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":969784,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":969870,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":969879,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":970048,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":970070,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":987728,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":987742,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":987817,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":987822,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1195285,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":1195294,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1195472,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":1195493,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1280974,"role":"user","text":"when should I add compost to the raised bed","topic":"garden"}
+{"t":1280981,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1281148,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":1281160,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1295369,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":1295381,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1295424,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":1295442,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1295573,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1295592,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1295632,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":1295646,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1432157,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1432172,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1432280,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1432286,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1432358,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":1432378,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1555359,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":1555379,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1555404,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":1555412,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1555518,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":1555538,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1653938,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":1653950,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1654061,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":1654073,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1654197,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":1654205,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":1654344,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":1654356,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1680898,"role":"user","text":"back to the sourdough, why did you say my loaf came out gummy","topic":"sourdough","callback":true}
+{"t":1680920,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1680940,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":1680950,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1886007,"role":"user","text":"about the sourdough starter again, which flour wakes it up faster","topic":"sourdough","callback":true}
+{"t":1886021,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1886090,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":1886101,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":2154519,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":2154526,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":2154702,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":2154723,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":2154801,"role":"user","text":"we rolled back the deployment and the oomkills stopped","topic":"kubernetes"}
+{"t":2154818,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":2163585,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":2163595,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":2163716,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":2163737,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":2163833,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":2163853,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2227420,"role":"user","text":"the kubernetes pods keep getting oomkilled in production","topic":"kubernetes"}
+{"t":2227443,"role":"agent","text":"An OOMKilled pod at exactly its limit points to a leak or an undersized limit; look at the heap profile.","topic":"kubernetes"}
+{"t":2227548,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":2227558,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":2227603,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":2227621,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}

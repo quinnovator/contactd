@@ -1,0 +1,6 @@
+data: {"id":"chatcmpl-6","choices":[{"index":0,"delta":{"role":"assistant","content":"Sure, the first"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-6","choices":[{"index":0,"delta":{},"finish_reason":"content_filter"}]}
+
+data: [DONE]
+

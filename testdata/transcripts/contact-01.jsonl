@@ -1,0 +1,130 @@
+{"t":0,"role":"user","text":"can we create the index concurrently instead of inside the migration","topic":"postgres"}
+{"t":8,"role":"agent","text":"Forty million rows is fine for a concurrent index build; expect it to take a while and watch replication lag.","topic":"postgres"}
+{"t":44,"role":"user","text":"it says lock timeout while adding the index to orders","topic":"postgres"}
+{"t":61,"role":"agent","text":"A lock timeout on orders usually means a long transaction is holding the table; check pg_stat_activity first.","topic":"postgres"}
+{"t":191,"role":"user","text":"the orders table has about forty million rows in postgres","topic":"postgres"}
+{"t":202,"role":"agent","text":"Create the index concurrently outside the migration transaction so writes to orders are not blocked.","topic":"postgres"}
+{"t":269,"role":"user","text":"should I run the migration with a lower lock_timeout and retry","topic":"postgres"}
+{"t":287,"role":"agent","text":"Set lock_timeout to a few seconds and retry in a loop rather than waiting on the lock indefinitely.","topic":"postgres"}
+{"t":279994,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":280017,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":280161,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":280168,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":280276,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":280298,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":343697,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":343714,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":343842,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":343855,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":344004,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":344024,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":344177,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":344196,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":424559,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":424570,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":424736,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":424744,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":424862,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":424868,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":424963,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":424986,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":606532,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":606540,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":606691,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":606714,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":606818,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":606836,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":658509,"role":"user","text":"back to the marathon training, how much slower should the long run be","topic":"marathon","callback":true}
+{"t":658526,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":658693,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":658710,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":658770,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":658785,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":658930,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":658947,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":719469,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":719477,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":719580,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":719590,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":719726,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":719745,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":719827,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":719831,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":899125,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":899130,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":899228,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":899232,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":968184,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":968192,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":968243,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":968266,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1180452,"role":"user","text":"should I use bread flour or whole wheat for the starter","topic":"sourdough"}
+{"t":1180472,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1180544,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1180563,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1180637,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":1180644,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1282671,"role":"user","text":"about my marathon again, how long did you say the taper should be","topic":"marathon","callback":true}
+{"t":1282675,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":1282747,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":1282760,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":1282783,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":1282795,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":1282906,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":1282921,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":1407804,"role":"user","text":"how long should the bulk ferment be for sourdough","topic":"sourdough"}
+{"t":1407825,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1407977,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":1407995,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1408104,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1408119,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1408240,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":1408249,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1524715,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1524736,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1524858,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":1524862,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1525025,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1525041,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1525168,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1525175,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1793500,"role":"user","text":"about the sourdough starter again, which flour wakes it up faster","topic":"sourdough","callback":true}
+{"t":1793516,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":1793629,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":1793641,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":1793810,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":1793821,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":1793885,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":1793902,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":1862447,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1862451,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1862533,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":1862550,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1862650,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1862663,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":2162952,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":2162970,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":2163075,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":2163079,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":2163231,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":2163252,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":2508864,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":2508880,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":2508947,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":2508962,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":2709202,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":2709213,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":2709271,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":2709277,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":3000601,"role":"user","text":"the horizontal pod autoscaler is not scaling the deployment","topic":"kubernetes"}
+{"t":3000621,"role":"agent","text":"Raising the limit buys time, but the rollback fixing it means the new release leaks memory.","topic":"kubernetes"}
+{"t":3000713,"role":"user","text":"should I raise the limit or fix the leak in the api service","topic":"kubernetes"}
+{"t":3000733,"role":"agent","text":"The autoscaler scales on CPU by default, so memory pressure alone will not trigger it.","topic":"kubernetes"}
+{"t":3000781,"role":"user","text":"the node shows memory pressure in kubectl describe","topic":"kubernetes"}
+{"t":3000789,"role":"agent","text":"Set requests close to real usage so the scheduler does not overpack the node.","topic":"kubernetes"}
+{"t":3203608,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":3203625,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":3203770,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":3203783,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":3203958,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":3203968,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}

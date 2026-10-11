@@ -1,0 +1,17 @@
+tools [{"description":"Run Python.","env":{"base":"python-3.12","network":false,"packages":[],"tier":0},"name":"python"},{"description":"Run a shell command.","env":{"base":"debian","network":true,"packages":["jq","curl"],"tier":1},"name":"shell"}]
+tier 0 static hash=0b4dc9b472f223ce tokens=74
+  {"role":"system","text":"You are Ada, a thoughtful colleague."}
+tier 1 profile hash=0000000000000000 tokens=0
+tier 2 recall hash=0000000000000000 tokens=0
+tier 3 tail hash=0000000000000000 tokens=0
+tier 4 live hash=e5f81fae0d616ff3 tokens=40
+  {"role":"user","text":"what is 6 * 7?"}
+  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday)</now>"}
+  {"role":"assistant","text":"Let me compute that.","tool_call":{"code":"print(6*7)","id":"c9","name":"python"}}
+  {"role":"tool","tool_result":{"id":"c9","is_error":false,"output":"42"}}
+chain 0 7b86d10b8f809363
+chain 1 53a5507f4d9404f7
+chain 2 e58ed09a9cd3ccb6
+chain 3 8ba95ad737e7cca1
+chain 4 840395e07222a628
+recall [] tail_from 1

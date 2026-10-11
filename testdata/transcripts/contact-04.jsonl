@@ -1,0 +1,88 @@
+{"t":0,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":17,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":103,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":121,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":33318,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":33324,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":33492,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":33515,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":33648,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":33653,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":33797,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":33815,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":335024,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":335037,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":335151,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":335156,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":353258,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":353277,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":353312,"role":"user","text":"I signed up for a marathon in october and need a training plan","topic":"marathon"}
+{"t":353335,"role":"agent","text":"A two week taper suits most first marathons; cut volume and keep a little intensity.","topic":"marathon"}
+{"t":353442,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":353453,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":372977,"role":"user","text":"about guitar practice again, how many minutes a day did you suggest","topic":"guitar","callback":true}
+{"t":372984,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":373043,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":373062,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":373129,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":373137,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":373305,"role":"user","text":"should I learn scales or songs first","topic":"guitar"}
+{"t":373325,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":596193,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":596214,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":596381,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":596403,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":596558,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":596566,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":627588,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":627610,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":627669,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":627676,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":891403,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":891416,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":891546,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":891560,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":891660,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":891665,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1151039,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":1151056,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1151079,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":1151102,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1151153,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":1151160,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1151250,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":1151273,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1225118,"role":"user","text":"remind me about lisbon, how do I get from the airport with luggage","topic":"lisbon","callback":true}
+{"t":1225123,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1225277,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":1225282,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1225388,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1225393,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1387270,"role":"user","text":"my guitar action feels high near the twelfth fret","topic":"guitar"}
+{"t":1387285,"role":"agent","text":"Lighter gauge strings are kinder to a beginner's fingers.","topic":"guitar"}
+{"t":1387335,"role":"user","text":"the f major barre chord always buzzes on the b string","topic":"guitar"}
+{"t":1387352,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1387485,"role":"user","text":"I am learning guitar and the barre chords hurt my hand","topic":"guitar"}
+{"t":1387503,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1441929,"role":"user","text":"about my taxes again, when are the quarterly payments due","topic":"taxes","callback":true}
+{"t":1441933,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1442092,"role":"user","text":"my accountant asked for a mileage log","topic":"taxes"}
+{"t":1442113,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1487708,"role":"user","text":"about my taxes again, when are the quarterly payments due","topic":"taxes","callback":true}
+{"t":1487723,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1487837,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1487857,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1487920,"role":"user","text":"when is the deadline for quarterly estimated tax payments","topic":"taxes"}
+{"t":1487937,"role":"agent","text":"Keep a mileage log with date, destination and purpose; reconstructing it later is painful.","topic":"taxes"}
+{"t":1488075,"role":"user","text":"I need to file my tax return and I have freelance income this year","topic":"taxes"}
+{"t":1488083,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":1695123,"role":"user","text":"about guitar practice again, how many minutes a day did you suggest","topic":"guitar","callback":true}
+{"t":1695142,"role":"agent","text":"High action near the twelfth fret makes barre chords much harder; a setup is worth it.","topic":"guitar"}
+{"t":1695255,"role":"user","text":"which strings are easier for a beginner","topic":"guitar"}
+{"t":1695266,"role":"agent","text":"Twenty focused minutes of guitar a day beats one long session a week.","topic":"guitar"}
+{"t":1695343,"role":"user","text":"how long should I practise guitar each day","topic":"guitar"}
+{"t":1695366,"role":"agent","text":"A buzzing barre chord usually means the index finger is too far from the fret; roll it onto its edge.","topic":"guitar"}
+{"t":1709305,"role":"user","text":"going back to the lisbon trip, which neighbourhood did you recommend over alfama","topic":"lisbon","callback":true}
+{"t":1709320,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1709439,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":1709452,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}

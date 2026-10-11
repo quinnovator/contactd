@@ -1,0 +1,92 @@
+{"t":0,"role":"user","text":"my sourdough starter is not rising after feeding","topic":"sourdough"}
+{"t":5,"role":"agent","text":"Whole wheat flour wakes a sluggish starter up faster than white bread flour.","topic":"sourdough"}
+{"t":36,"role":"user","text":"the kitchen is cold, maybe that slows the sourdough","topic":"sourdough"}
+{"t":46,"role":"agent","text":"A cold kitchen slows a starter a lot; keep it somewhere around twenty five degrees.","topic":"sourdough"}
+{"t":109,"role":"user","text":"the loaf came out dense with a gummy crumb","topic":"sourdough"}
+{"t":126,"role":"agent","text":"A dense gummy crumb usually means the dough was underproofed during the bulk ferment.","topic":"sourdough"}
+{"t":206,"role":"user","text":"I feed the starter equal parts flour and water every morning","topic":"sourdough"}
+{"t":216,"role":"agent","text":"Bulk ferment until the dough has grown by about half, not by the clock.","topic":"sourdough"}
+{"t":261127,"role":"user","text":"how fast should the long run pace be compared to race pace","topic":"marathon"}
+{"t":261149,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":261270,"role":"user","text":"my left knee aches after the interval sessions","topic":"marathon"}
+{"t":261287,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":261432,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":261441,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":465847,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":465866,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":465988,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":465998,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":666168,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":666178,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":666236,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":666246,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":749522,"role":"user","text":"remind me about lisbon, how do I get from the airport with luggage","topic":"lisbon","callback":true}
+{"t":749545,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":749697,"role":"user","text":"I am booking flights to lisbon for the conference in may","topic":"lisbon"}
+{"t":749704,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":749786,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":749800,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":749878,"role":"user","text":"is the tram from the airport to alfama easy with luggage","topic":"lisbon"}
+{"t":749900,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":773910,"role":"user","text":"the conference venue is near the river in lisbon","topic":"lisbon"}
+{"t":773915,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":773946,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":773969,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":778223,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":778246,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":778395,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":778409,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":778492,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":778506,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1097471,"role":"user","text":"remind me about lisbon, how do I get from the airport with luggage","topic":"lisbon","callback":true}
+{"t":1097485,"role":"agent","text":"Sintra is an easy day trip by train from Rossio station; go early to beat the crowds.","topic":"lisbon"}
+{"t":1097647,"role":"user","text":"which neighbourhood in lisbon should I stay in, alfama or baixa","topic":"lisbon"}
+{"t":1097657,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":1097802,"role":"user","text":"any restaurant in alfama you would book ahead","topic":"lisbon"}
+{"t":1097812,"role":"agent","text":"Alfama is charming but steep; Baixa is flatter and closer to the river venue.","topic":"lisbon"}
+{"t":1097873,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1097878,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1107804,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":1107814,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1107885,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":1107903,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1108042,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":1108065,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1108170,"role":"user","text":"when should I add compost to the raised bed","topic":"garden"}
+{"t":1108186,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":1244669,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":1244681,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
+{"t":1244724,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":1244736,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1244878,"role":"user","text":"the soil in the raised bed stays wet for days","topic":"garden"}
+{"t":1244891,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1244953,"role":"user","text":"I water the tomatoes every evening","topic":"garden"}
+{"t":1244972,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1314847,"role":"user","text":"should the laptop be deducted at once or depreciated","topic":"taxes"}
+{"t":1314864,"role":"agent","text":"Quarterly estimated payments are due in April, June, September and January.","topic":"taxes"}
+{"t":1315007,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1315018,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1431156,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":1431163,"role":"agent","text":"Yellow lower leaves on tomatoes with wet soil point to overwatering rather than a deficiency.","topic":"garden"}
+{"t":1431249,"role":"user","text":"should I prune the lower leaves off the tomato plants","topic":"garden"}
+{"t":1431266,"role":"agent","text":"Holes in basil are usually slugs; check after dark with a torch.","topic":"garden"}
+{"t":1431415,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":1431433,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":1482163,"role":"user","text":"I have receipts for a laptop and a monitor","topic":"taxes"}
+{"t":1482175,"role":"agent","text":"A home office is deductible when the space is used regularly and only for work, renting or owning.","topic":"taxes"}
+{"t":1482208,"role":"user","text":"can I deduct the home office if I rent the apartment","topic":"taxes"}
+{"t":1482217,"role":"agent","text":"A laptop under the threshold can usually be deducted in the year you bought it.","topic":"taxes"}
+{"t":1830357,"role":"user","text":"remind me about lisbon, how do I get from the airport with luggage","topic":"lisbon","callback":true}
+{"t":1830378,"role":"agent","text":"Book the flights soon, May fares to Lisbon rise quickly around conference dates.","topic":"lisbon"}
+{"t":1830427,"role":"user","text":"I want one free day to visit sintra from lisbon","topic":"lisbon"}
+{"t":1830440,"role":"agent","text":"Take the metro from the airport rather than the tram if you have luggage.","topic":"lisbon"}
+{"t":2100225,"role":"user","text":"what should I eat during the long run","topic":"marathon"}
+{"t":2100243,"role":"agent","text":"Take carbohydrate every forty minutes on the long run and practise it before race day.","topic":"marathon"}
+{"t":2100273,"role":"user","text":"should I taper for two weeks or three before the marathon","topic":"marathon"}
+{"t":2100292,"role":"agent","text":"Run the long run about a minute per kilometre slower than marathon race pace.","topic":"marathon"}
+{"t":2100314,"role":"user","text":"my long run is at eighteen kilometres right now","topic":"marathon"}
+{"t":2100326,"role":"agent","text":"A knee that aches after intervals wants a lighter week and some strength work.","topic":"marathon"}
+{"t":2290743,"role":"user","text":"the tomato plants in my garden have yellow leaves at the bottom","topic":"garden"}
+{"t":2290747,"role":"agent","text":"Water tomatoes deeply twice a week in the morning instead of a little every evening.","topic":"garden"}
+{"t":2290838,"role":"user","text":"something is eating holes in the basil","topic":"garden"}
+{"t":2290856,"role":"agent","text":"Prune the leaves that touch the soil; it improves airflow and slows blight.","topic":"garden"}
