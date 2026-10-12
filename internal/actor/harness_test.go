@@ -59,6 +59,16 @@ func (l *memLog) addContact(agent core.AgentConfig, profile string) core.Contact
 	return id
 }
 
+// setAgent changes a stored contact's agent config, as an operator moving a
+// contact to another model would.
+func (l *memLog) setAgent(id core.ContactID, mod func(*core.AgentConfig)) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	c := l.contacts[id]
+	mod(&c.Agent)
+	l.contacts[id] = c
+}
+
 // CreateContact implements actor.Creator.
 func (l *memLog) CreateContact(_ context.Context, agent core.AgentConfig, profile string, _ int64) (core.ContactID, error) {
 	return l.addContact(agent, profile), nil

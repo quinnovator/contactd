@@ -363,11 +363,11 @@ func (s *sink) ToolCall(_ context.Context, c core.ToolCall, enter func() bool) e
 	return nil
 }
 
-func (s *sink) ToolResult(_ context.Context, _ string, r core.ToolResult) error {
+func (s *sink) ToolResult(_ context.Context, _ string, r core.ToolResult, exit func() bool) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.results = append(s.results, r)
-	return nil
+	return exit(), nil
 }
 
 func (s *sink) Attempt(_ context.Context, a core.AttemptBody) {

@@ -389,9 +389,9 @@ func (r *run) prompt(system string, tools []core.ToolDef, user string) *plan.Pro
 		panic(err) // a struct of one string always encodes
 	}
 	p, err := plan.Build(nil, plan.Input{
-		Agent: &core.AgentConfig{System: system, Tools: tools},
-		Route: r.route.ID(),
-		Tail:  []core.Event{{Seq: 1, TS: r.o.Now, Kind: core.KindUserMsg, Body: body}},
+		Agent:  &core.AgentConfig{System: system, Tools: tools},
+		Reader: plan.Reader{Route: r.route.ID()},
+		Tail:   []core.Event{{Seq: 1, TS: r.o.Now, Kind: core.KindUserMsg, Body: body}},
 	}, nil, r.o.Now, plan.DefaultParams())
 	if err != nil {
 		panic(err) // the event above was built here and decodes

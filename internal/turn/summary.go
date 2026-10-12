@@ -66,6 +66,9 @@ type Fold struct {
 	Span     plan.Span
 	Affinity string
 	Effort   llm.Effort
+	// Turn is the turn whose prompt Plan is, so that the record of this
+	// request can be tied to the prompt it was cut from.
+	Turn uint64
 }
 
 // Checkpoint asks the contact's own route to summarize the oldest span of
@@ -80,7 +83,7 @@ func Checkpoint(ctx context.Context, m Models, f Fold) (string, *core.AttemptBod
 	text, att, err := complete(ctx, m, f.Route, p, llm.Options{Affinity: f.Affinity, Effort: f.Effort, MaxOutput: summaryMaxOutput})
 	var body *core.AttemptBody
 	if att != nil {
-		b := attemptBody(0, 0, "checkpoint", *att)
+		b := attemptBody(f.Turn, 0, "checkpoint", *att)
 		body = &b
 	}
 	return text, body, err
@@ -103,12 +106,19 @@ func complete(ctx context.Context, m Models, route llm.Route, p *plan.PromptPlan
 	if err != nil {
 		return "", &att, fmt.Errorf("model call: %w", err)
 	}
+	// Only a reply the model finished counts. Text that came with a tool
+	// call, a refusal or a cut-off is not a summary, and must not stand in
+	// for half a conversation.
 	text := strings.TrimSpace(out.Text)
 	switch {
-	case text == "":
-		return "", &att, fmt.Errorf("the model wrote no summary (stop: %s)", out.Stop)
 	case out.Stop == llm.StopLength:
 		return "", &att, errors.New("the summary was cut off at the output limit")
+	case len(out.ToolCalls) > 0:
+		return "", &att, errors.New("the model called a tool instead of writing a summary")
+	case out.Stop != llm.StopEnd:
+		return "", &att, fmt.Errorf("the model did not finish a summary (stop: %s)", out.Stop)
+	case text == "":
+		return "", &att, errors.New("the model wrote no summary")
 	}
 	return text, &att, nil
 }

@@ -28,10 +28,17 @@ func (p *PromptPlan) FoldSpan(pr Params) (Span, bool) {
 		return Span{}, false
 	}
 	target := int(float64(total) * pr.FoldFraction)
+	// A span has to hold at least one real turn. Where the tail opens with
+	// an earlier checkpoint, that summary alone is not something to fold:
+	// the result would cover nothing new and could never be applied.
+	first := 1
+	if src[0].ckpt != 0 {
+		first = 2
+	}
 	cut, removed := 0, 0
 	for i := 1; i < len(src); i++ {
 		removed += src[i-1].tokens
-		if src[i].boundary && removed >= target {
+		if i >= first && src[i].boundary && removed >= target {
 			cut = i
 			break
 		}
@@ -53,7 +60,9 @@ func (p *PromptPlan) FoldSpan(pr Params) (Span, bool) {
 	if src[0].ckpt != 0 {
 		s.From = src[0].ckptFrom
 	}
-	if s.To == 0 || s.To < s.From {
+	// The span must reach into the events the tail still shows verbatim;
+	// otherwise the planner would treat the checkpoint as already spent.
+	if s.To == 0 || s.To < s.From || s.To < p.TailFrom {
 		return Span{}, false
 	}
 	return s, true

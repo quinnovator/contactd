@@ -35,6 +35,8 @@ type Delegator interface {
 // Delegation is one request to start a sub-agent.
 type Delegation struct {
 	Task string
+	// Turn is the parent's turn that is delegating.
+	Turn uint64
 	// Agent is the parent's own config: the child gets its system prompt,
 	// tools and route.
 	Agent *core.AgentConfig

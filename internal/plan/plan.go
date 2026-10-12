@@ -66,7 +66,9 @@ type PromptPlan struct {
 	// Checkpoint is the seq of the checkpoint event whose summary opens
 	// tier 3, or 0 when there is none.
 	Checkpoint uint64
-	BuiltAt    int64 // unix ms
+	// BuiltAt is when the plan was built or, once it has been sent, when it
+	// was last sent, in unix ms. The cache's age is measured from it.
+	BuiltAt int64
 
 	// Tools ride along with the static tier, whose hash covers them. The
 	// plan says nothing about who it is for or which model reads it: a
@@ -127,9 +129,8 @@ type Recalled struct {
 type Input struct {
 	Agent   *core.AgentConfig
 	Profile string
-	// Route is the ID of the model route the prompt is for. A stored
-	// reasoning payload is rendered only when it came from this route.
-	Route string
+	// Reader is the model route the prompt is for.
+	Reader Reader
 	// Tail is the contact's hot window in ascending seq order. It ends with
 	// the user message(s) this turn answers.
 	Tail []core.Event
@@ -138,6 +139,21 @@ type Input struct {
 	// exact bytes Base's owner last sent and reads its cache. Recall is not
 	// consulted.
 	Base *PromptPlan
+}
+
+// Reader is who a prompt is laid out for. The same log renders differently
+// for different readers in two respects, both to do with reasoning.
+type Reader struct {
+	// Route is the model route's ID. A stored reasoning payload is rendered
+	// only when it came from this route.
+	Route string
+	// ReplaysAllTurns says the route must be given back the reasoning
+	// behind every earlier tool call. A tool exchange made by some other
+	// route, or logged before reasoning was kept, has none this route can
+	// take; it is rendered as plain text, so that the request is one the
+	// route accepts and the model still sees what was run and what came
+	// back.
+	ReplaysAllTurns bool
 }
 
 // Build lays out the prompt for one turn. prev is the plan of the last
@@ -180,7 +196,7 @@ func Build(prev *PromptPlan, in Input, recalled []Recalled, now int64, pr Params
 	}
 
 	// Tiers 3 and 4: tail and live.
-	tail, live, err := layoutTail(prev, in.Tail, in.Route, pr)
+	tail, live, err := layoutTail(prev, in.Tail, in.Reader, pr)
 	if err != nil {
 		return nil, err
 	}
@@ -232,8 +248,8 @@ type Pending struct {
 // normalization and compaction as Build, so the two cannot disagree about
 // which messages are new: a message logged while a tool was running is new
 // even though the tool result follows it in the log.
-func Layout(prev *PromptPlan, events []core.Event, route string, pr Params) (Pending, error) {
-	tail, live, err := layoutTail(prev, events, route, pr)
+func Layout(prev *PromptPlan, events []core.Event, reader Reader, pr Params) (Pending, error) {
+	tail, live, err := layoutTail(prev, events, reader, pr)
 	if err != nil {
 		return Pending{}, err
 	}
@@ -255,8 +271,8 @@ func Layout(prev *PromptPlan, events []core.Event, route string, pr Params) (Pen
 
 // layoutTail splits a hot window into the tail and the live messages,
 // applying the compaction policy.
-func layoutTail(prev *PromptPlan, events []core.Event, route string, pr Params) (tail, live []entry, err error) {
-	w := window{route: route}
+func layoutTail(prev *PromptPlan, events []core.Event, reader Reader, pr Params) (tail, live []entry, err error) {
+	w := window{Reader: reader}
 	if prev != nil {
 		w.from, w.ckpt = prev.TailFrom, prev.Checkpoint
 	}

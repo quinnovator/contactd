@@ -3,6 +3,7 @@ package llm_test
 import (
 	"context"
 	"errors"
+	"iter"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -192,6 +193,39 @@ func TestClientDropsAffinityWhereTheRouteTakesNone(t *testing.T) {
 	}
 }
 
+// gauge measures how many requests are in flight at the provider: from the
+// moment one is sent until its stream has been asked how it ended.
+type gauge struct {
+	*fake.Provider
+	live, peak atomic.Int32
+}
+
+type gauged struct {
+	llm.Stream
+	done func()
+}
+
+func (g gauged) Result() (llm.Result, error) {
+	defer g.done()
+	return g.Stream.Result()
+}
+
+func (g *gauge) Send(ctx context.Context, f *llm.Frozen) (llm.Stream, error) {
+	n := g.live.Add(1)
+	for {
+		old := g.peak.Load()
+		if n <= old || g.peak.CompareAndSwap(old, n) {
+			break
+		}
+	}
+	s, err := g.Provider.Send(ctx, f)
+	if err != nil {
+		g.live.Add(-1)
+		return nil, err
+	}
+	return gauged{Stream: s, done: sync.OnceFunc(func() { g.live.Add(-1) })}, nil
+}
+
 // recorder keeps every frozen request it is asked to send.
 type recorder struct {
 	*fake.Provider
@@ -285,10 +319,9 @@ func TestClientGivesUpAfterItsAttempts(t *testing.T) {
 func TestAdmissionHoldsCallsToTheProvidersLimit(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		p := fake.New(fake.Options{FirstToken: time.Second})
+		p := &gauge{Provider: fake.New(fake.Options{FirstToken: time.Second})}
 		c := client(t, llm.ClientConfig{Providers: []llm.Provider{p}, Limits: map[string]int{"fake": 2}})
 		r, _ := c.Route(t.Context(), "", "")
-		var peak, live atomic.Int32
 		var wg sync.WaitGroup
 		for range 6 {
 			wg.Go(func() {
@@ -297,21 +330,13 @@ func TestAdmissionHoldsCallsToTheProvidersLimit(t *testing.T) {
 					t.Error(err)
 					return
 				}
-				n := live.Add(1)
-				for {
-					old := peak.Load()
-					if n <= old || peak.CompareAndSwap(old, n) {
-						break
-					}
-				}
 				drain(t, call)
-				live.Add(-1)
 			})
 		}
 		start := time.Now()
 		wg.Wait()
-		if peak.Load() != 2 {
-			t.Errorf("%d calls were in flight at once, want 2", peak.Load())
+		if got := p.peak.Load(); got != 2 {
+			t.Errorf("%d requests were in flight at the provider at once, want 2", got)
 		}
 		// Six one-second calls, two at a time.
 		if took := time.Since(start); took != 3*time.Second {
@@ -379,4 +404,151 @@ func TestErrorClasses(t *testing.T) {
 	if llm.ClassOf(errors.Join(errors.New("wrapped"), err)) != llm.ErrQuota || llm.ClassOf(errors.New("plain")) != llm.ErrUnknown {
 		t.Error("ClassOf must see through wrapping and default to unknown")
 	}
+}
+
+// lateFailure accepts each request, then fails some of them after the
+// response has started: before any event (the first failBefore sends) or
+// after the first one.
+type lateFailure struct {
+	*fake.Provider
+	failBefore, failAfter int
+	sends                 atomic.Int32
+}
+
+type brokenStream struct {
+	events []llm.Event
+	err    error
+}
+
+func (s brokenStream) Events() iter.Seq[llm.Event] {
+	return func(yield func(llm.Event) bool) {
+		for _, ev := range s.events {
+			if !yield(ev) {
+				return
+			}
+		}
+	}
+}
+
+func (s brokenStream) Result() (llm.Result, error) { return llm.Result{}, s.err }
+
+func (p *lateFailure) Send(ctx context.Context, f *llm.Frozen) (llm.Stream, error) {
+	n := int(p.sends.Add(1))
+	overloaded := &llm.Error{Class: llm.ErrOverloaded, Provider: "fake", Err: errors.New("overloaded_error")}
+	switch {
+	case n <= p.failBefore:
+		return brokenStream{err: overloaded}, nil
+	case n <= p.failBefore+p.failAfter:
+		return brokenStream{events: []llm.Event{{Kind: llm.TextDelta, Text: "Got"}}, err: overloaded}, nil
+	}
+	return p.Provider.Send(ctx, f)
+}
+
+func TestAFailureBeforeTheFirstEventIsRetried(t *testing.T) {
+	t.Parallel()
+	// HTTP 200, then an error frame or a dropped connection before any
+	// event: nothing has reached a subscriber, so it is retried.
+	p := &lateFailure{Provider: fake.New(fake.Options{}), failBefore: 2}
+	c := client(t, llm.ClientConfig{
+		Providers: []llm.Provider{p},
+		Retry:     llm.RetryPolicy{Attempts: 4, Base: time.Millisecond, Max: time.Millisecond},
+	})
+	r, _ := c.Route(t.Context(), "", "")
+	call, err := c.Call(t.Context(), r, plan.Prompt("s", "hello"), llm.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var text strings.Builder
+	for ev := range call.Events() {
+		text.WriteString(ev.Text)
+	}
+	res, err := call.Result()
+	if err != nil || res.Text == "" || text.String() != res.Text {
+		t.Fatalf("result %q (streamed %q), err %v", res.Text, text.String(), err)
+	}
+	if got := call.Attempt(); got.Tries != 3 || p.sends.Load() != 3 {
+		t.Errorf("tries = %d, sends = %d; want 3 of each", got.Tries, p.sends.Load())
+	}
+}
+
+func TestAFailureAfterTheFirstEventIsNotRetried(t *testing.T) {
+	t.Parallel()
+	// Once text has gone out, sending the request again would say it twice.
+	p := &lateFailure{Provider: fake.New(fake.Options{}), failAfter: 1}
+	c := client(t, llm.ClientConfig{Providers: []llm.Provider{p}})
+	r, _ := c.Route(t.Context(), "", "")
+	call, err := c.Call(t.Context(), r, plan.Prompt("s", "hello"), llm.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for range call.Events() {
+		n++
+	}
+	if _, err := call.Result(); llm.ClassOf(err) != llm.ErrOverloaded {
+		t.Errorf("err = %v, want the overloaded error passed through", err)
+	}
+	if n != 1 || p.sends.Load() != 1 || call.Attempt().Tries != 1 || call.Attempt().Class != llm.ErrOverloaded {
+		t.Errorf("%d events, %d sends, attempt %+v", n, p.sends.Load(), call.Attempt())
+	}
+}
+
+func TestRetriesBeforeTheFirstEventRunOut(t *testing.T) {
+	t.Parallel()
+	p := &lateFailure{Provider: fake.New(fake.Options{}), failBefore: 99}
+	c := client(t, llm.ClientConfig{
+		Providers: []llm.Provider{p},
+		Retry:     llm.RetryPolicy{Attempts: 3, Base: time.Millisecond, Max: time.Millisecond},
+		Limits:    map[string]int{"fake": 1},
+	})
+	r, _ := c.Route(t.Context(), "", "")
+	for range 2 { // twice: the slot must come back each time
+		call, err := c.Call(t.Context(), r, plan.Prompt("s", "hello"), llm.Options{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for range call.Events() {
+			t.Error("a failed stream yielded an event")
+		}
+		if _, err := call.Result(); llm.ClassOf(err) != llm.ErrOverloaded || call.Attempt().Tries != 3 {
+			t.Errorf("err = %v after %d tries", err, call.Attempt().Tries)
+		}
+	}
+}
+
+func TestResultOnAFailedCallReleasesItsSlotOnce(t *testing.T) {
+	t.Parallel()
+	fails := true
+	p := fake.New(fake.Options{Fail: func(int, []byte) error {
+		if fails {
+			return &llm.Error{Class: llm.ErrAuth, Provider: "fake"}
+		}
+		return nil
+	}})
+	c := client(t, llm.ClientConfig{Providers: []llm.Provider{p}, Limits: map[string]int{"fake": 1}})
+	r, _ := c.Route(t.Context(), "", "")
+	call, err := c.Call(t.Context(), r, plan.Prompt("s", "hello"), llm.Options{})
+	if llm.ClassOf(err) != llm.ErrAuth {
+		t.Fatalf("err = %v", err)
+	}
+	// Asking a failed call for its result must not take a second slot back.
+	done := make(chan struct{})
+	go func() { _, _ = call.Result(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Result on a failed call never returned")
+	}
+	// And the one slot is still exactly one slot.
+	fails = false
+	first, err := c.Call(t.Context(), r, plan.Prompt("s", "a"), llm.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	if _, err := c.Call(ctx, r, plan.Prompt("s", "b"), llm.Options{}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("a second call got in beside the first: %v", err)
+	}
+	drain(t, first)
 }

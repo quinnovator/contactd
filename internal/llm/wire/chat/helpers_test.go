@@ -91,7 +91,7 @@ type planOpts struct {
 func buildPlan(t *testing.T, o planOpts) *plan.PromptPlan {
 	t.Helper()
 	agent := &core.AgentConfig{System: o.system, Tools: o.tools}
-	in := plan.Input{Agent: agent, Profile: o.profile, Tail: o.events, Route: o.route}
+	in := plan.Input{Agent: agent, Profile: o.profile, Tail: o.events, Reader: plan.Reader{Route: o.route}}
 	p, err := plan.Build(nil, in, o.recall, fixedNow, plan.DefaultParams())
 	if err != nil {
 		t.Fatalf("build plan: %v", err)
