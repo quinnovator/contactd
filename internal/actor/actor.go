@@ -162,7 +162,10 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// it, and must be logged before it.
 		a.interrupt(ctx)
 		a.flushNotices(ctx)
-		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text}, c.Ack)
+		ev := a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text}, c.Ack)
+		// Every stream sees the message, not only the connection that sent
+		// it: a contact may be open in more than one place.
+		a.broadcast(core.Delta{Type: core.DeltaUser, Text: c.Text, Seq: ev.Seq})
 		a.pendingBytes += len(c.Text)
 		a.wantTurn = true
 		a.armDebounce()
@@ -171,11 +174,15 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		if a.wantTurn {
 			a.armDebounce() // respects the hard cap
 		}
-	case subscribe:
-		a.subs = append(a.subs, c.sub)
-		if a.turn != nil {
-			a.sendTo(c.sub, core.Delta{Type: core.DeltaTyping, Turn: a.turn.id, Typing: true})
+	case Interrupt:
+		// Stopping a reply is something a contact's human does. A sub-agent
+		// has a task to settle, and is left to finish it.
+		if a.contact.Agent.Parent == 0 {
+			a.touch()
+			a.interrupt(ctx)
 		}
+	case subscribe:
+		a.attach(c.sub)
 	case unsubscribe:
 		a.dropSub(c.sub)
 	case Hibernate:
@@ -235,7 +242,8 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		a.touch()
 		a.forkBase, a.taskOpen = c.base, true
 		ref := c.ref
-		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: taskText(c.text), Task: &ref}, c.ack)
+		ev := a.append(ctx, core.KindUserMsg, core.MsgBody{Text: taskText(c.text), Task: &ref}, c.ack)
+		a.broadcast(core.Delta{Type: core.DeltaUser, Text: taskText(c.text), Seq: ev.Seq})
 		a.wantTurn = true
 		a.startTurn(ctx)
 	case settled:
@@ -424,7 +432,7 @@ func (a *actor) drainInbox(ctx context.Context, err error, closeSubs bool) {
 				if closeSubs {
 					close(c.sub.ch)
 				} else {
-					a.subs = append(a.subs, c.sub)
+					a.attach(c.sub)
 				}
 			case unsubscribe:
 				a.dropSub(c.sub)
@@ -738,6 +746,23 @@ func (a *actor) postAsync(c Cmd) {
 	case <-a.dead:
 	default:
 		go a.post(c)
+	}
+}
+
+// attach starts a subscriber's stream. The first delta says where the stream
+// begins, so that a client can read everything up to there from the log and
+// miss nothing in between. A turn in flight is then described as far as it
+// has got: that the agent is composing, and what it has said so far.
+func (a *actor) attach(s *Subscription) {
+	a.subs = append(a.subs, s)
+	a.sendTo(s, core.Delta{Type: core.DeltaReady, Seq: a.nextSeq - 1})
+	t := a.turn
+	if t == nil {
+		return
+	}
+	a.sendTo(s, core.Delta{Type: core.DeltaTyping, Turn: t.id, Typing: true})
+	if partial := t.partial.String(); partial != "" {
+		a.sendTo(s, core.Delta{Type: core.DeltaText, Turn: t.id, Text: partial})
 	}
 }
 

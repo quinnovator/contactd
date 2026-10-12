@@ -39,6 +39,12 @@ type Inbound struct {
 // up to the hard cap.
 type Typing struct{}
 
+// Interrupt stops the reply in flight without saying anything: what a person
+// does by raising a hand. A running tool finishes first, as it does when a
+// message interrupts, and the turn ends there. The message that was being
+// answered stays unanswered until the next one arrives.
+type Interrupt struct{}
+
 // Hibernate asks an idle actor to retire. The registry sends it under memory
 // pressure.
 type Hibernate struct{}
@@ -158,6 +164,7 @@ type envIdle struct{}
 
 func (Inbound) isCmd()        {}
 func (Typing) isCmd()         {}
+func (Interrupt) isCmd()      {}
 func (Hibernate) isCmd()      {}
 func (subscribe) isCmd()      {}
 func (unsubscribe) isCmd()    {}

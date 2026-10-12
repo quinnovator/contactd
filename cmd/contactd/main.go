@@ -41,6 +41,9 @@ func main() {
 	if len(args) > 0 && args[0] == "probe" {
 		os.Exit(probeMain(args[1:]))
 	}
+	if len(args) > 0 && args[0] == "chat" {
+		os.Exit(chatMain(args[1:]))
+	}
 	cfg, err := config.Load(args, os.Getenv)
 	if errors.Is(err, flag.ErrHelp) {
 		return
@@ -189,10 +192,30 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", cfg.Addr, err)
 	}
-	serveErr := make(chan error, 1)
+	serveErr := make(chan error, 2)
 	go func() { serveErr <- httpServer.Serve(listener) }()
+	// The same API on a Unix socket, for clients on this machine: the file's
+	// permissions are the access control, and its place in the data directory
+	// is how a client finds the server.
+	socket := cfg.SocketPath()
+	if socket != "" {
+		local, err := listenSocket(base, socket)
+		switch {
+		case err == nil:
+			go func() { serveErr <- httpServer.Serve(local) }()
+		case cfg.Socket != "":
+			return errors.Join(err, listener.Close())
+		default:
+			// Nobody asked for the default socket by name, so a data directory
+			// it cannot live in (a path too long for a socket address, most
+			// often) is not a reason to refuse to start.
+			log.Warn("not serving on a unix socket; contactd chat will need -url", "socket", socket, "error", err)
+			socket = ""
+		}
+	}
 	log.Info("contactd listening",
 		"addr", listener.Addr().String(),
+		"socket", socket,
 		"llm", cfg.LLM,
 		"infer", cfg.Infer,
 		"infer_workers", cfg.InferWorkers,
@@ -225,6 +248,30 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	// 4. The deferred cleanups drain the writer and close SQLite.
 	log.Info("contactd stopped")
 	return nil
+}
+
+// listenSocket listens on a Unix socket that only this user can connect to.
+// A socket file left behind by a process that died is replaced; one that a
+// live process answers on is not.
+func listenSocket(ctx context.Context, path string) (net.Listener, error) {
+	dctx, cancel := context.WithTimeout(ctx, time.Second)
+	conn, err := (&net.Dialer{}).DialContext(dctx, "unix", path)
+	cancel()
+	if err == nil {
+		_ = conn.Close() // only asked whether anyone was there
+		return nil, fmt.Errorf("listen on %s: another process is already serving there", path)
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) { //nolint:gosec // G703: the operator chooses the socket path
+		return nil, fmt.Errorf("remove stale socket: %w", err)
+	}
+	l, err := (&net.ListenConfig{}).Listen(ctx, "unix", path)
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", path, err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil { //nolint:gosec // G703: the operator chooses the socket path
+		return nil, errors.Join(fmt.Errorf("restrict %s: %w", path, err), l.Close())
+	}
+	return l, nil
 }
 
 // summarizer picks the route for lazy episode summaries. A summary is a

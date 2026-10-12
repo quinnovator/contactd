@@ -161,3 +161,28 @@ func TestHydratedLimit(t *testing.T) {
 		t.Errorf("an explicit max-hydrated must win, got %d", got)
 	}
 }
+
+func TestSocketPath(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "/data/contactd.sock"},
+		{[]string{"-data-dir=/var/lib/contactd"}, "/var/lib/contactd/contactd.sock"},
+		{[]string{"-socket=/run/contactd.sock"}, "/run/contactd.sock"},
+		{[]string{"-socket=off"}, ""},
+	} {
+		c, err := config.Load(tc.args, env("ANTHROPIC_API_KEY", "k"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := c.SocketPath(); got != tc.want {
+			t.Errorf("%v: socket = %q, want %q", tc.args, got, tc.want)
+		}
+	}
+	// A local client is given only the data directory, and finds the same path.
+	if got := config.DefaultSocket("/var/lib/contactd"); got != "/var/lib/contactd/contactd.sock" {
+		t.Errorf("DefaultSocket = %q", got)
+	}
+}

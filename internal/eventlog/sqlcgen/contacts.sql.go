@@ -23,6 +23,7 @@ func (q *Queries) CountContacts(ctx context.Context) (int64, error) {
 const getContact = `-- name: GetContact :one
 SELECT
     id,
+    name,
     agent,
     profile,
     last_active
@@ -30,11 +31,52 @@ FROM contacts
 WHERE id = ?
 `
 
-func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
+type GetContactRow struct {
+	ID         int64
+	Name       string
+	Agent      string
+	Profile    []byte
+	LastActive int64
+}
+
+func (q *Queries) GetContact(ctx context.Context, id int64) (GetContactRow, error) {
 	row := q.db.QueryRowContext(ctx, getContact, id)
-	var i Contact
+	var i GetContactRow
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
+		&i.Agent,
+		&i.Profile,
+		&i.LastActive,
+	)
+	return i, err
+}
+
+const getContactByName = `-- name: GetContactByName :one
+SELECT
+    id,
+    name,
+    agent,
+    profile,
+    last_active
+FROM contacts
+WHERE name = ?
+`
+
+type GetContactByNameRow struct {
+	ID         int64
+	Name       string
+	Agent      string
+	Profile    []byte
+	LastActive int64
+}
+
+func (q *Queries) GetContactByName(ctx context.Context, name string) (GetContactByNameRow, error) {
+	row := q.db.QueryRowContext(ctx, getContactByName, name)
+	var i GetContactByNameRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
 		&i.Agent,
 		&i.Profile,
 		&i.LastActive,
@@ -43,22 +85,99 @@ func (q *Queries) GetContact(ctx context.Context, id int64) (Contact, error) {
 }
 
 const insertContact = `-- name: InsertContact :one
-INSERT INTO contacts (agent, profile, last_active)
-VALUES (?, ?, ?)
+INSERT INTO contacts (name, parent, agent, profile, last_active)
+VALUES (?, ?, ?, ?, ?)
 RETURNING id
 `
 
 type InsertContactParams struct {
+	Name       string
+	Parent     int64
 	Agent      string
 	Profile    []byte
 	LastActive int64
 }
 
 func (q *Queries) InsertContact(ctx context.Context, arg InsertContactParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertContact, arg.Agent, arg.Profile, arg.LastActive)
+	row := q.db.QueryRowContext(ctx, insertContact,
+		arg.Name,
+		arg.Parent,
+		arg.Agent,
+		arg.Profile,
+		arg.LastActive,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listContacts = `-- name: ListContacts :many
+SELECT
+    id,
+    name,
+    agent,
+    profile,
+    last_active
+FROM contacts
+WHERE parent = 0
+ORDER BY last_active DESC, id DESC
+LIMIT ?
+`
+
+type ListContactsRow struct {
+	ID         int64
+	Name       string
+	Agent      string
+	Profile    []byte
+	LastActive int64
+}
+
+func (q *Queries) ListContacts(ctx context.Context, limit int64) ([]ListContactsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listContacts, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListContactsRow{}
+	for rows.Next() {
+		var i ListContactsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Agent,
+			&i.Profile,
+			&i.LastActive,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const renameContact = `-- name: RenameContact :execrows
+UPDATE contacts
+SET name = ?
+WHERE id = ?
+`
+
+type RenameContactParams struct {
+	Name string
+	ID   int64
+}
+
+func (q *Queries) RenameContact(ctx context.Context, arg RenameContactParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, renameContact, arg.Name, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const touchContact = `-- name: TouchContact :exec

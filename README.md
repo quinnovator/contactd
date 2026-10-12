@@ -4,7 +4,7 @@ One Go binary, backed by SQLite and two small local ONNX models, that lets a cli
 
 Threads, prompt-cache layout and the REPL environment are not stored objects. Each turn derives them just in time from one append-only event log.
 
-The original design is in [docs/DESIGN.md](docs/DESIGN.md). This README covers running it, the provider core that was added afterwards, what was measured, and where the implementation departs from the design.
+The original design is in [docs/DESIGN.md](docs/DESIGN.md). This README covers running it, the provider core and the terminal client that were added afterwards, what was measured, and where the implementation departs from the design.
 
 ## Quick start
 
@@ -28,6 +28,23 @@ curl -s -XPOST localhost:8080/v1/contacts/1/messages -d '{"text":"hey, are you a
 # {"seq":1}   <- 202 once the message is durable
 ```
 
+### From the terminal
+
+`contactd chat` is a terminal client for a server running on the same machine. It finds the server through a Unix socket in the data directory, so it needs the same `-data-dir` (or `CONTACTD_DATA_DIR`) and nothing else.
+
+```sh
+contactd chat -new ada -system "You are Ada, a thoughtful colleague." -tools python
+contactd chat                  # pick a contact from the list
+contactd chat ada              # open the conversation with ada
+contactd chat ada "question"   # send one message, print the reply, exit
+git diff | contactd chat ada - # the same, with the message read from stdin
+contactd chat -list            # id, name, route and last activity, tab-separated
+```
+
+In a conversation: `enter` sends and `alt+enter` starts a new line. `esc` stops the reply in flight. `pgup` and `pgdn` scroll, and scrolling past the top loads earlier history. `ctrl+o` unfolds tool calls and their output, `ctrl+p` goes back to the contacts, and `ctrl+c` clears the box, then quits. There is nothing to do before typing while the agent is replying: a message sent then interrupts it, as it does a person.
+
+See [The terminal client](#the-terminal-client) for how it is built.
+
 ### The real thing
 
 ```sh
@@ -50,12 +67,22 @@ There are no thread endpoints; that's the point.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/v1/contacts` | Create a contact from an agent config (below) and an optional `profile`. An unknown provider, model or effort is a 400 here |
+| POST | `/v1/contacts` | Create a contact from an agent config (below), an optional `name` and an optional `profile`. An unknown provider, model or effort is a 400 here, and a name another contact has is a 409 |
+| GET | `/v1/contacts` | The contacts a person talks to, most recently active first; sub-agents are left out. `?name=` finds one by its exact name |
+| GET | `/v1/contacts/{id}` | One contact: name, agent config, profile, and the route that serves it with the deployment's defaults filled in |
+| PATCH | `/v1/contacts/{id}` | `{"name": ...}` renames; an empty name removes it |
 | POST | `/v1/contacts/{id}/messages` | Send `{"text": ...}`; returns 202 with the durable `seq` |
-| GET | `/v1/contacts/{id}/stream` | SSE: `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `error` |
-| GET | `/v1/contacts/{id}/live` | WebSocket: send `{"type":"message","text":...}` and `{"type":"typing"}`; receive `ack` plus the same deltas |
-| GET | `/v1/contacts/{id}/events?after={seq}&limit={n}` | Page through the log: messages, tool events, and the bookkeeping kinds (`attempt`, `checkpoint`, `notice`, `summary`, `env_snapshot`) |
+| POST | `/v1/contacts/{id}/interrupt` | Stop the reply in flight; 202 |
+| GET | `/v1/contacts/{id}/stream` | SSE: `ready`, `user`, `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `error` |
+| GET | `/v1/contacts/{id}/live` | WebSocket: send `{"type":"message","text":...}`, `{"type":"typing"}` and `{"type":"interrupt"}`; receive the same deltas, and for each message one `ack` or one `error` frame, in the order sent |
+| GET | `/v1/contacts/{id}/events` | Page through the log in log order: `?after={seq}` forward, `?before={seq}` backward, `?tail=1` backward from the end, each with `limit`. `?kinds=user_msg,agent_msg` keeps only those kinds; the others are `tool_call`, `tool_result`, `attempt`, `checkpoint`, `notice`, `summary` and `env_snapshot` |
 | GET | `/metrics`, `/healthz` | Prometheus metrics; liveness (503 while draining) |
+
+The same API is served on a Unix socket, `contactd.sock` in the data directory, with permissions `0600`. Nothing else about the API is authenticated: the TCP address is for a trusted network, and the socket is for the user who runs the server.
+
+**Reading a contact without missing anything.** A stream runs ahead of the log's group commit, and the log is the only place the past is. A client that wants both opens the stream first. The first delta is always `ready`, and its `seq` is the last sequence number assigned before the stream began (zero when the contact was not in memory). Everything up to there is read from `/events`; everything after it arrives on the stream. Deltas that announce an event carry its `seq`, so reading an event both ways is harmless. A stream opened mid-reply is then sent `typing` and one `text` delta with what has been said so far.
+
+A contact's **name** is what a person calls it. It is optional, unique where given, and never a number. It is stored beside the agent config, not in it, so naming a contact changes no byte of its prompt.
 
 An agent config:
 
@@ -85,7 +112,7 @@ With `delegate` on, the model can call `delegate({"task": ..., "mode": "spawn" |
 - **`fork`** also gives it the parent's conversation up to the parent's last finished reply. Its first request begins with the exact bytes the parent last sent, so it reads the parent's prompt cache.
 - **Settlement** arrives in the parent's log as a `notice` event, and starts a turn so the agent can act on it. It never interrupts a reply in progress, and a sub-agent that fails settles the same way: as a notice, with a diagnostic of at most 4,096 bytes.
 - **A settlement survives a restart.** The parent's log records each sub-agent it started and each one it has heard from. A parent that wakes with one still open asks it to report again from its own log; a sub-agent that was cut off mid-task reports that it failed.
-- **Limits:** one level deep, and `-max-children` (8) running at once per contact. Interrupting the parent does not stop its sub-agents.
+- **Limits:** one level deep, and `-max-children` (8) running at once per contact. Interrupting the parent does not stop its sub-agents, and an interrupt sent to a sub-agent is ignored: it has a task to settle.
 
 ## Configuration
 
@@ -93,6 +120,7 @@ Every setting is a flag and an environment variable (`CONTACTD_` + the flag name
 
 | Flag | Default | Notes |
 | --- | --- | --- |
+| `-socket` | `contactd.sock` in the data directory | The Unix socket the API is also served on, for `contactd chat`. `off` disables it |
 | `-llm` | first configured | The default provider: `deepseek`, `anthropic`, `openrouter`, `opencode`, `ollama`, `openai` or `fake`. Every provider with credentials is available to agents that name it |
 | `-model` | the provider's own | Default model on the default provider. OpenRouter has no default of its own and needs this |
 | `-effort`, `-max-tokens` | none | Defaults for agents that set none |
@@ -170,9 +198,30 @@ internal/llm      the provider contract, and the client: routing, admission, ret
   probe/          the live capability check behind `contactd probe`
   fake/           the scripted provider and its HTTP server
 internal/env      Piece 6: wasm/ (tier 0, wazero), remote/ (tier 1)
-internal/api      HTTP, SSE, WebSocket
+internal/api      HTTP, SSE, WebSocket; apitest/ runs it for tests of its clients
+internal/client   the API from the other side: requests, one WebSocket, and a session that reconnects
+internal/transcript  log events + live deltas -> one conversation (pure)
+internal/tui      the screens of `contactd chat` (Bubble Tea)
 internal/e2e      integration tier (tag integration)
 ```
+
+## The terminal client
+
+`contactd chat` is a subcommand of the same binary, so the client and the server it talks to cannot disagree about the protocol. It is built in three layers, and `depguard` keeps each in its place.
+
+- **`internal/client`** knows the API and nothing behind it. It never opens the data directory: a contact's sequence numbers are assigned in memory by the one actor that owns it, so a second process writing the log would break it. Its `Session` keeps a WebSocket open, reconnects with a growing delay, and reads the log around the stream using the `ready` protocol above, so its caller sees one ordered sequence of updates. After each turn it reads the log once more, which is where the record of the model call comes from.
+- **`internal/transcript`** is a pure reducer: events and deltas in, a conversation out. The same event may arrive from the log and from the stream, in either order; the sequence number makes that harmless. It imports no clock and does no I/O, so what a view shows in any situation is a unit test.
+- **`internal/tui`** draws the reducer's state and reads keys. It keeps nothing between runs: contacts, names and messages live on the server.
+
+What follows from the platform's shape:
+
+- **There is nothing to pick but a contact.** No sessions and no threads; opening a contact opens the end of its one log, and earlier history loads a page at a time on scrolling up. A line marks each new day.
+- **The input never locks.** A message sent mid-reply interrupts it. `esc` interrupts without saying anything: the reply so far is kept and flagged, a running tool finishes first, and the message that was being answered stays unanswered until the next one.
+- **A message is shown as sending until the server says it is durable.** One the server refuses, or one that was in flight when the connection dropped and is not in the log afterwards, is put back in the input box.
+- **The header shows the cache working**: the share of the last prompt that the provider reported as cached, and how long the call took.
+- **Text from the server is never trusted with the terminal.** Control characters and bidirectional overrides are stripped from everything a model, a tool or a contact's name can put on screen.
+
+What it does not do yet: show a sub-agent's own log (its settlement appears as a notice, and `contactd chat <id>` opens it like any contact), edit a contact's agent config or profile, use the mouse, or search.
 
 ## Tests
 
@@ -293,6 +342,15 @@ Each of these is a place where following the doc to the letter would have been w
 - **ONNX Runtime 1.24 on Apple Silicon miscomputes when a signal lands mid-inference**, and Go preempts goroutines with signals. Linux is unaffected. `mise.toml` sets `GODEBUG=asyncpreemptoff=1`, and the binary warns at startup when it is missing on macOS. Avoid CPU profiling there.
 - **int8 is not faster than fp32 on arm64.** It is 10-25% slower on the hardware measured, and a quarter of the size. It stays the default, as the doc specifies, because recall is unchanged; x86 with VNNI was not measured.
 - **linux/amd64 is covered by CI only.** The GitHub Actions run fetches the native libraries, exports the models and passes every test tier there, but no latency was measured on it and the container image was only built and run on linux/arm64.
+
+**Terminal client** (not in the design doc)
+
+- **A second listener, on a Unix socket, is on by default.** The doc has one TCP address. The socket is how a local client finds the server and the only access control the API has. A data directory whose path is too long for a socket address is logged and skipped unless `-socket` was given by name.
+- **Every stream now opens with `ready`, and carries `user`.** Clients that switch on the delta type and ignore what they do not know are unaffected; one that assumed the first delta was `typing` is not.
+- **A message refused on the WebSocket no longer closes it.** A refusal (too many unanswered messages, a write that failed) is an `error` frame for that message. Only shutdown ends the connection.
+- **`ready` is advisory about durability.** The event it names may be a moment from readable, so the client waits for it, for at most two seconds. If the write failed the event never appears and the client carries on without it.
+- **One-shot mode prints the first whole reply after its message** and exits. If that turn delegates, the sub-agent's settlement and the reply it prompts come later and are not waited for.
+- **Markdown is rendered once a reply is whole.** While it streams it is shown as written, because re-rendering on every fragment makes the text jump.
 
 **Not built**
 

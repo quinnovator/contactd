@@ -118,6 +118,54 @@ linters:
               desc: nothing imports the API layer
             - pkg: github.com/quinnovator/contactd/internal/config
               desc: profiles take their own Config; cmd/contactd maps the deployment's onto it
+        # The terminal client is a client. It reaches the server over the
+        # API, through internal/client, and never through what the server is
+        # made of: a second process writing a contact's log would break it.
+        chat-is-a-client:
+          files:
+            - "**/internal/client/**"
+            - "**/internal/transcript/**"
+            - "**/internal/tui/**"
+            - "!$test"
+          deny:
+            - pkg: database/sql
+              desc: the client reads the log through the API
+            - pkg: github.com/quinnovator/contactd/internal/eventlog
+              desc: the client reads the log through the API
+            - pkg: github.com/quinnovator/contactd/internal/actor
+              desc: the client talks to actors through the API
+            - pkg: github.com/quinnovator/contactd/internal/turn
+              desc: the client knows the API, not the turn loop
+            - pkg: github.com/quinnovator/contactd/internal/plan
+              desc: the client knows the API, not the planner
+            - pkg: github.com/quinnovator/contactd/internal/recall
+              desc: the client knows the API, not recall
+            - pkg: github.com/quinnovator/contactd/internal/llm
+              desc: the client never calls a model
+            - pkg: github.com/quinnovator/contactd/internal/infer
+              desc: the client never runs inference
+            - pkg: github.com/quinnovator/contactd/internal/env
+              desc: the client never runs code
+            - pkg: github.com/quinnovator/contactd/internal/api
+              desc: nothing imports the API layer
+            - pkg: github.com/quinnovator/contactd/internal/config
+              desc: the client takes its own options; cmd/contactd maps flags onto them
+        # The reducer is values in, values out: no I/O and no clock.
+        transcript-is-pure:
+          files:
+            - "**/internal/transcript/**"
+            - "!$test"
+          deny:
+            - pkg: net
+              desc: the reducer does no I/O
+            - pkg: os
+              desc: the reducer does no I/O
+            - pkg: time
+              desc: the reducer reads no clock; a caller passes the time in
+            - pkg: github.com/quinnovator/contactd/internal/client
+              desc: the reducer takes events and deltas, from wherever
+            - pkg: charm.land
+              desc: the reducer draws nothing
     forbidigo:
       analyze-types: true
       forbid:

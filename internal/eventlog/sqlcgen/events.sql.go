@@ -57,6 +57,122 @@ func (q *Queries) EventsAfter(ctx context.Context, arg EventsAfterParams) ([]Eve
 	return items, nil
 }
 
+const eventsAfterOfKinds = `-- name: EventsAfterOfKinds :many
+SELECT
+    contact,
+    seq,
+    ts,
+    kind,
+    body
+FROM events
+WHERE
+    contact = ?1
+    AND seq > ?2
+    AND (cast(?3 AS INTEGER) >> kind) & 1 = 1
+ORDER BY seq ASC
+LIMIT ?4
+`
+
+type EventsAfterOfKindsParams struct {
+	Contact int64
+	After   int64
+	Kinds   int64
+	Page    int64
+}
+
+// kinds is a bit set: bit k is set when events of kind k are wanted.
+func (q *Queries) EventsAfterOfKinds(ctx context.Context, arg EventsAfterOfKindsParams) ([]Event, error) {
+	rows, err := q.db.QueryContext(ctx, eventsAfterOfKinds,
+		arg.Contact,
+		arg.After,
+		arg.Kinds,
+		arg.Page,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Event{}
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.Contact,
+			&i.Seq,
+			&i.Ts,
+			&i.Kind,
+			&i.Body,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const eventsBeforeOfKinds = `-- name: EventsBeforeOfKinds :many
+SELECT
+    contact,
+    seq,
+    ts,
+    kind,
+    body
+FROM events
+WHERE
+    contact = ?1
+    AND seq < ?2
+    AND (cast(?3 AS INTEGER) >> kind) & 1 = 1
+ORDER BY seq DESC
+LIMIT ?4
+`
+
+type EventsBeforeOfKindsParams struct {
+	Contact int64
+	Before  int64
+	Kinds   int64
+	Page    int64
+}
+
+// Newest first: the caller reverses the page into log order.
+func (q *Queries) EventsBeforeOfKinds(ctx context.Context, arg EventsBeforeOfKindsParams) ([]Event, error) {
+	rows, err := q.db.QueryContext(ctx, eventsBeforeOfKinds,
+		arg.Contact,
+		arg.Before,
+		arg.Kinds,
+		arg.Page,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Event{}
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.Contact,
+			&i.Seq,
+			&i.Ts,
+			&i.Kind,
+			&i.Body,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const eventsRange = `-- name: EventsRange :many
 SELECT
     contact,

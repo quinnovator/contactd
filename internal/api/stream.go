@@ -15,7 +15,9 @@ import (
 
 // stream is the SSE endpoint: reply deltas, tool activity and typing state.
 // It ends when the client leaves, when the subscriber falls too far behind,
-// or at shutdown; clients reconnect and catch up through /events.
+// or at shutdown; clients reconnect and catch up through /events. The first
+// delta, "ready", carries the sequence number the stream begins after: a
+// client that reads the log up to there has missed nothing.
 func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.contactID(w, r)
 	if !ok {
@@ -76,7 +78,7 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 
 // liveIn is a frame from the client on the WebSocket.
 type liveIn struct {
-	Type string `json:"type"` // "message" or "typing"
+	Type string `json:"type"` // "message", "typing" or "interrupt"
 	Text string `json:"text,omitempty"`
 }
 
@@ -91,8 +93,8 @@ type liveError struct {
 	Error string `json:"error"`
 }
 
-// live is the WebSocket endpoint: send messages and typing indicators,
-// receive the same deltas as the SSE stream.
+// live is the WebSocket endpoint: send messages, typing indicators and
+// interrupts, receive the same deltas as the SSE stream.
 func (s *Server) live(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.contactID(w, r)
 	if !ok {
@@ -162,6 +164,8 @@ func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.Con
 		switch in.Type {
 		case "typing":
 			err = s.contacts.Typing(ctx, id)
+		case "interrupt":
+			err = s.contacts.Interrupt(ctx, id)
 		case "message":
 			if err = validateText(in.Text); err != nil {
 				if err := writeFrame(ctx, conn, liveError{Type: "error", Error: err.Error()}); err != nil {
@@ -170,11 +174,26 @@ func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.Con
 				continue
 			}
 			var seq uint64
-			if seq, err = s.contacts.Message(ctx, id, in.Text); err == nil {
+			seq, err = s.contacts.Message(ctx, id, in.Text)
+			switch {
+			case err == nil:
 				err = writeFrame(ctx, conn, liveAck{Type: "ack", Seq: seq})
+			case errors.Is(err, core.ErrClosed), ctx.Err() != nil:
+				// Shutting down, or the client left: the connection ends.
+			default:
+				// Every message gets an ack or an error frame, in the order
+				// the messages were sent, and the connection stays up: a
+				// refusal is about one message, not about the stream.
+				reason := "the message could not be saved; send it again"
+				if errors.Is(err, core.ErrBacklog) {
+					reason = "too many unanswered messages; wait for a reply"
+				} else {
+					s.log.ErrorContext(ctx, "message refused", "contact_id", uint64(id), "error", err)
+				}
+				err = writeFrame(ctx, conn, liveError{Type: "error", Error: reason})
 			}
 		default:
-			err = writeFrame(ctx, conn, liveError{Type: "error", Error: `type must be "message" or "typing"`})
+			err = writeFrame(ctx, conn, liveError{Type: "error", Error: `type must be "message", "typing" or "interrupt"`})
 		}
 		if err != nil {
 			return fmt.Errorf("handle %q frame: %w", in.Type, err)

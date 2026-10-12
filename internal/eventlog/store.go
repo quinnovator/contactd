@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -121,8 +123,14 @@ func (s *Store) Close() error {
 	return nil
 }
 
-// CreateContact inserts a contact and returns its ID.
+// CreateContact inserts an unnamed contact and returns its ID.
 func (s *Store) CreateContact(ctx context.Context, agent core.AgentConfig, profile string, now int64) (core.ContactID, error) {
+	return s.CreateNamed(ctx, "", agent, profile, now)
+}
+
+// CreateNamed inserts a contact with a name and returns its ID. An empty
+// name is no name. A name another contact has is core.ErrNameTaken.
+func (s *Store) CreateNamed(ctx context.Context, name string, agent core.AgentConfig, profile string, now int64) (core.ContactID, error) {
 	raw, err := json.Marshal(agent)
 	if err != nil {
 		return 0, fmt.Errorf("encode agent config: %w", err)
@@ -131,14 +139,40 @@ func (s *Store) CreateContact(ctx context.Context, agent core.AgentConfig, profi
 	// takes the writer connection directly rather than a slot in the batch.
 	// database/sql serializes it with the group-commit transaction.
 	id, err := sqlcgen.New(s.wdb).InsertContact(ctx, sqlcgen.InsertContactParams{
+		Name:       name,
+		Parent:     i64(uint64(agent.Parent)),
 		Agent:      string(raw),
 		Profile:    []byte(profile),
 		LastActive: now,
 	})
+	if isUnique(err) {
+		return 0, fmt.Errorf("name %q: %w", name, core.ErrNameTaken)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("insert contact: %w", err)
 	}
 	return core.ContactID(id), nil //nolint:gosec // rowids are positive
+}
+
+// RenameContact gives a contact a name, or with an empty name takes its name
+// away.
+func (s *Store) RenameContact(ctx context.Context, id core.ContactID, name string) error {
+	n, err := sqlcgen.New(s.wdb).RenameContact(ctx, sqlcgen.RenameContactParams{Name: name, ID: i64(uint64(id))})
+	switch {
+	case isUnique(err):
+		return fmt.Errorf("name %q: %w", name, core.ErrNameTaken)
+	case err != nil:
+		return fmt.Errorf("rename contact %d: %w", id, err)
+	case n == 0:
+		return fmt.Errorf("contact %d: %w", id, core.ErrContactNotFound)
+	}
+	return nil
+}
+
+// isUnique reports whether err is a unique-index violation.
+func isUnique(err error) bool {
+	var se sqlite3.Error
+	return errors.As(err, &se) && se.ExtendedCode == sqlite3.ErrConstraintUnique
 }
 
 // Contact loads one contact row.
@@ -150,8 +184,43 @@ func (s *Store) Contact(ctx context.Context, id core.ContactID) (core.Contact, e
 	if err != nil {
 		return core.Contact{}, fmt.Errorf("load contact %d: %w", id, err)
 	}
-	c := core.Contact{ID: id, Profile: string(row.Profile), LastActive: row.LastActive}
-	if err := json.Unmarshal([]byte(row.Agent), &c.Agent); err != nil {
+	return toContact(row.ID, row.Name, row.Agent, row.Profile, row.LastActive)
+}
+
+// ContactByName loads the contact with exactly this name.
+func (s *Store) ContactByName(ctx context.Context, name string) (core.Contact, error) {
+	if name == "" {
+		return core.Contact{}, fmt.Errorf("contact %q: %w", name, core.ErrContactNotFound)
+	}
+	row, err := s.rq.GetContactByName(ctx, name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return core.Contact{}, fmt.Errorf("contact %q: %w", name, core.ErrContactNotFound)
+	}
+	if err != nil {
+		return core.Contact{}, fmt.Errorf("load contact %q: %w", name, err)
+	}
+	return toContact(row.ID, row.Name, row.Agent, row.Profile, row.LastActive)
+}
+
+// Contacts lists the contacts a person talks to, most recently active first.
+// Sub-agents are left out: they are reached through their parent's log.
+func (s *Store) Contacts(ctx context.Context, limit int) ([]core.Contact, error) {
+	rows, err := s.rq.ListContacts(ctx, int64(limit))
+	if err != nil {
+		return nil, fmt.Errorf("list contacts: %w", err)
+	}
+	out := make([]core.Contact, len(rows))
+	for i, r := range rows {
+		if out[i], err = toContact(r.ID, r.Name, r.Agent, r.Profile, r.LastActive); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func toContact(id int64, name, agent string, profile []byte, lastActive int64) (core.Contact, error) {
+	c := core.Contact{ID: core.ContactID(u64(id)), Name: name, Profile: string(profile), LastActive: lastActive}
+	if err := json.Unmarshal([]byte(agent), &c.Agent); err != nil {
 		return core.Contact{}, fmt.Errorf("decode agent config of contact %d: %w", id, err)
 	}
 	return c, nil
@@ -220,6 +289,35 @@ func (s *Store) EventsAfter(ctx context.Context, id core.ContactID, after uint64
 		return nil, fmt.Errorf("load events of contact %d: %w", id, err)
 	}
 	return toEvents(rows), nil
+}
+
+// EventsAfterOfKinds pages forward through the events of the given kinds.
+func (s *Store) EventsAfterOfKinds(ctx context.Context, id core.ContactID, after uint64, limit int, kinds core.KindSet) ([]core.Event, error) {
+	rows, err := s.rq.EventsAfterOfKinds(ctx, sqlcgen.EventsAfterOfKindsParams{
+		Contact: i64(uint64(id)), After: i64(after), Kinds: int64(kinds), Page: int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load events of contact %d: %w", id, err)
+	}
+	return toEvents(rows), nil
+}
+
+// EventsBefore pages backward: it returns, in log order, the newest limit
+// events of the given kinds with seq < before. A before of zero starts from
+// the end of the log.
+func (s *Store) EventsBefore(ctx context.Context, id core.ContactID, before uint64, limit int, kinds core.KindSet) ([]core.Event, error) {
+	if before == 0 {
+		before = math.MaxInt64
+	}
+	rows, err := s.rq.EventsBeforeOfKinds(ctx, sqlcgen.EventsBeforeOfKindsParams{
+		Contact: i64(uint64(id)), Before: i64(before), Kinds: int64(kinds), Page: int64(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load events of contact %d: %w", id, err)
+	}
+	events := toEvents(rows)
+	slices.Reverse(events)
+	return events, nil
 }
 
 // EventsRange returns up to limit events with from <= seq <= to.

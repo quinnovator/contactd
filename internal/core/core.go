@@ -59,6 +59,29 @@ func (k EventKind) String() string {
 	}
 }
 
+// ParseEventKind is the inverse of String.
+func ParseEventKind(s string) (EventKind, bool) {
+	for k := KindUserMsg; k <= KindNotice; k++ {
+		if k.String() == s {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// KindSet is a set of event kinds, one bit per kind. The zero value selects
+// nothing; AllKinds selects everything.
+type KindSet uint32
+
+// AllKinds selects every kind of event.
+const AllKinds = ^KindSet(0)
+
+// With returns the set with k added.
+func (s KindSet) With(k EventKind) KindSet { return s | 1<<k }
+
+// Has reports whether k is in the set.
+func (s KindSet) Has(k EventKind) bool { return s&(1<<k) != 0 }
+
 // IsMessage reports whether events of this kind are embedded and segmented
 // into episodes.
 func (k EventKind) IsMessage() bool { return k == KindUserMsg || k == KindAgentMsg }
@@ -74,7 +97,10 @@ type Event struct {
 
 // Contact is the durable identity row.
 type Contact struct {
-	ID         ContactID
+	ID ContactID
+	// Name is what a person calls the contact. It is optional, unique where
+	// set, and no part of any prompt.
+	Name       string
 	Agent      AgentConfig
 	Profile    string
 	LastActive int64 // unix ms
@@ -335,6 +361,12 @@ const (
 	DeltaInterrupted DeltaType = "interrupted" // the reply in flight was cut off
 	DeltaError       DeltaType = "error"       // the turn failed; Text is a short reason
 	DeltaNotice      DeltaType = "notice"      // the runtime told the agent something; Text and Seq are set
+	DeltaUser        DeltaType = "user"        // a message to the contact was accepted; Text and Seq are set
+	// DeltaReady is the first delta on every stream. Seq is the last sequence
+	// number assigned before the stream began, or zero when the contact was
+	// not in memory: everything up to it is in the log or about to be, and
+	// everything after it will arrive on the stream.
+	DeltaReady DeltaType = "ready"
 )
 
 // Delta is one item on a contact's live stream.
@@ -356,6 +388,8 @@ var (
 	// its writer has not reset yet. Committing later writes anyway would leave
 	// a gap in the contact's sequence numbers.
 	ErrWriteRefused = errors.New("an earlier write for this contact failed")
+	// ErrNameTaken means another contact already has the name asked for.
+	ErrNameTaken = errors.New("another contact has that name")
 	// ErrBacklog means a contact has too many unanswered messages queued.
 	ErrBacklog = errors.New("too many unanswered messages")
 	// ErrUnknownTool means the model called a tool the agent does not declare.

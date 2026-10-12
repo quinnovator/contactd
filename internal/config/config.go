@@ -18,7 +18,11 @@ import (
 // Config is every runtime setting. Each field has a flag and an environment
 // variable (CONTACTD_ plus the flag name in upper snake case); flags win.
 type Config struct {
-	Addr      string
+	Addr string
+	// Socket is a Unix socket the API is also served on, for clients on the
+	// same machine. Empty means contactd.sock in the data directory; "off"
+	// disables it.
+	Socket    string
 	DataDir   string // holds contacts.db, fs/<contact>/ and cache/
 	LogFormat string // json | text
 	LogLevel  string
@@ -118,6 +122,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l := loader{fs: fs, getenv: getenv}
 
 	l.str(&c.Addr, "addr", ":8080", "listen address")
+	l.str(&c.Socket, "socket", "", "Unix socket to also serve the API on, for local clients such as contactd chat; empty means contactd.sock in the data directory, off disables it")
 	l.str(&c.DataDir, "data-dir", "/data", "directory for the SQLite file and tier-0 filesystems; must be a real local filesystem")
 	l.str(&c.LogFormat, "log-format", "json", "json or text")
 	l.str(&c.LogLevel, "log-level", "info", "debug, info, warn or error")
@@ -327,6 +332,26 @@ func parseLimits(s string) (map[string]int, error) {
 		limits[key] = n
 	}
 	return limits, nil
+}
+
+// SocketOff is the value of -socket that disables the Unix socket.
+const SocketOff = "off"
+
+// DefaultSocket is where the Unix socket of a server with this data
+// directory is, unless it was told otherwise. The server and its local
+// clients both derive it, so a client needs only the data directory.
+func DefaultSocket(dataDir string) string { return filepath.Join(dataDir, "contactd.sock") }
+
+// SocketPath is the Unix socket to serve on, or empty when it is disabled.
+func (c *Config) SocketPath() string {
+	switch c.Socket {
+	case SocketOff:
+		return ""
+	case "":
+		return DefaultSocket(c.DataDir)
+	default:
+		return c.Socket
+	}
 }
 
 // DBPath is the SQLite file.

@@ -13,6 +13,8 @@ type Contact struct {
 	Agent      string
 	Profile    []byte
 	LastActive int64
+	Name       string
+	Parent     int64
 }
 
 type Episode struct {

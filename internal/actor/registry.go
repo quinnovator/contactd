@@ -79,6 +79,15 @@ func (r *Registry) Typing(ctx context.Context, id core.ContactID) error {
 	return r.deliver(ctx, id, Typing{}, func(*shard) {})
 }
 
+// Interrupt stops the reply a contact has in flight, if it has one. Like a
+// typing indicator it never wakes a hibernated contact.
+func (r *Registry) Interrupt(ctx context.Context, id core.ContactID) error {
+	if r.closing.Load() {
+		return core.ErrClosed
+	}
+	return r.deliver(ctx, id, Interrupt{}, func(*shard) {})
+}
+
 // Send delivers a command to a contact's actor, hydrating the contact if it
 // is not in memory.
 func (r *Registry) Send(ctx context.Context, id core.ContactID, c Cmd) error {
@@ -95,6 +104,8 @@ func (r *Registry) Subscribe(ctx context.Context, id core.ContactID) (*Subscript
 	}
 	sub := newSubscription(r.cfg.SubBuffer)
 	err := r.deliver(ctx, id, subscribe{sub: sub}, func(sh *shard) {
+		// With no actor nothing is in flight: the log is the whole story.
+		sub.ch <- core.Delta{Type: core.DeltaReady}
 		sh.parked[id] = append(sh.parked[id], sub)
 	})
 	if err != nil {

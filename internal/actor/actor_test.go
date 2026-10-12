@@ -223,7 +223,7 @@ func TestToolTurnRunsToCompletion(t *testing.T) {
 			t.Errorf("calls = %+v", calls)
 		}
 		ds, _ := drain(sub)
-		want := "typing=true tool_start tool_call tool_result text text text text text message typing=false"
+		want := "ready user typing=true tool_start tool_call tool_result text text text text text message typing=false"
 		if got := types(ds); got != want {
 			t.Errorf("stream = %s\n   want %s", got, want)
 		}
@@ -340,7 +340,11 @@ func TestStreamLifecycle(t *testing.T) {
 			seq := h.say("hello there")
 			time.Sleep(5 * time.Second)
 			ds, _ := drain(sub)
-			if len(ds) < 3 || ds[0].Type != core.DeltaTyping || !ds[0].Typing {
+			// A stream opens with where it begins (nothing was in flight, so
+			// the log is the whole story), then the message as accepted.
+			if len(ds) < 5 || ds[0] != (core.Delta{Type: core.DeltaReady}) ||
+				ds[1] != (core.Delta{Type: core.DeltaUser, Text: "hello there", Seq: seq}) ||
+				ds[2].Type != core.DeltaTyping || !ds[2].Typing {
 				t.Fatalf("stream = %s", types(ds))
 			}
 			var text strings.Builder
