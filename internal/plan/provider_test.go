@@ -38,7 +38,7 @@ func TestReasoningIsRenderedOnlyForItsRoute(t *testing.T) {
 		user("thanks")
 
 	build := func(route string) *PromptPlan {
-		return mustBuild(t, nil, Input{Agent: testAgent(), Route: route, Tail: log.events}, nil, t0, DefaultParams())
+		return mustBuild(t, nil, Input{Agent: testAgent(), Reader: Reader{Route: route}, Tail: log.events}, nil, t0, DefaultParams())
 	}
 	own, other, none := build("deepseek/deepseek-flash"), build("openrouter/x"), build("")
 	count := func(p *PromptPlan) int {
@@ -96,7 +96,7 @@ func TestNoticesAreSomethingToAnswer(t *testing.T) {
 		live[0].Text != "<notice source=\"subagent-settled\">\nSub-agent 9 finished.\n</notice>" {
 		t.Fatalf("live tier = %q, want the notice then the time note", texts(live))
 	}
-	lay, err := Layout(nil, log.events, "", DefaultParams())
+	lay, err := Layout(nil, log.events, Reader{}, DefaultParams())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -321,5 +321,100 @@ func TestPromptIsAOneOffRequest(t *testing.T) {
 	marks := p.PrefixMarks()
 	if len(marks) != 2 || p.Tiers[TierStatic].Msgs[0].Text != "be brief" || p.Tiers[TierLive].Msgs[0].Text != "hello" {
 		t.Errorf("Prompt laid out %d messages: %+v", len(marks), p.Tiers)
+	}
+}
+
+// A route that must be given back the reasoning behind every tool call
+// cannot be shown a call some other route made. The exchange is kept, as
+// text.
+func TestAnotherRoutesToolCallsAreRenderedAsText(t *testing.T) {
+	t.Parallel()
+	mine := &core.Reasoning{Route: "ds/flash", Data: []byte("r")}
+	log := new(logBuilder).user("run both").
+		// Made by another route, with a second call in the same step.
+		add(core.KindToolCall, core.ToolCall{ID: "a", Name: "python", Code: "print(1)", Text: "On it.", Route: "anthropic/opus"}).
+		result("a", "1").
+		add(core.KindToolCall, core.ToolCall{ID: "b", Name: "python", Code: "boom()", Sibling: 1, Route: "anthropic/opus"}).
+		add(core.KindToolResult, core.ToolResult{ID: "b", Output: "NameError", IsError: true}).
+		agent("Done.").
+		user("again").
+		// Made by this route.
+		add(core.KindToolCall, core.ToolCall{ID: "c", Name: "python", Code: "print(2)", Route: "ds/flash", Reasoning: mine}).
+		result("c", "2").
+		agent("Done again.").
+		// Logged before routes were recorded, and never answered.
+		user("once more").
+		call("d", "print(3)").
+		user("hello?")
+
+	build := func(r Reader) *PromptPlan {
+		return mustBuild(t, nil, Input{Agent: testAgent(), Reader: r, Tail: log.events}, nil, t0, DefaultParams())
+	}
+	strict := build(Reader{Route: "ds/flash", ReplaysAllTurns: true})
+	var kinds []string
+	for _, m := range strict.Tiers[TierTail].Msgs {
+		switch {
+		case m.ToolCall != nil:
+			kinds = append(kinds, "call:"+m.ToolCall.ID)
+		case m.ToolResult != nil:
+			kinds = append(kinds, "result:"+m.ToolResult.ID)
+		default:
+			kinds = append(kinds, m.Role.String())
+		}
+	}
+	want := "user assistant user assistant user assistant " + // the other route's two calls, flattened
+		"user call:c result:c assistant " + // this route's own call, as a call
+		"user assistant user" // the unanswered old call, flattened, with its placeholder result
+	if got := strings.Join(kinds, " "); got != want {
+		t.Fatalf("tail = %s\nwant   %s", got, want)
+	}
+	msgs := strict.Tiers[TierTail].Msgs
+	if msgs[1].Text != "On it.\n\n[ran the python tool]\nprint(1)" || msgs[2].Text != "[result of the python tool]\n1" {
+		t.Errorf("flattened exchange = %q / %q", msgs[1].Text, msgs[2].Text)
+	}
+	if msgs[4].Text != "[the python tool failed]\nNameError" {
+		t.Errorf("a failed run should say so: %q", msgs[4].Text)
+	}
+	if msgs[7].ToolCall == nil || msgs[7].Reasoning == nil {
+		t.Error("this route's own call lost its reasoning")
+	}
+	// A flattened result is in the user's position but is nobody's message:
+	// only the real message is something to answer.
+	if live := texts(strict.Tiers[TierLive].Msgs); len(live) != 2 || live[0] != "hello?" {
+		t.Errorf("live tier = %q", live)
+	}
+
+	// A route that does not need reasoning back sees ordinary tool calls.
+	lenient := build(Reader{Route: "ds/flash"})
+	calls := 0
+	for _, m := range lenient.Tiers[TierTail].Msgs {
+		if m.ToolCall != nil {
+			calls++
+		}
+	}
+	if calls != 4 {
+		t.Errorf("%d tool calls rendered for a route that replays nothing across turns, want all 4", calls)
+	}
+}
+
+// A summary that is half the tail by itself is not a span: folding it alone
+// would cover nothing new.
+func TestFoldSpanNeverFoldsOnlyTheSummary(t *testing.T) {
+	t.Parallel()
+	pr := DefaultParams()
+	log := checkpointLog().checkpoint(1, 6, strings.Repeat("a long summary ", 40)).user("question six")
+	pr.TailBudget, pr.HardBudget = 60, 10_000
+	p := mustBuild(t, nil, Input{Agent: testAgent(), Tail: log.events}, nil, t0, pr)
+	if p.Checkpoint == 0 {
+		t.Fatal("setup: the checkpoint should apply")
+	}
+	span, ok := p.FoldSpan(pr)
+	if !ok {
+		t.Fatal("the tail is over budget and holds real turns: there is something to fold")
+	}
+	// The summary and at least the first turn after it; and it reaches past
+	// what the summary already covered.
+	if span.Msgs < 3 || span.From != 1 || span.To <= 6 {
+		t.Errorf("span = %+v, want it to absorb the summary and reach past seq 6", span)
 	}
 }

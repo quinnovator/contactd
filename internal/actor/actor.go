@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -74,6 +75,10 @@ type actor struct {
 	notices  []core.NoticeBody
 	forkBase *plan.PromptPlan
 	taskOpen bool
+	// kids are the sub-agents this contact's log shows as started and not
+	// yet settled. children counts the same thing plus any slot reserved
+	// for a delegation that is still being set up.
+	kids map[core.ContactID]struct{}
 }
 
 type inflight struct {
@@ -131,7 +136,7 @@ func (a *actor) run(ctx context.Context) {
 			// The process is going down without a graceful Shutdown.
 			a.r.retireNow(a)
 			a.abortTurn(ctx, true)
-			a.drainInbox(core.ErrClosed, false)
+			a.drainInbox(ctx, core.ErrClosed, false)
 			return
 		}
 	}
@@ -181,7 +186,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 	case stop:
 		a.r.retireNow(a)
 		a.abortTurn(ctx, true)
-		a.drainInbox(core.ErrClosed, false)
+		a.drainInbox(ctx, core.ErrClosed, false)
 		a.hibernate(ctx, "shutdown")
 		return true
 	case flushNow:
@@ -206,10 +211,20 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		a.broadcast(core.Delta{Type: core.DeltaToolCall, Turn: c.id, Tool: c.call.Name, Text: c.call.Code, Seq: ev.Seq})
 		c.ack <- nil
 	case turnToolResult:
-		if t := a.turn; t != nil && t.id == c.id {
-			ev := a.append(ctx, core.KindToolResult, c.res, nil)
-			a.broadcast(core.Delta{Type: core.DeltaToolResult, Turn: c.id, Tool: c.name, Text: c.res.Output, Seq: ev.Seq})
+		t := a.turn
+		if t == nil || t.id != c.id {
+			// Only a forced stop gets here: a turn in its tool phase is
+			// never cancelled by a message.
+			c.ack <- toolAck{err: context.Canceled}
+			break
 		}
+		ev := a.append(ctx, core.KindToolResult, c.res, nil)
+		if c.res.Child != 0 {
+			a.kids[c.res.Child] = struct{}{} // now on record as waited for
+		}
+		a.broadcast(core.Delta{Type: core.DeltaToolResult, Turn: c.id, Tool: c.name, Text: c.res.Output, Seq: ev.Seq})
+		// The result is logged; only now does the tool phase end.
+		c.ack <- toolAck{replan: c.exit()}
 	case turnDone:
 		a.onTurnDone(ctx, c)
 	case turnAttempt:
@@ -219,11 +234,14 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// out: the turn starts now.
 		a.touch()
 		a.forkBase, a.taskOpen = c.base, true
-		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: taskText(c.text)}, c.ack)
+		ref := c.ref
+		a.append(ctx, core.KindUserMsg, core.MsgBody{Text: taskText(c.text), Task: &ref}, c.ack)
 		a.wantTurn = true
 		a.startTurn(ctx)
 	case settled:
 		a.onSettled(ctx, c)
+	case resettle:
+		a.onResettle(ctx, c)
 	case folded:
 		a.onFolded(ctx, c)
 	case embedded:
@@ -236,9 +254,12 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// Memory is ahead of disk. Drop it; the next message rehydrates
 		// from what actually committed.
 		a.log.ErrorContext(ctx, "write failed; dropping actor state", "error", c.err)
+		// A sub-agent that dies here would otherwise never be heard from,
+		// and its parent would wait for it for good.
+		a.settle(ctx, nil, fmt.Errorf("the sub-agent's log could not be written: %w", c.err))
 		a.r.retireNow(a)
 		a.abortTurn(ctx, true)
-		a.drainInbox(c.err, false)
+		a.drainInbox(ctx, c.err, false)
 		// Release the environment; its snapshot cannot be recorded, because
 		// this actor's sequence numbers can no longer be trusted.
 		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -271,11 +292,22 @@ func (a *actor) syncBusy() {
 func (a *actor) hydrate(ctx context.Context) error {
 	start := time.Now()
 	cfg, deps := &a.r.cfg, &a.r.deps
-	h, err := deps.Hydrate.Hydrate(ctx, a.id, cfg.TailEvents)
+	// Attempt records sit between the events of a conversation, one per
+	// model call, and the planner never reads them. Half as many rows again
+	// are loaded so that, with them dropped, the hot window still holds
+	// about TailEvents events of the conversation itself.
+	h, err := deps.Hydrate.Hydrate(ctx, a.id, cfg.TailEvents+cfg.TailEvents/2)
 	if err != nil {
 		return err //nolint:wrapcheck // the store's error already names the contact
 	}
-	a.contact, a.tail, a.nextSeq = h.Contact, h.Tail, h.NextSeq
+	a.contact, a.nextSeq = h.Contact, h.NextSeq
+	a.tail = slices.DeleteFunc(h.Tail, func(ev core.Event) bool { return ev.Kind == core.KindAttempt })
+	if over := len(a.tail) - cfg.TailEvents; over > 0 {
+		a.tail = slices.Clone(a.tail[over:])
+	}
+	if err := a.restoreCheckpoint(ctx); err != nil {
+		return err
+	}
 	// A sub-agent shares its parent's key, so that the family lands on one
 	// backend and the child can read what the parent cached.
 	family := a.id
@@ -326,6 +358,7 @@ func (a *actor) hydrate(ctx context.Context) error {
 	a.debounce = time.NewTimer(time.Hour)
 	a.debounce.Stop()
 	a.summarizing = make(map[uint32]struct{})
+	a.reconcileChildren(ctx)
 	for i := len(a.tail) - 1; i >= 0 && a.tail[i].Kind == core.KindUserMsg; i-- {
 		a.pendingBytes += len(a.tail[i].Body)
 	}
@@ -372,7 +405,7 @@ func (a *actor) failHydration(ctx context.Context, err error) {
 		close(s.ch)
 	}
 	a.subs = nil
-	a.drainInbox(err, true)
+	a.drainInbox(ctx, err, true)
 }
 
 // drainInbox answers what is still in the mailbox of an actor that has been
@@ -380,7 +413,7 @@ func (a *actor) failHydration(ctx context.Context, err error) {
 // already stopped new deliveries. Messages are refused with err; streams are
 // closed when closeSubs is set and otherwise kept, to be parked for the
 // contact's next actor.
-func (a *actor) drainInbox(err error, closeSubs bool) {
+func (a *actor) drainInbox(ctx context.Context, err error, closeSubs bool) {
 	for {
 		select {
 		case c := <-a.inbox:
@@ -399,10 +432,23 @@ func (a *actor) drainInbox(err error, closeSubs bool) {
 				c.done <- struct{}{}
 			case turnToolCall:
 				c.ack <- context.Canceled
+			case turnToolResult:
+				c.ack <- toolAck{err: context.Canceled}
 			case task:
 				c.ack <- Ack{Err: err}
+			case resettle:
+				// This contact cannot be loaded, so it cannot report. Its
+				// parent is told that much, instead of waiting for good.
+				a.r.deliverSettlement(ctx, c.parent, a.id, core.NoticeBody{
+					Source: noticeSettled, Child: a.id,
+					Text: failedText(a.id, "the sub-agent could not be loaded: "+err.Error()),
+				})
 			default:
-				// Results from goroutines this actor started: safe to lose.
+				// Results from goroutines this actor started are safe to
+				// lose. So is a sub-agent's settlement, for a different
+				// reason: until its notice is in the log the sub-agent is
+				// still on record as open, and this contact's next actor
+				// asks it to report again.
 			}
 		default:
 			return
@@ -604,7 +650,7 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 		a.trimTail(res.Plan)
 		a.summarizeRecalled(ctx, res.Plan.Recall)
 		a.recordSnapshots(ctx, a.env.TakeSnapshots())
-		a.maybeFold(ctx, &res)
+		a.maybeFold(ctx, c.id, &res)
 		if !res.Replan {
 			a.settle(ctx, &res, nil)
 		}
@@ -761,8 +807,19 @@ func (s sink) ToolCall(ctx context.Context, call core.ToolCall, enter func() boo
 	}
 }
 
-func (s sink) ToolResult(ctx context.Context, name string, res core.ToolResult) error {
-	return s.send(ctx, turnToolResult{id: s.id, name: name, res: res})
+func (s sink) ToolResult(ctx context.Context, name string, res core.ToolResult, exit func() bool) (bool, error) {
+	ack := make(chan toolAck, 1)
+	if err := s.send(ctx, turnToolResult{id: s.id, name: name, res: res, exit: exit, ack: ack}); err != nil {
+		return false, err
+	}
+	select {
+	case got := <-ack:
+		return got.replan, got.err
+	case <-ctx.Done():
+		return false, ctx.Err() //nolint:wrapcheck // callers wrap with what they were sending
+	case <-s.a.dead:
+		return false, core.ErrClosed
+	}
 }
 
 // Attempt is delivered even when the turn's own context is already done: a

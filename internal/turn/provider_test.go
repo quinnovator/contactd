@@ -480,3 +480,37 @@ func TestModelSummarizer(t *testing.T) {
 		t.Errorf("unknown summary model: %v", err)
 	}
 }
+
+func TestOnlyAFinishedReplyCountsAsACheckpoint(t *testing.T) {
+	t.Parallel()
+	// loopLLM answers everything with a tool call. Text that came with a
+	// tool call is not a summary, and must not stand in for a conversation.
+	d := deps(loopLLM{fakellm.New(fakellm.Options{})})
+	p := plan.Prompt("s", "hello")
+	route, err := d.Models.Route(t.Context(), "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A span over a plan with no tail: FoldRequest only needs the counts.
+	_, att, err := turn.Checkpoint(t.Context(), d.Models, turn.Fold{Route: route, Plan: p, Turn: 7})
+	if err == nil || !strings.Contains(err.Error(), "called a tool") {
+		t.Errorf("err = %v, want the tool call refused as a summary", err)
+	}
+	if att == nil || att.Turn != 7 || att.Purpose != "checkpoint" {
+		t.Errorf("attempt = %+v, want it tied to the turn its prompt came from", att)
+	}
+}
+
+func TestThePlanAndThePredictionShareOneClock(t *testing.T) {
+	t.Parallel()
+	res, err := turn.Run(t.Context(), input(&sink{}, &leaser{}, "!python print(1)"), deps(fakellm.New(fakellm.Options{})))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The next turn's planner (recall hysteresis) and its cache prediction
+	// both ask "is the cache still warm?". They must measure from the same
+	// moment: when this prompt was last sent.
+	if res.Sent == nil || res.Plan.BuiltAt != res.Sent.At {
+		t.Errorf("plan dated %d, last request sent at %+v", res.Plan.BuiltAt, res.Sent)
+	}
+}

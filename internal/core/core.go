@@ -148,6 +148,8 @@ type MsgBody struct {
 	// Reasoning is the provider's payload for this reply, stored only on
 	// routes that require it back on later turns.
 	Reasoning *Reasoning `json:"reasoning,omitempty"`
+	// Task marks the message that gave a sub-agent its task.
+	Task *TaskRef `json:"task,omitempty"`
 }
 
 // Reasoning is a provider's own record of a model's reasoning for one
@@ -170,6 +172,10 @@ type ToolCall struct {
 	// Args is the call's arguments as the model wrote them, for a tool that
 	// declares its own Input schema. Code is empty for such a call.
 	Args json.RawMessage `json:"args,omitempty"`
+	// Route is the model route that made the call. A route that must be
+	// given its reasoning back on every turn cannot be shown a tool call
+	// another route made, so the planner needs to know whose it was.
+	Route string `json:"route,omitempty"`
 	// Sibling is the call's position among the calls the model made in one
 	// step: 0 for the first, and above 0 for a call that belongs to the same
 	// assistant message as the call before it. Calls are run and logged one
@@ -190,6 +196,10 @@ type ToolResult struct {
 	ID      string `json:"id"` // the ToolCall.ID it answers
 	Output  string `json:"output"`
 	IsError bool   `json:"is_error,omitempty"`
+	// Child is set on the result of a delegation that started a sub-agent.
+	// Together with the notice that later names the same child, it is the
+	// durable record of which sub-agents a contact is still waiting for.
+	Child ContactID `json:"child,omitempty"`
 }
 
 // SummaryBody is the body of a KindSummary event.
@@ -245,6 +255,23 @@ type CheckpointBody struct {
 type NoticeBody struct {
 	Source string `json:"source"` // e.g. "subagent-settled"
 	Text   string `json:"text"`
+	// Child is the sub-agent a settlement notice is about.
+	Child ContactID `json:"child,omitempty"`
+}
+
+// TaskRef is set on the message that gives a sub-agent its task. It records
+// where the task came from, and for a fork which of the parent's prompts the
+// sub-agent started from: enough to find that prompt again in the parent's
+// log, since the prompt itself is not copied.
+type TaskRef struct {
+	Parent ContactID `json:"parent"`
+	Turn   uint64    `json:"turn"` // the parent's turn that delegated
+	Fork   bool      `json:"fork,omitempty"`
+	// TailFrom, Checkpoint and Recall identify the parent's prompt a fork
+	// began with.
+	TailFrom   uint64   `json:"tail_from,omitempty"`
+	Checkpoint uint64   `json:"checkpoint,omitempty"`
+	Recall     []uint32 `json:"recall,omitempty"`
 }
 
 // EnvSnapshotBody is the body of a KindEnvSnapshot event.

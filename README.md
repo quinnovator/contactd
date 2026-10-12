@@ -84,6 +84,7 @@ With `delegate` on, the model can call `delegate({"task": ..., "mode": "spawn" |
 - **`spawn`** starts it from the instructions and the task.
 - **`fork`** also gives it the parent's conversation up to the parent's last finished reply. Its first request begins with the exact bytes the parent last sent, so it reads the parent's prompt cache.
 - **Settlement** arrives in the parent's log as a `notice` event, and starts a turn so the agent can act on it. It never interrupts a reply in progress, and a sub-agent that fails settles the same way: as a notice, with a diagnostic of at most 4,096 bytes.
+- **A settlement survives a restart.** The parent's log records each sub-agent it started and each one it has heard from. A parent that wakes with one still open asks it to report again from its own log; a sub-agent that was cut off mid-task reports that it failed.
 - **Limits:** one level deep, and `-max-children` (8) running at once per contact. Interrupting the parent does not stop its sub-agents.
 
 ## Configuration
@@ -280,7 +281,10 @@ Each of these is a place where following the doc to the letter would have been w
 - **A checkpoint doubles as an episode summary only when the folded span is exactly one unsummarized episode.** A span that covers several conversations has one summary and several episodes; giving them all the same text would make recall worse.
 - **A sub-agent is shown the `delegate` tool and refused when it calls it.** Hiding the tool would change the tool list, and with it the first bytes of the prompt, so a child could never read its parent's cache.
 - **A fork starts from the prompt of the parent's turn in progress, less that turn**: the same static tier, profile, recalled episodes and history the parent just sent, without the message it is answering.
-- **A settlement waits for the turn in flight.** It is held in memory until that turn commits, then logged after the reply. If the process stops while a sub-agent is running, its parent is never told; the sub-agent's own log still has the result.
+- **A settlement waits for the turn in flight.** It is held in memory until that turn commits, then logged after the reply. Delivery is best effort, and the parent's log is the record: a delegation's result names its sub-agent, the notice names it again, and a parent that wakes with one unmatched asks that sub-agent to report from its own log. A parent hears about a settlement lost to a shutdown the next time something wakes it, not before.
+- **A tool exchange made by another route is shown as text to a route that needs reasoning back.** If a contact is moved to a model that must be given the reasoning behind every earlier tool call, the calls its old model made have none it can take. They are rendered as plain assistant and user text ("ran the python tool", "result of the python tool"), so the request is accepted and the model still sees what happened. The same applies to tool calls logged before reasoning was stored.
+- **"Before the first event" includes a response that starts and then fails.** A request the provider accepts with HTTP 200 and then fails before writing anything (an overloaded error as the first frame, a dropped connection) is retried like a refused one. After the first event nothing is retried.
+- **Hydration loads the newest checkpoint wherever it is.** The hot window is the last 256 events of the conversation (attempt records are not counted), and a checkpoint can be much older than that.
 - **A sub-agent's result is its last message.** The proposal's optional structured value is not built.
 - **A reply cut off mid-stream stores no reasoning**, because the stream never finished. On an all-turns route the next request carries that one assistant message without it.
 

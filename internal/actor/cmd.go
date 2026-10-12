@@ -74,10 +74,21 @@ type turnToolCall struct {
 	ack   chan<- error
 }
 
+// turnToolResult asks the actor to log a tool result and end the tool
+// phase. exit leaves the phase and reports whether a message arrived during
+// it; like enter, it runs on the actor goroutine, after the result has been
+// appended. ack is buffered.
 type turnToolResult struct {
 	id   uint64
 	name string
 	res  core.ToolResult
+	exit func() bool
+	ack  chan<- toolAck
+}
+
+type toolAck struct {
+	replan bool
+	err    error
 }
 
 type turnDone struct {
@@ -94,8 +105,15 @@ type turnAttempt struct{ body core.AttemptBody }
 type task struct {
 	text string
 	base *plan.PromptPlan
+	ref  core.TaskRef
 	ack  chan<- Ack
 }
+
+// resettle asks a sub-agent to report its task's outcome again, from its
+// log. A parent sends it for each sub-agent its own log shows as started and
+// not yet settled: after a restart, or after anything else that could have
+// lost the first report.
+type resettle struct{ parent core.ContactID }
 
 // settled tells a parent that one of its sub-agents has finished, one way or
 // another.
@@ -106,6 +124,11 @@ type settled struct {
 
 // folded returns a checkpoint summary for a span of the tail.
 type folded struct {
+	// turn is the turn whose prompt the request was cut from, and absorbs
+	// says that prompt already opened with an earlier checkpoint, which
+	// this one therefore covers too.
+	turn    uint64
+	absorbs bool
 	span    plan.Span
 	text    string
 	attempt *core.AttemptBody
@@ -147,6 +170,7 @@ func (turnDone) isCmd()       {}
 func (turnAttempt) isCmd()    {}
 func (task) isCmd()           {}
 func (settled) isCmd()        {}
+func (resettle) isCmd()       {}
 func (folded) isCmd()         {}
 func (embedded) isCmd()       {}
 func (summarized) isCmd()     {}

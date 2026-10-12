@@ -19,6 +19,10 @@ type entry struct {
 	// ckpt is set on the one entry that stands in for a checkpointed span:
 	// the seq of the checkpoint event, and the first seq the span covered.
 	ckpt, ckptFrom uint64
+	// flat marks a tool call or result rendered as plain text. It is
+	// history like any other, but it is nobody's message: it never opens a
+	// turn and is never something to answer.
+	flat bool
 }
 
 const (
@@ -29,9 +33,9 @@ const (
 
 // window says which part of a hot window is rendered, and for whom.
 type window struct {
-	from  uint64 // first seq rendered verbatim
-	ckpt  uint64 // seq of the checkpoint event the previous plan applied, or 0
-	route string // reasoning payloads are rendered only for this route
+	Reader
+	from uint64 // first seq rendered verbatim
+	ckpt uint64 // seq of the checkpoint event the previous plan applied, or 0
 }
 
 // normalize renders events with seq >= from into messages in an order every
@@ -71,7 +75,7 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 		from = max(from, ck.To+1)
 	}
 	keep := func(r *core.Reasoning) *core.Reasoning {
-		if r == nil || r.Route != w.route || w.route == "" {
+		if r == nil || r.Route != w.Route || w.Route == "" {
 			return nil
 		}
 		return r
@@ -84,15 +88,26 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 		out = append(out, e)
 	}
 	var (
-		pending  *core.ToolCall
-		deferred []entry
+		pending     *core.ToolCall
+		pendingFlat bool
+		deferred    []entry
 	)
+	// result renders the answer to the pending call, in the form its call
+	// was rendered in.
+	result := func(res *core.ToolResult, seq uint64, ts int64) entry {
+		if !pendingFlat {
+			return newEntry(core.Message{Role: core.RoleTool, ToolResult: res}, seq, ts)
+		}
+		e := newEntry(core.Message{Role: core.RoleUser, Text: flatResult(pending.Name, res)}, seq, ts)
+		e.flat = true
+		return e
+	}
 	closePending := func() {
 		if pending == nil {
 			return
 		}
 		res := core.ToolResult{ID: pending.ID, Output: orphanResult, IsError: true}
-		out = append(out, newEntry(core.Message{Role: core.RoleTool, ToolResult: &res}, 0, 0))
+		out = append(out, result(&res, 0, 0))
 		out = append(out, deferred...)
 		pending, deferred = nil, deferred[:0]
 	}
@@ -146,7 +161,14 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 			}
 			closePending()
 			call.Reasoning = keep(call.Reasoning)
-			out = append(out, newEntry(core.Message{Role: core.RoleAssistant, Text: call.Text, ToolCall: call, Reasoning: call.Reasoning}, ev.Seq, ev.TS))
+			pendingFlat = w.ReplaysAllTurns && call.Route != w.Route
+			if pendingFlat {
+				e := newEntry(core.Message{Role: core.RoleAssistant, Text: flatCall(call)}, ev.Seq, ev.TS)
+				e.flat = true
+				out = append(out, e)
+			} else {
+				out = append(out, newEntry(core.Message{Role: core.RoleAssistant, Text: call.Text, ToolCall: call, Reasoning: call.Reasoning}, ev.Seq, ev.TS))
+			}
 			pending = call
 		case core.KindToolResult:
 			res := new(core.ToolResult)
@@ -156,7 +178,7 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 			if pending == nil || pending.ID != res.ID {
 				continue // its call fell before the tail; nothing to attach it to
 			}
-			out = append(out, newEntry(core.Message{Role: core.RoleTool, ToolResult: res}, ev.Seq, ev.TS))
+			out = append(out, result(res, ev.Seq, ev.TS))
 			out = append(out, deferred...)
 			pending, deferred = nil, deferred[:0]
 		case core.KindSummary, core.KindEnvSnapshot, core.KindAttempt, core.KindCheckpoint:
@@ -167,10 +189,31 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 	closePending()
 
 	for i := range out {
-		out[i].boundary = out[i].msg.Role == core.RoleUser &&
-			(i == 0 || out[i-1].msg.Role != core.RoleUser || out[i-1].ckpt != 0)
+		out[i].boundary = out[i].msg.Role == core.RoleUser && !out[i].flat &&
+			(i == 0 || out[i-1].msg.Role != core.RoleUser || out[i-1].ckpt != 0 || out[i-1].flat)
 	}
 	return out, nil
+}
+
+// flatCall and flatResult write a tool exchange as plain text.
+func flatCall(c *core.ToolCall) string {
+	what := c.Code
+	if len(c.Args) > 0 {
+		what = string(c.Args)
+	}
+	text := "[ran the " + c.Name + " tool]\n" + what
+	if c.Text != "" {
+		text = c.Text + "\n\n" + text
+	}
+	return text
+}
+
+func flatResult(tool string, r *core.ToolResult) string {
+	head := "[result of the " + tool + " tool]\n"
+	if r.IsError {
+		head = "[the " + tool + " tool failed]\n"
+	}
+	return head + r.Output
 }
 
 func renderNotice(n *core.NoticeBody) string {
@@ -201,7 +244,7 @@ func alignToBoundary(entries []entry) []entry {
 // turn answers, from the history before it. A checkpoint summary is history.
 func splitLive(entries []entry) (tail, live []entry) {
 	i := len(entries)
-	for i > 0 && entries[i-1].msg.Role == core.RoleUser && entries[i-1].ckpt == 0 {
+	for i > 0 && entries[i-1].msg.Role == core.RoleUser && entries[i-1].ckpt == 0 && !entries[i-1].flat {
 		i--
 	}
 	return entries[:i], entries[i:]

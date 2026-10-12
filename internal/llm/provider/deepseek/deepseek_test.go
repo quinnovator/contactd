@@ -230,8 +230,8 @@ func TestReasoningIsReplayedOnLaterTurns(t *testing.T) {
 		return &core.Reasoning{Route: id, Data: []byte(`{"v":1,"turn":[{"block":{"type":"thinking","thinking":"` + text + `","signature":"sig"}},` + after + `]}`)}
 	}
 	in := plan.Input{
-		Agent: &core.AgentConfig{System: "You are Ada.", Tools: []core.ToolDef{{Name: "python", Description: "Run Python."}}},
-		Route: r.ID(),
+		Agent:  &core.AgentConfig{System: "You are Ada.", Tools: []core.ToolDef{{Name: "python", Description: "Run Python."}}},
+		Reader: plan.Reader{Route: r.ID()},
 		Tail: []core.Event{
 			event(1, core.KindUserMsg, core.MsgBody{Text: "What is 6 times 7?"}),
 			event(2, core.KindToolCall, core.ToolCall{ID: "call_1", Name: "python", Code: "print(6 * 7)", Reasoning: payload(r.ID(), "use the tool", `{"tool":true}`)}),

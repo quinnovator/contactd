@@ -74,7 +74,7 @@ func (d *Deps) delegate(ctx context.Context, in Input, p *plan.PromptPlan, call 
 	if err := json.Unmarshal(call.Args, &args); err != nil || args.Task == "" {
 		return fail(`the delegate tool needs {"task": "..."} and optionally "mode": "spawn" or "fork"`)
 	}
-	req := Delegation{Task: args.Task, Agent: in.Agent}
+	req := Delegation{Task: args.Task, Agent: in.Agent, Turn: in.TurnID}
 	switch args.Mode {
 	case "", "spawn":
 	case "fork":
@@ -90,6 +90,6 @@ func (d *Deps) delegate(ctx context.Context, in Input, p *plan.PromptPlan, call 
 		return fail(fmt.Sprintf("the sub-agent could not be started: %v", err))
 	}
 	id := strconv.FormatUint(uint64(child), 10)
-	return core.ToolResult{ID: call.ID, Output: "Sub-agent " + id + " started. It runs on its own: you cannot wait for it or check on it. " +
+	return core.ToolResult{ID: call.ID, Child: child, Output: "Sub-agent " + id + " started. It runs on its own: you cannot wait for it or check on it. " +
 		"A notice will tell you when it settles, with its result."}
 }

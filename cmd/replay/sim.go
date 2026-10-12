@@ -186,7 +186,7 @@ func simulate(ctx context.Context, msgs []message, m *models, pr params, v varia
 		now := fresh[len(fresh)-1].TS
 
 		// Recall, exactly as turn.Run does it.
-		lay, err := plan.Layout(prev, log.events, "", pp)
+		lay, err := plan.Layout(prev, log.events, plan.Reader{}, pp)
 		if err != nil {
 			return fmt.Errorf("lay out tail: %w", err)
 		}

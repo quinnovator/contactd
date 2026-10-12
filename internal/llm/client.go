@@ -165,7 +165,15 @@ type Attempt struct {
 
 // Call is one admitted model call.
 type Call struct {
-	stream  Stream
+	stream Stream
+	// first, next and stop are the stream's events, already read up to the
+	// first one. ended is set instead when the stream finished before
+	// producing any.
+	first *Event
+	next  func() (Event, bool)
+	stop  func()
+	ended *ending
+
 	marks   []plan.Mark
 	attempt Attempt
 	start   time.Time
@@ -176,7 +184,15 @@ type Call struct {
 	done    bool
 }
 
-// Call freezes and sends one model call. An error means the call never
+// ending is how a stream that produced no events finished.
+type ending struct {
+	res Result
+	err error
+}
+
+// Call freezes and sends one model call. It returns once the first event
+// has arrived or the stream has ended, so that a call which fails before
+// producing anything can still be retried. An error means the call never
 // started streaming; the returned Call is still non-nil when a request was
 // frozen, so that its Attempt can be logged.
 func (c *Client) Call(ctx context.Context, r Route, p *plan.PromptPlan, o Options) (*Call, error) {
@@ -220,7 +236,9 @@ func (c *Client) Call(ctx context.Context, r Route, p *plan.PromptPlan, o Option
 	if slots != nil {
 		select {
 		case slots <- struct{}{}:
-			call.release = func() { <-slots }
+			// Released exactly once, whichever path gets there first: a
+			// failure here, or Result on the call.
+			call.release = sync.OnceFunc(func() { <-slots })
 		case <-ctx.Done():
 			return fail(fmt.Errorf("wait for a %s slot: %w", r.Provider, ctx.Err()))
 		}
@@ -230,11 +248,29 @@ func (c *Client) Call(ctx context.Context, r Route, p *plan.PromptPlan, o Option
 		call.attempt.Tries = try
 		stream, err := prov.Send(ctx, f)
 		if err == nil {
-			call.stream = stream
-			return call, nil
+			// A provider can accept a request and then fail it before
+			// writing anything: an overloaded error as the first frame, or a
+			// connection dropped after the headers. That is still "before
+			// the first event", so the stream is read up to its first event
+			// here, and a failure before it is handled like a failed send.
+			next, stop := iter.Pull(stream.Events())
+			first, ok := next()
+			if ok {
+				call.stream, call.first, call.next, call.stop = stream, &first, next, stop
+				return call, nil
+			}
+			stop()
+			res, rerr := stream.Result()
+			if rerr == nil || !ClassOf(rerr).Retryable() || try >= c.retry.Attempts || ctx.Err() != nil {
+				// An empty reply, or a failure there is no retrying. Either
+				// way the stream is finished; Result reports how.
+				call.stream, call.ended = stream, &ending{res: res, err: rerr}
+				return call, nil //nolint:nilerr // the stream did start; its failure belongs to Result, as for any stream
+			}
+			err = rerr
 		}
-		// Only a call that never started streaming is retried: nothing has
-		// reached a subscriber, and the frozen request goes out unchanged.
+		// Only a call that has not delivered an event is retried: nothing
+		// has reached a subscriber, and the frozen request goes out unchanged.
 		if !ClassOf(err).Retryable() || try >= c.retry.Attempts || ctx.Err() != nil {
 			call.release()
 			return fail(err)
@@ -265,11 +301,18 @@ func (c *Client) backoff(try int, err error) time.Duration {
 // Events yields the stream's deltas.
 func (c *Call) Events() iter.Seq[Event] {
 	return func(yield func(Event) bool) {
-		if c.stream == nil {
+		if c.first == nil {
+			return // the call failed, or its stream ended without an event
+		}
+		// Stopping tells the stream its reader has gone, which is what
+		// breaking out of its own loop would have done.
+		defer c.stop()
+		if !yield(*c.first) {
 			return
 		}
-		for ev := range c.stream.Events() {
-			if !yield(ev) {
+		for {
+			ev, ok := c.next()
+			if !ok || !yield(ev) {
 				return
 			}
 		}
@@ -284,7 +327,14 @@ func (c *Call) Result() (Result, error) {
 		if c.done {
 			return
 		}
-		c.res, c.err = c.stream.Result()
+		if c.stop != nil {
+			c.stop() // a stream is finished with before it is asked how it ended
+		}
+		if c.ended != nil {
+			c.res, c.err = c.ended.res, c.ended.err
+		} else {
+			c.res, c.err = c.stream.Result()
+		}
 		c.attempt.Elapsed = time.Since(c.start)
 		c.attempt.Usage, c.attempt.Stop = c.res.Usage, c.res.Stop
 		if c.err != nil {

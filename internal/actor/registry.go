@@ -316,19 +316,27 @@ func (r *Registry) Shutdown(ctx context.Context) {
 
 	// A message acknowledged a moment ago may still be inside its debounce
 	// window. Start its turn now so the grace period can cover the reply.
-	live := r.live()
-	flushed := make(chan struct{}, len(live))
-	waiting := 0
-	for _, a := range live {
-		if a.tryPost(flushNow{done: flushed}) {
-			waiting++
+	// An actor that is already retiring has nothing left to flush, and may
+	// never read its mailbox again, so each wait ends when the actor answers
+	// or when it is dead, whichever comes first.
+	type flushing struct {
+		done <-chan struct{}
+		dead <-chan struct{}
+	}
+	var waits []flushing
+	for _, a := range r.live() {
+		done := make(chan struct{}, 1)
+		if a.tryPost(flushNow{done: done}) {
+			waits = append(waits, flushing{done: done, dead: a.dead})
 		}
 	}
-	for ; waiting > 0; waiting-- {
+flush:
+	for _, w := range waits {
 		select {
-		case <-flushed:
+		case <-w.done:
+		case <-w.dead:
 		case <-ctx.Done():
-			waiting = 1 // stop waiting; the grace period is over
+			break flush // the grace period is over
 		}
 	}
 

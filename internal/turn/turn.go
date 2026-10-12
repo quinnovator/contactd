@@ -38,7 +38,14 @@ type Sink interface {
 	// on the turn's goroutine, is what makes "arrived before the call" and
 	// "arrived during the tool" mean the same thing to both sides.
 	ToolCall(ctx context.Context, call core.ToolCall, enter func() bool) error
-	ToolResult(ctx context.Context, name string, res core.ToolResult) error
+	// ToolResult ends the tool phase the same way: the implementation
+	// records the result and then calls exit, both on the goroutine that
+	// serializes the contact's messages, and returns what exit reported
+	// (whether a message arrived while the tool ran). Until then the turn
+	// is still in its tool phase, so a message that is handled before the
+	// result waits for it and can never cancel the turn out from under a
+	// result that is already on its way.
+	ToolResult(ctx context.Context, name string, res core.ToolResult, exit func() bool) (replan bool, err error)
 	// Attempt records one model call. It is best effort: a record that
 	// cannot be delivered never fails the turn.
 	Attempt(ctx context.Context, a core.AttemptBody)
@@ -176,17 +183,18 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 	res := Result{Route: route, Params: pr}
 	in.Agent = withDelegate(in.Agent, d.Delegate != nil)
 	log = log.With("route", route.ID())
+	reader := plan.Reader{Route: route.ID(), ReplaysAllTurns: route.Caps.Replay == llm.ReplayAllTurns}
 
 	var recalled []plan.Recalled
 	if in.Base == nil {
-		if recalled, err = d.recall(ctx, log, in, route.ID(), pr, now); err != nil {
+		if recalled, err = d.recall(ctx, log, in, reader, pr, now); err != nil {
 			return res, err
 		}
 	}
 	p, err := plan.Build(in.LastPlan, plan.Input{
 		Agent:   in.Agent,
 		Profile: in.Profile,
-		Route:   route.ID(),
+		Reader:  reader,
 		Tail:    in.Tail,
 		Base:    in.Base,
 	}, recalled, now, pr)
@@ -210,9 +218,17 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 		if step == 0 {
 			obs.TurnOverheadMS.Observe(obs.SinceMS(in.Started))
 		}
+		// A tool can run for longer than the route keeps a prefix. The
+		// request before it then says nothing about what is cached now.
+		if s := res.Sent; s != nil && time.Now().UnixMilli()-s.At >= pr.CacheTTL {
+			opts.Prev = nil
+		}
 		out, sent, err := d.call(ctx, log, in, &route, p, opts, step)
 		if sent != nil {
 			res.Sent, opts.Prev = sent, sent.Marks
+			// The planner and the prediction measure the cache's age from
+			// the same moment: when this prompt was last sent.
+			p.BuiltAt = sent.At
 		}
 		if err != nil {
 			return res, err
@@ -240,6 +256,7 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 		// between calls and never in the middle of one.
 		for i := range out.ToolCalls {
 			call := out.ToolCalls[i]
+			call.Route = route.ID()
 			call.Sibling, call.Text, call.Reasoning = i, "", nil
 			if i == 0 {
 				call.Text = out.Text
@@ -267,11 +284,12 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 			if err := ctx.Err(); err != nil {
 				return res, fmt.Errorf("tool run: %w", err)
 			}
-			if err := in.Sink.ToolResult(ctx, call.Name, result); err != nil {
+			replan, err := in.Sink.ToolResult(ctx, call.Name, result, in.Ctl.endTool)
+			if err != nil {
 				return res, fmt.Errorf("record tool result: %w", err)
 			}
 			p.AppendTail(call, result) // append-only, cache-safe
-			if in.Ctl.endTool() {
+			if replan {
 				res.Replan = true
 				return res, nil
 			}
@@ -390,11 +408,11 @@ func attemptBody(turnID uint64, step int, purpose string, a llm.Attempt) core.At
 
 // recall picks the episodes for tier 2. A failure here degrades the turn to
 // "no new recall" rather than failing it: the contact still gets a reply.
-func (d *Deps) recall(ctx context.Context, log *slog.Logger, in Input, route string, pr plan.Params, now int64) ([]plan.Recalled, error) {
+func (d *Deps) recall(ctx context.Context, log *slog.Logger, in Input, reader plan.Reader, pr plan.Params, now int64) ([]plan.Recalled, error) {
 	if in.Episodes.Len() == 0 {
 		return nil, nil
 	}
-	lay, err := plan.Layout(in.LastPlan, in.Tail, route, pr)
+	lay, err := plan.Layout(in.LastPlan, in.Tail, reader, pr)
 	if err != nil {
 		return nil, fmt.Errorf("lay out tail: %w", err)
 	}

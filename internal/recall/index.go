@@ -209,17 +209,20 @@ func (s *Snapshot) Get(id uint32) *Episode {
 	return s.closed[i]
 }
 
-// Within returns the closed episodes that lie wholly inside the event range
-// from..to, oldest first.
-func (s *Snapshot) Within(from, to uint64) []*Episode {
+// Overlapping returns every episode, the open one included, that has a
+// message in the event range from..to, oldest first.
+func (s *Snapshot) Overlapping(from, to uint64) []*Episode {
 	if s == nil {
 		return nil
 	}
 	var out []*Episode
 	for _, e := range s.closed {
-		if e.Start >= from && e.End <= to {
+		if e.End >= from && e.Start <= to {
 			out = append(out, e)
 		}
+	}
+	if e := s.cur; e != nil && e.End >= from && e.Start <= to {
+		out = append(out, e)
 	}
 	return out
 }
