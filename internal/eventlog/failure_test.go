@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -85,7 +86,7 @@ func TestTransientWriteFailureKeepsOneWriterAndNoGaps(t *testing.T) {
 	if r := <-results; r.err != nil || r.seq != 1 {
 		t.Fatalf("first message: %+v", r)
 	}
-	waitEvents(t, s, id, 2)
+	waitEvents(t, s, id, 3) // the message, the attempt record and the reply
 
 	// Another process takes the write lock and keeps it.
 	other, err := sql.Open("sqlite3", "file:"+path+"?_txlock=immediate&_busy_timeout=1")
@@ -98,32 +99,49 @@ func TestTransientWriteFailureKeepsOneWriterAndNoGaps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Messages keep arriving throughout the outage and after it.
-	const n = 12
-	for i := range n {
-		send("during " + string(rune('a'+i)))
-		time.Sleep(40 * time.Millisecond)
-		if i == n/2 {
-			if err := tx.Rollback(); err != nil { // the lock is released mid-stream
-				t.Fatal(err)
-			}
-		}
-	}
+	// Messages keep arriving throughout the outage and after it. The lock
+	// is held until a write has failed, not for a fixed time: the store
+	// waits out the busy timeout once for a batch and again for each write
+	// in it, so how long an outage has to last depends on what was queued.
 	acked := map[uint64]string{}
-	failed := 0
-	for range n {
-		r := <-results
+	failed, sent, seen := 0, 0, 0
+	collect := func(r result) {
+		seen++
 		if r.err != nil {
 			failed++
-			continue
+			return
 		}
 		if prev, dup := acked[r.seq]; dup {
 			t.Errorf("seq %d was acknowledged for both %q and %q", r.seq, prev, r.text)
 		}
 		acked[r.seq] = r.text
 	}
-	if failed == 0 || len(acked) == 0 {
-		t.Fatalf("%d failed, %d acknowledged; the test needs both to mean anything", failed, len(acked))
+	arrive := func() {
+		send("during " + strconv.Itoa(sent))
+		sent++
+		select {
+		case r := <-results:
+			collect(r)
+		case <-time.After(40 * time.Millisecond):
+		}
+	}
+	for deadline := time.Now().Add(10 * time.Second); failed == 0; {
+		if time.Now().After(deadline) {
+			t.Fatal("no write failed while another connection held the write lock")
+		}
+		arrive()
+	}
+	if err := tx.Rollback(); err != nil { // the lock is released mid-stream
+		t.Fatal(err)
+	}
+	for range 6 {
+		arrive()
+	}
+	for seen < sent {
+		collect(<-results)
+	}
+	if len(acked) == 0 {
+		t.Fatalf("%d failed, none acknowledged; the test needs both to mean anything", failed)
 	}
 
 	// With the disk healthy, the contact must simply work.
