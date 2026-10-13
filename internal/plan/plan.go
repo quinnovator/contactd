@@ -81,6 +81,7 @@ type PromptPlan struct {
 	// tailSrc says where each tail message came from, for choosing the span
 	// a checkpoint folds.
 	tailSrc []entry
+	liveSrc []entry
 }
 
 // Params tunes the planner. The zero value is not usable; start from
@@ -225,6 +226,7 @@ func Build(prev *PromptPlan, in Input, recalled []Recalled, now int64, pr Params
 	}
 	liveMsgs = append(liveMsgs, timeNote(now))
 	p.Tiers[TierLive] = newTier(liveMsgs)
+	p.liveSrc = live
 
 	p.rechain(0)
 	return p, nil

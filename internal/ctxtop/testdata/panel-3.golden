@@ -1,0 +1,30 @@
+ada · deepseek/deepseek-flash · turn 8 call 2 │ ≈17.2k/128.0k │ cached 70% (pred 69%) ▲
+█████████████▒▒▒▒···············································································································
+1 Blocks  2 Log  [3 Diff]  4 Recall  5 Folds  6 Timeline
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+DIFF call 1 → 2 · shared blocks ≈16.0k tokens · first changed tier 4
+canonical logical blocks (hash input, not wire)
+
+first differing byte @ 211 · lengths 232 → 254
+1  ,{"text":"step 412 loss 1.88"},{"text":"Run the evaluation"}]
+2  ,{"text":"step 412 loss 1.88"},{"text":"Compare the result against the baseline."}]
+
+prompt change (inferred): new turn / time note / live messages changed
+predicted re-read ≈5.3k tokens; monetary cost unavailable
+△ predicted 11.9k (69.2%) · ▲ reported 12.6k/18.0k (70.0%) · +0.8 pp
+
+[ / ] baseline · r canonical / exact wire
+
+
+
+
+
+
+
+
+
+
+
+
+live · 0ms · output 0 tokens
+↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit

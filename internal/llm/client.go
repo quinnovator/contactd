@@ -207,6 +207,9 @@ func (c *Client) Call(ctx context.Context, r Route, p *plan.PromptPlan, o Option
 	if err != nil {
 		return nil, fmt.Errorf("prepare request for %s: %w", r.ID(), err)
 	}
+	if o.Prepared != nil {
+		o.Prepared(f.Body)
+	}
 	call := &Call{
 		start: time.Now(),
 		attempt: Attempt{

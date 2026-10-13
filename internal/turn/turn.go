@@ -12,11 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
@@ -60,6 +62,8 @@ type Deps struct {
 	// Delegate starts sub-agents; nil disables the delegate tool.
 	Delegate Delegator
 	Logger   *slog.Logger
+	// Diagnostics enables bounded, in-memory prompt inspection. Nil disables it.
+	Diagnostics *diagnostic.Bus
 
 	Recall recall.Params
 	Plan   plan.Params
@@ -90,13 +94,15 @@ type Sent struct {
 // Input is one turn's view of its contact. Everything in it is immutable or
 // independently synchronized.
 type Input struct {
-	Contact  core.ContactID
-	TurnID   uint64
-	Agent    *core.AgentConfig
-	Profile  string
-	Tail     []core.Event     // snapshot of the hot window, ending with the new message(s)
-	Episodes *recall.Snapshot // immutable snapshot of the episode index
-	LastPlan *plan.PromptPlan // plan of the last committed turn, or nil
+	recallTrace *diagnostic.Recall
+	Contact     core.ContactID
+	Name        string
+	TurnID      uint64
+	Agent       *core.AgentConfig
+	Profile     string
+	Tail        []core.Event     // snapshot of the hot window, ending with the new message(s)
+	Episodes    *recall.Snapshot // immutable snapshot of the episode index
+	LastPlan    *plan.PromptPlan // plan of the last committed turn, or nil
 	// Sent is the contact's last request, or nil.
 	Sent *Sent
 	// Affinity is the key that pins this contact to one backend. A
@@ -185,6 +191,9 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 	log = log.With("route", route.ID())
 	reader := plan.Reader{Route: route.ID(), ReplaysAllTurns: route.Caps.Replay == llm.ReplayAllTurns}
 
+	if d.Diagnostics != nil {
+		in.recallTrace = &diagnostic.Recall{Threshold: d.Recall.Theta, Margin: pr.Delta, Status: "no eligible episodes"}
+	}
 	var recalled []plan.Recalled
 	if in.Base == nil {
 		if recalled, err = d.recall(ctx, log, in, reader, pr, now); err != nil {
@@ -301,8 +310,17 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 
 // call streams one model call and returns how it ended, and what was sent.
 func (d *Deps) call(ctx context.Context, log *slog.Logger, in Input, route *llm.Route, p *plan.PromptPlan, opts llm.Options, step int) (llm.Result, *Sent, error) {
+	var watch *observation
+	if d.Diagnostics != nil {
+		watch = observe(d.Diagnostics, diagnostic.Scope{Contact: in.Contact, Name: in.Name, Turn: in.TurnID}, p, route, opts, d.params(route), step+1, "reply", planEvents(p, in.LastPlan, step))
+	}
+	if watch != nil {
+		watch.enrich(in)
+		opts.Prepared = watch.prepared
+	}
 	call, err := d.Models.Call(ctx, *route, p, opts)
 	if err != nil {
+		watch.finish(call, err)
 		if call != nil {
 			in.Sink.Attempt(ctx, attemptBody(in.TurnID, step, "", call.Attempt()))
 		}
@@ -311,6 +329,7 @@ func (d *Deps) call(ctx context.Context, log *slog.Logger, in Input, route *llm.
 	sent := &Sent{Route: route.ID(), At: time.Now().UnixMilli(), Marks: call.Marks()}
 	var sinkErr error
 	for ev := range call.Events() {
+		watch.progress(ev.Text)
 		switch ev.Kind {
 		case llm.TextDelta:
 			in.Ctl.streaming()
@@ -329,6 +348,7 @@ func (d *Deps) call(ctx context.Context, log *slog.Logger, in Input, route *llm.
 		}
 	}
 	out, err := call.Result()
+	watch.finish(call, errors.Join(err, sinkErr))
 	att := call.Attempt()
 	in.Sink.Attempt(ctx, attemptBody(in.TurnID, step, "", att))
 	if sinkErr != nil {
@@ -424,6 +444,13 @@ func (d *Deps) recall(ctx context.Context, log *slog.Logger, in Input, reader pl
 		lead = lay.LastReply
 	}
 	qText := recall.QueryText(lay.Texts, lead, d.QueryTokens)
+	if tr := in.recallTrace; tr != nil {
+		tr.Query = qText
+		tr.Status = "recall unavailable"
+		if in.LastPlan != nil {
+			tr.Warm = slices.Clone(in.LastPlan.Recall)
+		}
+	}
 	tailStart := lay.TailStart
 	keepPrev := func() []plan.Recalled {
 		// Hold a warm recall set steady through a transient failure; the
@@ -477,6 +504,25 @@ func (d *Deps) recall(ctx context.Context, log *slog.Logger, in Input, reader pl
 		}
 	}
 	ids := plan.ChooseRecall(in.LastPlan, fresh, now, pr)
+	if tr := in.recallTrace; tr != nil {
+		tr.Status = "reranked; scores include recency bonus"
+		if degraded {
+			tr.Status = "reranker unavailable; stage 1 fallback"
+		}
+		tr.Chosen = slices.Clone(ids)
+		for _, c := range scored {
+			reason := "outside top K"
+			switch {
+			case slices.Contains(ids, c.Ep.ID):
+				reason = "selected"
+			case c.Score < d.Recall.Theta:
+				reason = "below threshold"
+			case slices.Equal(ids, tr.Warm) && !pr.NoHysteresis && in.LastPlan != nil && now-in.LastPlan.BuiltAt < pr.CacheTTL:
+				reason = "warm set retained by hysteresis"
+			}
+			tr.Candidates = append(tr.Candidates, diagnostic.Candidate{Episode: c.Ep.ID, Start: c.Ep.Start, End: c.Ep.End, Cosine: c.Stage1, Score: c.Score, Rerank: c.Rerank, Reason: reason, Passage: c.Passage})
+		}
+	}
 	out := make([]plan.Recalled, len(ids))
 	for i, id := range ids {
 		out[i] = plan.Recalled{ID: id}

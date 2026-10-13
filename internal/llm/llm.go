@@ -238,6 +238,9 @@ func abs(x int) int {
 
 // Options are the per-call choices the core makes.
 type Options struct {
+	// Prepared observes the frozen body before send. It must not mutate it.
+	// Nil in normal operation; diagnostic callers retain their own bounded copy.
+	Prepared func([]byte)
 	// Affinity is a keyed hash of the contact, or "". It is the only thing
 	// about a contact a provider ever sees.
 	Affinity string

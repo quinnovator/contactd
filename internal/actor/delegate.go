@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
@@ -288,6 +289,8 @@ func (a *actor) maybeFold(ctx context.Context, turnID uint64, res *turn.Result) 
 	}
 	a.folding = true
 	f := turn.Fold{Route: res.Route, Plan: res.Plan, Span: span, Affinity: a.affinity, Effort: effort, Turn: turnID}
+	f.Scope = diagnostic.Scope{Contact: a.id, Name: a.contact.Name, Turn: turnID}
+	f.Diagnostics, f.Params = a.r.deps.Turn.Diagnostics, res.Params
 	models, absorbs := a.r.deps.Turn.Models, res.Plan.Checkpoint != 0
 	go func() {
 		fctx, cancel := context.WithTimeout(ctx, 5*time.Minute)

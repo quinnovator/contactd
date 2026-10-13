@@ -25,6 +25,35 @@ ONNXRUNTIME_LIB_DIR = "{{config_root}}/third_party/lib"
 # mid-inference, and Go preempts goroutines with signals. Harmless elsewhere.
 GODEBUG = "asyncpreemptoff=1"
 
+[tasks.dev]
+description = "Run the configured model provider here and open chat plus diagnostics windows"
+depends = ["deps:wasm", "dev:build"]
+raw = true
+raw_args = true
+run = 'bash scripts/dev.sh'
+
+[tasks."dev:build"]
+description = "Build the dev server and context viewer"
+run = ["go build -o bin/contactd-dev ./cmd/contactd", "go build -o bin/ctxtop ./cmd/ctxtop"]
+
+[tasks.ctxtop]
+description = "Open the context and cache viewer for the dev server"
+raw = true
+raw_args = true
+run = 'go run ./cmd/ctxtop -data-dir="${CONTACTD_DATA_DIR:-./data}"'
+
+[tasks.chat]
+description = "Open the dev chat; optionally pass a contact name or chat flags"
+raw = true
+raw_args = true
+run = 'go run ./cmd/contactd chat -data-dir="${CONTACTD_DATA_DIR:-./data}" -config-dir="${CONTACTD_CONFIG_DIR:-./data/chat-config}"'
+
+[tasks."chat:new"]
+description = "Create and open a dev contact: mise run chat:new <name>"
+raw = true
+raw_args = true
+run = 'go run ./cmd/contactd chat -data-dir="${CONTACTD_DATA_DIR:-./data}" -config-dir="${CONTACTD_CONFIG_DIR:-./data/chat-config}" -system="You are a thoughtful colleague." -tools=python -new'
+
 [tasks."deps:native"]
 description = "Fetch pinned libonnxruntime + libtokenizers.a into third_party/lib"
 run = "./scripts/fetch-native-deps.sh"

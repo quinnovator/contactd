@@ -537,6 +537,7 @@ func (a *actor) startTurn(ctx context.Context) {
 
 	in := turn.Input{
 		Contact:  a.id,
+		Name:     a.contact.Name,
 		TurnID:   t.id,
 		Agent:    &a.contact.Agent,
 		Profile:  a.contact.Profile,

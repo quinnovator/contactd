@@ -24,6 +24,7 @@ import (
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/api"
 	"github.com/quinnovator/contactd/internal/config"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/env/remote"
 	"github.com/quinnovator/contactd/internal/env/wasm"
 	"github.com/quinnovator/contactd/internal/env/workdir"
@@ -166,13 +167,19 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 		MaxToolOutput:    16 << 10,
 		QueryTokens:      128,
 	}
+	if cfg.Diagnostics {
+		turnDeps.Diagnostics = diagnostic.New(500)
+		defer turnDeps.Diagnostics.Close()
+	}
+	summaries := summarizer(cfg, client)
+	summaries.Diagnostics = turnDeps.Diagnostics
 	registry := actor.New(base, actor.Deps{
 		Log:       store,
 		Create:    store,
 		Hydrate:   store,
 		Repair:    store,
 		Embed:     embedder,
-		Summarize: summarizer(cfg, client),
+		Summarize: summaries,
 		Envs:      envs,
 		Snapshots: store,
 		Turn:      turnDeps,
@@ -182,6 +189,7 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	turnDeps.Delegate = registry
 
 	server := api.New(store, registry, client, log)
+	server.WithPlans(turnDeps.Diagnostics)
 	// The API serves the files tools leave in tier-0 working directories.
 	// It runs without them: every file is then not found.
 	if dirs, derr := workdirs(cfg.FSRoot()); derr != nil {
@@ -251,6 +259,9 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	graceCtx, cancelGrace := context.WithTimeout(base, cfg.ShutdownGrace)
 	registry.Shutdown(graceCtx)
 	cancelGrace()
+	if turnDeps.Diagnostics != nil {
+		turnDeps.Diagnostics.Close()
+	}
 	// Streams ended when their actors did; close the listener and whatever
 	// requests remain.
 	httpCtx, cancelHTTP := context.WithTimeout(base, 5*time.Second)

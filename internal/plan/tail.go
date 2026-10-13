@@ -18,7 +18,7 @@ type entry struct {
 	boundary bool
 	// ckpt is set on the one entry that stands in for a checkpointed span:
 	// the seq of the checkpoint event, and the first seq the span covered.
-	ckpt, ckptFrom uint64
+	ckpt, ckptFrom, ckptTo uint64
 	// flat marks a tool call or result rendered as plain text. It is
 	// history like any other, but it is nobody's message: it never opens a
 	// turn and is never something to answer.
@@ -84,7 +84,7 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 	out := make([]entry, 0, len(events)+1)
 	if ckSeq != 0 {
 		e := newEntry(core.Message{Role: core.RoleUser, Text: checkpointLead + ck.Text}, 0, 0)
-		e.ckpt, e.ckptFrom = ckSeq, ck.From
+		e.ckpt, e.ckptFrom, e.ckptTo = ckSeq, ck.From, ck.To
 		out = append(out, e)
 	}
 	var (

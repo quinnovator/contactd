@@ -22,10 +22,11 @@ type Config struct {
 	// Socket is a Unix socket the API is also served on, for clients on the
 	// same machine. Empty means contactd.sock in the data directory; "off"
 	// disables it.
-	Socket    string
-	DataDir   string // holds contacts.db, fs/<contact>/ and cache/
-	LogFormat string // json | text
-	LogLevel  string
+	Socket      string
+	DataDir     string // holds contacts.db, fs/<contact>/ and cache/
+	LogFormat   string // json | text
+	LogLevel    string
+	Diagnostics bool // expose bounded prompt and cache inspection at /debug/plans
 	// ShutdownGrace is how long in-flight turns get to finish on SIGTERM.
 	ShutdownGrace time.Duration
 	// SyncFull selects synchronous=FULL for the event log.
@@ -126,6 +127,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l.str(&c.DataDir, "data-dir", "/data", "directory for the SQLite file and tier-0 filesystems; must be a real local filesystem")
 	l.str(&c.LogFormat, "log-format", "json", "json or text")
 	l.str(&c.LogLevel, "log-level", "info", "debug, info, warn or error")
+	l.boolean(&c.Diagnostics, "diagnostics", false, "enable prompt and cache inspection at /debug/plans for ctxtop")
 	l.dur(&c.ShutdownGrace, "shutdown-grace", 20*time.Second, "how long in-flight turns get to finish on SIGTERM")
 	l.boolean(&c.SyncFull, "sync-full", false, "use synchronous=FULL: never lose an acknowledged message on power loss")
 

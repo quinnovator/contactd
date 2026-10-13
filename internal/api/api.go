@@ -20,6 +20,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/llm"
 	"github.com/quinnovator/contactd/internal/obs"
 )
@@ -69,6 +70,7 @@ type Server struct {
 	contacts Contacts
 	routes   Routes
 	files    Files // nil when no working directories are served
+	plans    *diagnostic.Bus
 	log      *slog.Logger
 	draining atomic.Bool
 }
@@ -105,6 +107,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/contacts/{id}/live", s.live)
 	mux.HandleFunc("GET /v1/contacts/{id}/events", s.events)
 	mux.HandleFunc("GET /v1/contacts/{id}/files/{path...}", s.file)
+	mux.HandleFunc("GET /debug/plans", s.planStream)
+	mux.HandleFunc("GET /debug/plans/{run}/{call}", s.planDetails)
+	mux.HandleFunc("GET /debug/plans/{run}/{call}/events", s.planEvents)
 	mux.Handle("GET /metrics", obs.Handler())
 	mux.HandleFunc("GET /healthz", s.healthz)
 	return mux

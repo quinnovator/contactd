@@ -1,0 +1,30 @@
+ada · deepseek/deepseek-flash · turn 8 call 2 │ ≈17.2k/128.0k │ cached 70% (pred 69%) ▲
+█████████████▒▒▒▒···············································································································
+1 Blocks  [2 Log]  3 Diff  4 Recall  5 Folds  6 Timeline
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+LOG · select an episode to inspect its messages                              │ EPISODE 36 · seq 1–6
+› ep 36   seq      1–6       ↺ recalled                                      │ ■ in prompt · □ not in prompt (this call)
+  ep 37   seq      8–9       tail (partial)                                  │ □ 1 user_msg: Run eval.py with 12 shards and seed
+                                                                             │  42
+                                                                             │ □ 2 agent_msg: Loss is 1.88
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+live · 0ms · output 0 tokens
+↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit

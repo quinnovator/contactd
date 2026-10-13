@@ -47,6 +47,114 @@ The client draws for the terminal it finds: its colours, its background, its fon
 
 See [The terminal client](#the-terminal-client) for the screen, the keys and commands, the status line, mods, images, and what is done for which terminal.
 
+### Local development
+
+Run this from the repo:
+
+```sh
+# Server logs stay here; chat and diagnostics open in two new windows.
+# Uses your configured model provider and lightweight lexical recall.
+mise run dev
+```
+
+In the chat window, select an existing contact or press `n` to create one.
+The picker waits for the server to be ready before loading. Closing either
+client leaves the server running; Ctrl+C in the server terminal stops both
+clients and closes their spawned Ghostty, macOS Terminal, or tmux windows.
+
+You can also open a chat manually:
+
+```sh
+mise run chat ada       # reopen a contact
+mise run chat          # open the picker
+mise run chat:new ada   # create a contact and start chatting
+```
+
+The tasks use `./data` for the server and `./data/chat-config` for the client's
+settings and mods, both ignored by Git. `CONTACTD_DATA_DIR` and
+`CONTACTD_CONFIG_DIR` override those paths. Stop a process with `ctrl+c` and
+rerun its task after changing code; each launch rebuilds it.
+
+Extra arguments are passed through to the server or client. The dev server
+honors `CONTACTD_LLM` and `CONTACTD_MODEL`, or selects the first provider with
+configured credentials (for example, `DEEPSEEK_API_KEY`). You can select one
+explicitly with `mise run dev -llm=deepseek`. For an offline demo with scripted
+replies and no API key, use `mise run dev -llm=fake`.
+Recall uses the lightweight lexical backend; the full ONNX setup is below.
+To customize a new contact:
+
+```sh
+mise run chat:new grace -system="You are Grace, a concise coding colleague." -tools=python,js
+```
+
+`mise run test` runs the race-enabled unit suite, `mise run lint` checks style
+and static analysis, and `mise run ci` runs every CI gate. `mise tasks` lists
+all available tasks.
+
+#### Live context diagnostics
+
+`mise run dev` enables `/debug/plans` and opens two client windows: chat and
+`ctxtop`. In Ghostty on macOS both are Ghostty windows; otherwise macOS uses
+Terminal. Under tmux they are tmux windows, and on Linux the launcher tries
+Ghostty or `x-terminal-emulator`. `-diagnostics=false` opens only chat.
+
+To open or reopen the viewer yourself:
+
+```sh
+mise run ctxtop                         # every contact, over the dev socket
+mise run ctxtop -contact=ada            # one contact by name or ID
+mise run ctxtop -url=http://127.0.0.1:8080
+CONTACTD_DEV_VIEWER=off mise run dev    # server only; diagnostics still enabled
+```
+
+The panel keeps a compact context/cache strip above six views:
+
+| Key | View |
+| --- | --- |
+| `1` | **Blocks**: prompt order, estimated offsets and sizes, cache boundary, tier collapse, and a content/provenance inspector |
+| `2` | **Log**: episodes and their source messages, with verbatim prompt membership highlighted |
+| `3` | **Diff**: compare calls from the same contact and purpose, find the first differing byte, and inspect the changed tier |
+| `4` | **Recall**: the actual centroid scores, reranker logits, recency-adjusted scores and selection decisions |
+| `5` | **Folds**: checkpoint history and original spans, with a number/path retention check |
+| `6` | **Timeline**: tier sizes, cache shares and events across retained calls, plus inherited context for forks |
+
+Use up/down to select, Enter to collapse a tier or expand the inspector, left/right
+to scrub calls, and `f` to follow. `g` jumps from a block to its episode in Log;
+`r` switches to the exact provider request body. `s` sorts Blocks by size, `/`
+searches the loaded view, `z` toggles window/occupied scaling, and Page Up/Down
+scrolls content. In Diff, `[`/`]` changes the comparison call. In Folds, `k`
+marks numbers and paths absent from the checkpoint (a heuristic, not a quality
+score). Tab/Shift+Tab cycles contacts; `?` shows help; `q` closes the viewer.
+
+The bar uses the planner's token estimates. Provider token counts come from a
+different tokenizer, so the reported marker is projected by its cached share;
+the comparison is in percentage points, not a subtraction of unlike token
+counts. A gap over five percentage points is highlighted for investigation.
+It is not by itself proof of a cache bug. Missing usage stays unknown. Per-block
+cache hits and the break location are estimates; only aggregate usage is reported.
+Canonical block bytes are the planner's hashing representation. They are distinct
+from the raw provider JSON body, which is captured before sending and excludes
+HTTP headers. The provider body can include replayed reasoning.
+
+Diagnostics are off outside the dev task unless `-diagnostics` (or
+`CONTACTD_DIAGNOSTICS=true`) is set. `/debug/plans` replays up to 500 calls and
+streams planning, bounded progress updates and completion. `/debug/plans/{run}/{call}`
+serves details on demand; its `/events` endpoint pages through source events up
+to the log head captured for that call. Captures are in memory only, limited to
+2 MiB per call and 32 MiB overall, with explicit truncation/eviction. Slow stream
+readers are disconnected and can replay retained state.
+
+**Diagnostic mode exposes prompt previews, full prompt/tool contents and source
+log messages through the same socket and network access as the API.** Use it only
+where that access is appropriate. It does not capture authentication headers.
+
+Some precision still depends on runtime instrumentation: in-turn tool entries can
+have an unknown log sequence until the next plan; recalls currently appear as one
+combined system-message block. Log/fold previews load at most 2,000 events per
+selected span; search covers loaded data. Output counts while streaming are byte
+estimates and switch to provider usage on completion. Monetary overlays remain
+unavailable until per-route prices are supplied; the panel does not invent them.
+
 ### The real thing
 
 ```sh

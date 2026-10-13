@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/recall"
 )
 
@@ -95,9 +96,11 @@ func (a *actor) summarizeRecalled(ctx context.Context, ids []uint32) {
 		}
 		a.summarizing[id] = struct{}{}
 		log, tokens := a.r.deps.Turn.Log, a.r.cfg.SummaryTokens
+		scope := diagnostic.Scope{Contact: a.id, Name: a.contact.Name, Turn: a.turnSeq}
 		go func() {
 			sctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 			defer cancel()
+			sctx = diagnostic.WithScope(sctx, scope)
 			text, err := recall.Transcript(sctx, log, a.id, ep, tokens)
 			if err == nil {
 				text, err = sum.Summarize(sctx, text)

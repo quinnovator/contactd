@@ -17,6 +17,7 @@ import (
 // Scored is a recall candidate after reranking.
 type Scored struct {
 	Ep      *Episode
+	Rerank  float32 // raw reranker logit before recency
 	Stage1  float32
 	Score   float32 // rerank logit plus the recency bonus
 	Passage string  // what the reranker read, and what tier 2 will show
@@ -78,6 +79,7 @@ func Recall(ctx context.Context, snap *Snapshot, q Query, log EventReader, rr Re
 	}
 	for i := range out {
 		age := float64(max(q.Now-out[i].Ep.LastTS, 0))
+		out[i].Rerank = scores[i]
 		out[i].Score = scores[i] + p.Lambda*float32(math.Exp(-age/float64(p.HalfLife)))
 	}
 	slices.SortStableFunc(out, func(a, b Scored) int {

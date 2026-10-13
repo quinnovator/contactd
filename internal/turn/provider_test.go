@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/llm"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
 	"github.com/quinnovator/contactd/internal/plan"
@@ -416,6 +417,7 @@ func TestCheckpointRequestExtendsTheLiveRequest(t *testing.T) {
 	t.Parallel()
 	p := fakellm.New(fakellm.Options{Mode: fakellm.CachePrefix})
 	d := deps(p)
+	d.Diagnostics = diagnostic.New(5)
 	// Eight messages of about 17 tokens: over this budget, and under the
 	// hard budget of one and a half times it, where the tail would be cut.
 	d.Plan.TailBudget = 100
@@ -447,7 +449,10 @@ func TestCheckpointRequestExtendsTheLiveRequest(t *testing.T) {
 		t.Fatal("the tail is over its budget and should yield a span")
 	}
 
-	text, att, err := turn.Checkpoint(t.Context(), d.Models, turn.Fold{Route: res.Route, Plan: res.Plan, Span: span})
+	text, att, err := turn.Checkpoint(t.Context(), d.Models, turn.Fold{
+		Route: res.Route, Plan: res.Plan, Span: span,
+		Scope: diagnostic.Scope{Contact: in.Contact, Turn: in.TurnID}, Diagnostics: d.Diagnostics, Params: res.Params,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,6 +466,11 @@ func TestCheckpointRequestExtendsTheLiveRequest(t *testing.T) {
 	// end of the span was cached by the turn that just ran.
 	if att.Cached == 0 || att.Input-att.Cached > 200 {
 		t.Errorf("checkpoint request: %d of %d input tokens cached; the folded span should be read from cache", att.Cached, att.Input)
+	}
+	h, _, stop := d.Diagnostics.Subscribe()
+	defer stop()
+	if len(h) != 2 || !h[1].Done || h[1].Purpose != "checkpoint" || h[1].ReportedCached != att.Cached {
+		t.Fatalf("checkpoint diagnostics: %+v", h)
 	}
 }
 
