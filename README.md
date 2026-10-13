@@ -189,13 +189,19 @@ There are no thread endpoints; that's the point.
 | GET | `/v1/contacts` | The contacts a person talks to, most recently active first; sub-agents are left out. `?name=` finds one by its exact name |
 | GET | `/v1/contacts/{id}` | One contact: name, agent config, profile, and the route that serves it with the deployment's defaults filled in |
 | PATCH | `/v1/contacts/{id}` | `{"name": ...}` renames; an empty name removes it |
-| POST | `/v1/contacts/{id}/messages` | Send `{"text": ...}`; returns 202 with the durable `seq` |
+| POST | `/v1/contacts/{id}/messages` | Send `{"text": ...}` with optional `session_id`, `time_zone` and `presentation`; returns 202 with the durable `seq` |
 | POST | `/v1/contacts/{id}/interrupt` | Stop the reply in flight; 202 |
 | GET | `/v1/contacts/{id}/stream` | SSE: `ready`, `user`, `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `error` |
-| GET | `/v1/contacts/{id}/live` | WebSocket: send `{"type":"message","text":...}`, `{"type":"typing"}` and `{"type":"interrupt"}`; receive the same deltas, and for each message one `ack` or one `error` frame, in the order sent |
+| GET | `/v1/contacts/{id}/live` | WebSocket: send an optional `hello` (see below), then `{"type":"message","text":...}`, `{"type":"typing"}` and `{"type":"interrupt"}`; receive the same deltas, and for each message one `ack` or one `error` frame, in the order sent |
 | GET | `/v1/contacts/{id}/events` | Page through the log in log order: `?after={seq}` forward, `?before={seq}` backward, `?tail=1` backward from the end, each with `limit`. `?kinds=user_msg,agent_msg` keeps only those kinds; the others are `tool_call`, `tool_result`, `attempt`, `checkpoint`, `notice`, `summary` and `env_snapshot` |
 | GET | `/v1/contacts/{id}/files/{path...}` | One file from the contact's tier-0 working directory, for a client that shows what a tool wrote. At most 8 MiB (413 beyond). PNG, JPEG, GIF, WebP and BMP are served as themselves, by their first bytes; anything else as `application/octet-stream` with `Content-Disposition: attachment`. A file is sent with an `ETag`, and `If-None-Match` gives 304. There is no listing, and a path that leaves the directory, by name or through a symbolic link, is a 404 like a file that is not there |
 | GET | `/metrics`, `/healthz` | Prometheus metrics; liveness (503 while draining) |
+
+A client may introduce a visit with `{"type":"hello","session_id":"a-client-generated-id","time_zone":"America/Chicago","presentation":"avatar"}`. `presentation` is `avatar` or `text`; `time_zone` is an IANA name. Invalid metadata is rejected. The TUI mints an ID for each open contact and resends it on reconnect. Opening and closing without speaking leaves no log entry and triggers no greeting.
+
+The first accepted message of a visit logs a `session-start` notice immediately before the message. It records the person's local date and time, the gap since the last exchange, and the presentation mode. A first meeting is described as such. These notices are model memory, hidden in the TUI and excluded from recall queries. Reusing an ID does not create another notice, including after hibernation or a daemon restart. Clients without an ID start a new visit after 30 minutes without an exchange. The last supplied zone persists; until one is supplied, time is UTC. The daemon embeds time-zone data, including daylight-saving rules.
+
+Every contact's own prompt follows a fixed server preamble: the character treats prior events as memories and runtime notices as surroundings. Profile, recall, and new summaries use that perspective. Existing summaries are left intact. The preamble also applies to sub-agents, whose task instructions still describe their assignment. Rolling this out changes each contact's static cache prefix once.
 
 The same API is served on a Unix socket, `contactd.sock` in the data directory, with permissions `0600`. Nothing else about the API is authenticated: the TCP address is for a trusted network, and the socket is for the user who runs the server.
 
@@ -207,7 +213,7 @@ An agent config:
 
 | Field | Meaning |
 | --- | --- |
-| `system` | The system prompt |
+| `system` | The contact’s own system prompt, after the fixed server preamble |
 | `provider`, `model` | The route that serves this contact. Either may be omitted to take the deployment's default. Names resolve strictly: a model the provider does not serve is an error, never a substitute |
 | `effort` | Reasoning effort on one scale for every provider: `none`, `low`, `medium`, `high`, `xhigh`, `max`. The provider sends the nearest value the model accepts, and the log records what was sent |
 | `max_tokens` | Output cap per model call |
@@ -341,7 +347,7 @@ The client's own packages are listed under [Where the client's code is](#where-t
 
 What follows from the platform's shape:
 
-- **There is nothing to pick but a contact.** No sessions and no threads; each contact keeps one log. The avatar opens idle, with no previous question or reply on the stage, ready for whatever you want to talk about. The conversation remains in the assistant's context; `ctrl+o` shows the latest turn when you want to read it. Once you start talking, the stage holds the turn in flight, or the last one from this visit. In a thread, earlier history loads a page at a time on scrolling up, and a rule marks each new day.
+- **There is nothing to pick but a contact.** Each contact keeps one log; visits do not split it into separate conversations. The avatar opens idle, with no previous question or reply on the stage, ready for whatever you want to talk about. The conversation remains in the assistant's context; `ctrl+o` shows the latest turn when you want to read it. Once you start talking, the stage holds the turn in flight, or the last one from this visit. In a thread, earlier history loads a page at a time on scrolling up, and a rule marks each new day.
 - **The input never locks.** A message sent mid-reply interrupts it. `esc` interrupts without saying anything: the reply so far is kept and flagged, a running tool finishes first, and the message that was being answered stays unanswered until the next one.
 - **A message is shown as sending until the server says it is durable.** One the server refuses, or one that was in flight when the connection dropped and is not in the log afterwards, is put back in the input box.
 - **The status bar shows the cache working**: the share of the last prompt that the provider reported as cached, the tokens, and how long the call took.

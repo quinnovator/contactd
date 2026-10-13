@@ -78,7 +78,8 @@ func (s *Server) stream(w http.ResponseWriter, r *http.Request) {
 
 // liveIn is a frame from the client on the WebSocket.
 type liveIn struct {
-	Type string `json:"type"` // "message", "typing" or "interrupt"
+	core.Visit
+	Type string `json:"type"` // "hello", "message", "typing" or "interrupt"
 	Text string `json:"text,omitempty"`
 }
 
@@ -149,6 +150,7 @@ func (s *Server) live(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.ContactID) error {
+	var visit core.Visit
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
@@ -162,6 +164,12 @@ func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.Con
 			continue
 		}
 		switch in.Type {
+		case "hello":
+			if invalid := in.Validate(); invalid != nil {
+				err = writeFrame(ctx, conn, liveError{Type: "error", Error: invalid.Error()})
+			} else {
+				visit = in.Visit
+			}
 		case "typing":
 			err = s.contacts.Typing(ctx, id)
 		case "interrupt":
@@ -174,7 +182,7 @@ func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.Con
 				continue
 			}
 			var seq uint64
-			seq, err = s.contacts.Message(ctx, id, in.Text)
+			seq, err = s.contacts.Message(ctx, id, in.Text, visit)
 			switch {
 			case err == nil:
 				err = writeFrame(ctx, conn, liveAck{Type: "ack", Seq: seq})
@@ -193,7 +201,7 @@ func (s *Server) liveRead(ctx context.Context, conn *websocket.Conn, id core.Con
 				err = writeFrame(ctx, conn, liveError{Type: "error", Error: reason})
 			}
 		default:
-			err = writeFrame(ctx, conn, liveError{Type: "error", Error: `type must be "message", "typing" or "interrupt"`})
+			err = writeFrame(ctx, conn, liveError{Type: "error", Error: `type must be "hello", "message", "typing" or "interrupt"`})
 		}
 		if err != nil {
 			return fmt.Errorf("handle %q frame: %w", in.Type, err)

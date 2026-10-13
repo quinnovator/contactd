@@ -176,6 +176,21 @@ func apply(ctx context.Context, insert *sql.Stmt, q *sqlcgen.Queries, w *core.Wr
 			return fmt.Errorf("insert event %d of contact %d: %w", ev.Seq, ev.Contact, err)
 		}
 	}
+	if ev := w.Event; ev != nil && ev.Kind.IsMessage() {
+		if err := q.Spoke(ctx, sqlcgen.SpokeParams{LastSpoke: ev.TS, ID: contact}); err != nil {
+			return fmt.Errorf("record last spoken time: %w", err)
+		}
+	}
+	if w.TimeZone != "" {
+		if err := q.SetTimeZone(ctx, sqlcgen.SetTimeZoneParams{TimeZone: w.TimeZone, ID: contact}); err != nil {
+			return fmt.Errorf("record time zone: %w", err)
+		}
+	}
+	if w.SessionID != "" {
+		if err := q.RememberSession(ctx, sqlcgen.RememberSessionParams{Contact: contact, SessionID: w.SessionID}); err != nil {
+			return fmt.Errorf("record session: %w", err)
+		}
+	}
 	if v := w.Vector; v != nil {
 		err := q.UpsertVector(ctx, sqlcgen.UpsertVectorParams{Contact: contact, Seq: i64(v.Seq), Vec: core.EncodeVector(v.Vec)})
 		if err != nil {

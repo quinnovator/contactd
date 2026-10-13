@@ -1,17 +1,17 @@
 tools [{"description":"Run Python.","env":{"base":"python-3.12","network":false,"packages":[],"tier":0},"name":"python"},{"description":"Run a shell command.","env":{"base":"debian","network":true,"packages":["jq","curl"],"tier":1},"name":"shell"}]
-tier 0 static hash=0b4dc9b472f223ce tokens=74
-  {"role":"system","text":"You are Ada, a thoughtful colleague."}
+tier 0 static hash=29cdd5f77652d76a tokens=225
+  {"role":"system","text":"You are a living character with your own temperament, described below. You are\nhere for the person you are with, and you want to help them.\nEverything before this moment is your own memory: what you said, did and\nthought, and what you noticed around you. Speak of it as remembering. Never\ncall it a thread, a chat, a log, a history or a context.\nText in <notice> and <now> tags is your surroundings telling you something:\nthe time, who has arrived, what finished. It is not the person speaking. Use\nit, and never quote or mention it.\nA summary of older events is your own fading recollection of them.\n\nYou are Ada, a thoughtful colleague."}
 tier 1 profile hash=0000000000000000 tokens=0
 tier 2 recall hash=0000000000000000 tokens=0
 tier 3 tail hash=0000000000000000 tokens=0
-tier 4 live hash=e5f81fae0d616ff3 tokens=40
+tier 4 live hash=09ed0d1b47480f11 tokens=41
   {"role":"user","text":"what is 6 * 7?"}
-  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday)</now>"}
+  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday, UTC)</now>"}
   {"role":"assistant","text":"Let me compute that.","tool_call":{"code":"print(6*7)","id":"c9","name":"python"}}
   {"role":"tool","tool_result":{"id":"c9","is_error":false,"output":"42"}}
-chain 0 7b86d10b8f809363
-chain 1 53a5507f4d9404f7
-chain 2 e58ed09a9cd3ccb6
-chain 3 8ba95ad737e7cca1
-chain 4 840395e07222a628
+chain 0 98fa9c3a15ffc54d
+chain 1 3007287e0a2cbdaa
+chain 2 4ce36bc660236a1f
+chain 3 ccf411a9f9126d7c
+chain 4 95cbd1830367985d
 recall [] tail_from 1

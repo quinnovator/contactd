@@ -31,8 +31,9 @@ type Ack struct {
 
 // Inbound is a message from the contact's human. Ack must be buffered.
 type Inbound struct {
-	Text string
-	Ack  chan<- Ack
+	Visit core.Visit
+	Text  string
+	Ack   chan<- Ack
 }
 
 // Typing is a typing indicator. It holds the reply back like a message does,

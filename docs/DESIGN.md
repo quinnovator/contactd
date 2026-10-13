@@ -352,7 +352,7 @@ Every prompt is assembled from five tiers ordered least- to most-volatile, so mo
 
 | # | Tier | Changes when | Typical churn |
 | --- | --- | --- | --- |
-| 0 | Static: system prompt + tool schemas | Agent config is deployed | Rarely |
+| 0 | Static: fixed character preamble + contact system prompt + tool schemas | Agent config is deployed | Rarely |
 | 1 | Contact profile / long-term notes | Profile is edited | Days |
 | 2 | Recalled episodes | The topic changes | Every few turns |
 | 3 | Tail (append-only) | Each turn appends; compaction resets it | Append every turn, reset every N turns |
@@ -1004,3 +1004,14 @@ Build in the same order as the pieces. Each milestone ends with a measurement, s
 - [Hugot: ONNX transformer pipelines for Go](https://github.com/knights-analytics/hugot): pipelines, backends, tokenizer requirements, threading advice
 - [Container-aware GOMAXPROCS (new in Go 1.25)](https://appliedgo.net/spotlight/go-1.25-container-aware-gomaxprocs/)
 - [Container-aware resource management in Go](https://levelup.gitconnected.com/container-aware-resource-management-in-go-the-problem-go-1-25s-fix-and-what-s-still-missing-211b2e3aeb76): GOMEMLIMIT is still not cgroup-aware
+
+
+## Visits and local time
+
+A WebSocket `hello` carries `session_id`, `time_zone` (validated with `time.LoadLocation`) and `presentation` (`avatar` or `text`). It changes only connection-local metadata. The first accepted message passes those fields to the actor, which logs a `session-start` notice before the user message. POST `/messages` accepts the same optional fields. Without an ID the actor infers a visit after 30 minutes since the last user or agent message; first contact gets a first-meeting notice. Opening a client does not trigger a turn.
+
+The `sessions` table records used IDs per contact. `contacts.time_zone` and `contacts.last_spoke` survive hibernation and restart. The writer commits session IDs with their notice and time-zone changes with the user message; last-spoken time follows message events, not embeddings, summaries, or tool results. Hydration restores this metadata independently of the bounded tail. Multiple clients retain their own IDs and zones; a reconnect never becomes a new visit merely because another client spoke meanwhile.
+
+The actor supplies the location to the pure planner. Only the live `<now>` note changes with current time or zone. Session notices have fixed logged timestamps and text, then age through the tail, checkpoints and recall like other memories. They are excluded from recall query text and hidden by the transcript renderer. Go's embedded tzdata supplies named zones in minimal images.
+
+The fixed server preamble is part of every contact's static tier, shared verbatim by forks. Profiles describe the person, recall describes memories, and newly generated summaries use the character's first-person voice. One-off summarizer instructions do not receive the contact preamble. Old summaries remain unchanged until replaced naturally.

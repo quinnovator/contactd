@@ -125,7 +125,7 @@ func TestEventsBackwardAndByKind(t *testing.T) {
 	}
 	// The stream shows a reply before the log holds it, so the second
 	// reply's event, the sixth, is waited for before the log is read.
-	waitLogged(t, s, id, 6)
+	waitLogged(t, s, id, 7)
 	// The log now reads: message, model call, reply, twice over.
 	page := func(query string) (string, map[string]any) {
 		t.Helper()
@@ -141,7 +141,7 @@ func TestEventsBackwardAndByKind(t *testing.T) {
 		return strings.Join(seqs, " "), body
 	}
 
-	if got, body := page("tail=1&limit=2"); got != "5 6" || body["next_before"] != float64(5) || body["next_after"] != nil {
+	if got, body := page("tail=1&limit=2"); got != "6 7" || body["next_before"] != float64(6) || body["next_after"] != nil {
 		t.Errorf("tail, limit 2 = %q %v", got, body)
 	}
 	if got, body := page("before=5&limit=2"); got != "3 4" || body["next_before"] != float64(3) {
@@ -150,10 +150,10 @@ func TestEventsBackwardAndByKind(t *testing.T) {
 	if got, body := page("before=3&limit=5"); got != "1 2" || body["next_before"] != nil {
 		t.Errorf("before 3 = %q %v; want the first two and no cursor", got, body)
 	}
-	if got, _ := page("kinds=user_msg,agent_msg"); got != "1 3 4 6" {
+	if got, _ := page("kinds=user_msg,agent_msg"); got != "2 4 5 7" {
 		t.Errorf("messages only = %q", got)
 	}
-	if got, body := page("tail=1&limit=1&kinds=attempt"); got != "5" || body["next_before"] != float64(5) {
+	if got, body := page("tail=1&limit=1&kinds=attempt"); got != "6" || body["next_before"] != float64(6) {
 		t.Errorf("the last model call = %q %v", got, body)
 	}
 
@@ -190,14 +190,14 @@ func TestStreamOpensWithReadyAndEchoesMessages(t *testing.T) {
 	if status, _ := s.do(http.MethodPost, "/v1/contacts/"+id+"/messages", `{"text":"hello"}`); status != http.StatusAccepted {
 		t.Fatal("post failed")
 	}
-	if d := next(); d != (core.Delta{Type: core.DeltaUser, Text: "hello", Seq: 1}) {
+	if d := next(); d != (core.Delta{Type: core.DeltaUser, Text: "hello", Seq: 2}) {
 		t.Errorf("second delta = %+v, want the message as accepted", d)
 	}
 	waitMessage(t, deltas)
 
 	// A stream opened later begins after everything so far.
-	if d := <-s.sse(id); d.Type != core.DeltaReady || d.Seq != 3 {
-		t.Errorf("a later stream opened with %+v, want ready at seq 3", d)
+	if d := <-s.sse(id); d.Type != core.DeltaReady || d.Seq != 4 {
+		t.Errorf("a later stream opened with %+v, want ready at seq 4", d)
 	}
 }
 

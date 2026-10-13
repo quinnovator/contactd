@@ -135,7 +135,7 @@ func TestLogPaging(t *testing.T) {
 	all := core.AllKinds
 
 	tail, err := c.Tail(t.Context(), id, 3, all)
-	if err != nil || seqs(tail.Events) != "5 6 7" || !tail.More {
+	if err != nil || seqs(tail.Events) != "6 7 8" || !tail.More {
 		t.Fatalf("Tail(3) = %s more=%t, %v", seqs(tail.Events), tail.More, err)
 	}
 	older, err := c.Before(t.Context(), id, 5, 3, all)
@@ -154,7 +154,7 @@ func TestLogPaging(t *testing.T) {
 		t.Errorf("event = %+v body %s", ev, ev.Body)
 	}
 	// A filter that matches nothing is an empty page, not an error.
-	none, err := c.Tail(t.Context(), id, 3, core.KindSet(0).With(core.KindNotice))
+	none, err := c.Tail(t.Context(), id, 3, core.KindSet(0).With(core.KindCheckpoint))
 	if err != nil || len(none.Events) != 0 || none.More {
 		t.Errorf("Tail of notices = %s, %v", seqs(none.Events), err)
 	}
@@ -386,14 +386,14 @@ func TestSessionPagesBackToTheBeginning(t *testing.T) {
 	sess := c.Follow(t.Context(), id)
 	defer sess.Close()
 	first := waitFor(t, sess, &tr, func(u client.Update) bool { return u.Kind == client.UpdateEvents })
-	if len(first.Events) != 200 || first.Start || tr.Oldest() != 51 {
+	if len(first.Events) != 200 || first.Start || tr.Oldest() != 52 {
 		t.Fatalf("first page: %d events, start=%t, oldest %d; want the newest 200", len(first.Events), first.Start, tr.Oldest())
 	}
 	waitFor(t, sess, &tr, isLive)
 
 	sess.Older()
 	older := waitFor(t, sess, &tr, func(u client.Update) bool { return u.Kind == client.UpdateOlder })
-	if len(older.Events) != 50 || !older.Start || tr.Oldest() != 1 || len(tr.Items()) != total {
+	if len(older.Events) != 51 || !older.Start || tr.Oldest() != 2 || len(tr.Items()) != total {
 		t.Errorf("older page: %d events, start=%t, oldest %d, %d items", len(older.Events), older.Start, tr.Oldest(), len(tr.Items()))
 	}
 	sess.Older()

@@ -27,11 +27,13 @@ type Vector struct {
 // Write is one request to the group-commit writer. Any combination of the
 // payload fields may be set; they are applied together in one transaction.
 type Write struct {
-	Contact ContactID
-	Event   *Event      // appended to the log
-	Vector  *Vector     // upserted for (Contact, Vector.Seq)
-	Episode *EpisodeRow // upserted for (Contact, Episode.ID)
-	Touch   int64       // when non-zero, the contact's last_active (unix ms)
+	Contact   ContactID
+	Event     *Event      // appended to the log
+	Vector    *Vector     // upserted for (Contact, Vector.Seq)
+	Episode   *EpisodeRow // upserted for (Contact, Episode.ID)
+	TimeZone  string      // the current zone, persisted with an inbound message
+	SessionID string      // recorded atomically with its session-start notice
+	Touch     int64       // when non-zero, the contact's last_active (unix ms)
 	// Reset marks the point where a contact's writer starts over. After any
 	// write for a contact fails, the log refuses that contact's later writes
 	// (ErrWriteRefused) until a Reset arrives: a retiring actor submits one
@@ -45,10 +47,13 @@ type Write struct {
 
 // Hydrated is what an actor loads when a contact wakes up.
 type Hydrated struct {
-	Contact  Contact
-	Tail     []Event      // the last events, ascending
-	Episodes []EpisodeRow // ascending by ID
-	NextSeq  uint64       // one past the highest seq in the log
+	TimeZone  string
+	LastSpoke int64
+	Sessions  []string
+	Contact   Contact
+	Tail      []Event      // the last events, ascending
+	Episodes  []EpisodeRow // ascending by ID
+	NextSeq   uint64       // one past the highest seq in the log
 }
 
 // EncodeVector packs v as little-endian float32s.

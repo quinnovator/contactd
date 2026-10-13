@@ -88,7 +88,7 @@ type Backend interface {
 	Create(ctx context.Context, nc client.NewContact) (core.ContactID, error)
 	Rename(ctx context.Context, id core.ContactID, name string) (client.Contact, error)
 	// Follow opens a session with a contact that runs until it is closed.
-	Follow(ctx context.Context, id core.ContactID) Session
+	Follow(ctx context.Context, id core.ContactID, visits ...core.Visit) Session
 	// File fetches one file from a contact's working directory. etag, when
 	// not empty, names the copy the caller holds.
 	File(ctx context.Context, id core.ContactID, path, etag string) (client.File, error)
@@ -110,8 +110,8 @@ type Session interface {
 type Remote struct{ *client.Client }
 
 // Follow implements Backend.
-func (r Remote) Follow(ctx context.Context, id core.ContactID) Session {
-	return r.Client.Follow(ctx, id)
+func (r Remote) Follow(ctx context.Context, id core.ContactID, visits ...core.Visit) Session {
+	return r.Client.Follow(ctx, id, visits...)
 }
 
 // Options configures a run of the interface.
@@ -776,7 +776,15 @@ func (m *model) showContacts() tea.Cmd {
 // status line run from now on.
 func (m *model) open(c client.Contact) tea.Cmd {
 	m.closeChat()
-	sess := m.opt.Backend.Follow(m.ctx, c.ID)
+	presentation := "text"
+	if on, _ := m.staged(); on {
+		presentation = "avatar"
+	}
+	visit := core.Visit{Presentation: presentation}
+	if m.opt.Location != nil && m.opt.Location.String() != "Local" {
+		visit.TimeZone = m.opt.Location.String()
+	}
+	sess := m.opt.Backend.Follow(m.ctx, c.ID, visit)
 	m.chat, m.screen = newChat(c, sess, m.th, m.opt.Location, m.shownBar(), m.cmds, m.newImages(c.ID)), screenChat
 	m.chat.extra = m.extra
 	m.chat.setRenderers(m.mods.kinds, false)

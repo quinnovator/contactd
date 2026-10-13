@@ -99,6 +99,7 @@ type Input struct {
 	Name        string
 	TurnID      uint64
 	Agent       *core.AgentConfig
+	Location    *time.Location
 	Profile     string
 	Tail        []core.Event     // snapshot of the hot window, ending with the new message(s)
 	Episodes    *recall.Snapshot // immutable snapshot of the episode index
@@ -201,11 +202,12 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 		}
 	}
 	p, err := plan.Build(in.LastPlan, plan.Input{
-		Agent:   in.Agent,
-		Profile: in.Profile,
-		Reader:  reader,
-		Tail:    in.Tail,
-		Base:    in.Base,
+		Agent:    in.Agent,
+		Location: in.Location,
+		Profile:  in.Profile,
+		Reader:   reader,
+		Tail:     in.Tail,
+		Base:     in.Base,
 	}, recalled, now, pr)
 	if err != nil {
 		return res, fmt.Errorf("build plan: %w", err)

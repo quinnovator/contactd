@@ -22,13 +22,14 @@ type entry struct {
 	// flat marks a tool call or result rendered as plain text. It is
 	// history like any other, but it is nobody's message: it never opens a
 	// turn and is never something to answer.
-	flat bool
+	flat         bool
+	sessionStart bool
 }
 
 const (
 	interruptedNote = "\n\n[this reply was cut off before it finished]"
 	orphanResult    = "[no result: the tool run did not finish]"
-	checkpointLead  = "[Summary of the conversation up to this point. The original messages are no longer shown.]\n\n"
+	checkpointLead  = "[What you remember from before, in summary.]\n\n"
 )
 
 // window says which part of a hot window is rendered, and for whom.
@@ -138,6 +139,7 @@ func normalize(events []core.Event, w window) ([]entry, error) {
 				return nil, fmt.Errorf("decode notice seq %d: %w", ev.Seq, err)
 			}
 			e := newEntry(core.Message{Role: core.RoleUser, Text: renderNotice(&body)}, ev.Seq, ev.TS)
+			e.sessionStart = body.Source == "session-start"
 			if pending != nil {
 				deferred = append(deferred, e)
 			} else {

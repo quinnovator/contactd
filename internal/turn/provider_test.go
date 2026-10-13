@@ -456,7 +456,7 @@ func TestCheckpointRequestExtendsTheLiveRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(text, "Checkpoint of") || !strings.Contains(text, "alpha") {
+	if !strings.HasPrefix(text, "I remember") || !strings.Contains(text, "alpha") {
 		t.Errorf("summary = %q", text)
 	}
 	if att == nil || att.Purpose != "checkpoint" || att.Route != "fake/fake-1" {

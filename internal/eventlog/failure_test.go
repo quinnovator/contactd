@@ -83,10 +83,10 @@ func TestTransientWriteFailureKeepsOneWriterAndNoGaps(t *testing.T) {
 
 	// A healthy exchange first.
 	send("hello")
-	if r := <-results; r.err != nil || r.seq != 1 {
+	if r := <-results; r.err != nil || r.seq != 2 {
 		t.Fatalf("first message: %+v", r)
 	}
-	waitEvents(t, s, id, 3) // the message, the attempt record and the reply
+	waitEvents(t, s, id, 4) // the message, the attempt record and the reply
 
 	// Another process takes the write lock and keeps it.
 	other, err := sql.Open("sqlite3", "file:"+path+"?_txlock=immediate&_busy_timeout=1")

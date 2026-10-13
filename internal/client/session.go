@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"sync"
@@ -93,8 +95,9 @@ type Update struct {
 // last sequence number assigned before it began. Everything up to there is
 // read from the log, and everything after it arrives on the stream.
 type Session struct {
-	c  *Client
-	id core.ContactID
+	c     *Client
+	id    core.ContactID
+	visit core.Visit
 
 	updates chan Update
 	cmds    chan sessionCmd
@@ -136,10 +139,25 @@ const (
 
 // Follow starts a session for a contact. It runs until ctx is done or Close
 // is called.
-func (c *Client) Follow(ctx context.Context, id core.ContactID) *Session {
+func (c *Client) Follow(ctx context.Context, id core.ContactID, visits ...core.Visit) *Session {
+	var visit core.Visit
+	if len(visits) > 0 {
+		visit = visits[0]
+	}
+	if visit.SessionID == "" {
+		var id [16]byte
+		_, _ = rand.Read(id[:])
+		visit.SessionID = hex.EncodeToString(id[:])
+	}
+	if visit.TimeZone == "" {
+		visit.TimeZone = localZone()
+	}
+	if visit.Presentation == "" {
+		visit.Presentation = "text"
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	s := &Session{
-		c: c, id: id,
+		c: c, id: id, visit: visit,
 		updates: make(chan Update, 256),
 		cmds:    make(chan sessionCmd, 64),
 		cancel:  cancel,
@@ -201,6 +219,11 @@ func (s *Session) run(ctx context.Context) {
 	for attempt := 0; ctx.Err() == nil; {
 		s.emit(ctx, Update{Kind: UpdateState, State: StateConnecting})
 		live, err := s.c.Live(ctx, s.id)
+		if err == nil {
+			if err = live.Hello(ctx, s.visit); err != nil {
+				live.Close()
+			}
+		}
 		if err == nil {
 			var synced bool
 			synced, err = s.serve(ctx, live)

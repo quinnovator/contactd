@@ -248,6 +248,15 @@ func (s *Store) Hydrate(ctx context.Context, id core.ContactID, tail int) (core.
 		return core.Hydrated{}, fmt.Errorf("load tail of contact %d: %w", id, err)
 	}
 	h := core.Hydrated{Contact: c, Tail: toEvents(rows), NextSeq: 1}
+	state, err := s.rq.VisitState(ctx, i64(uint64(id)))
+	if err != nil {
+		return core.Hydrated{}, fmt.Errorf("load visit state: %w", err)
+	}
+	h.TimeZone, h.LastSpoke = state.TimeZone, state.LastSpoke
+	h.Sessions, err = s.rq.SessionIDs(ctx, i64(uint64(id)))
+	if err != nil {
+		return core.Hydrated{}, fmt.Errorf("load sessions: %w", err)
+	}
 	// TailEvents scans backwards; put it in log order.
 	for i, j := 0, len(h.Tail)-1; i < j; i, j = i+1, j-1 {
 		h.Tail[i], h.Tail[j] = h.Tail[j], h.Tail[i]

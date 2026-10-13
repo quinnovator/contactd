@@ -267,6 +267,9 @@ func (t *Transcript) event(ev *core.Event) {
 		if json.Unmarshal(ev.Body, &b) != nil {
 			return
 		}
+		if b.Source == "session-start" {
+			return
+		}
 		it.Kind, it.Text, it.Child = Notice, b.Text, b.Child
 	case core.KindCheckpoint:
 		var b core.CheckpointBody

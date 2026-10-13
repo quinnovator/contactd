@@ -85,6 +85,14 @@ func (l *Live) Recv(ctx context.Context) (Frame, error) {
 	}
 }
 
+// Hello describes this visit, without starting a turn. Reconnects reuse it.
+func (l *Live) Hello(ctx context.Context, v core.Visit) error {
+	return l.write(ctx, struct {
+		Type string `json:"type"`
+		core.Visit
+	}{Type: "hello", Visit: v})
+}
+
 // Say sends a message. The server answers with an Ack or a Refused frame.
 func (l *Live) Say(ctx context.Context, text string) error {
 	return l.write(ctx, map[string]string{"type": "message", "text": text})

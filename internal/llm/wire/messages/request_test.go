@@ -92,20 +92,20 @@ func TestBreakpoints(t *testing.T) {
 			want: []string{"system[0]", "system[1]", "system[2]"},
 		},
 		{
-			name: "no system prompt puts the static breakpoint on the last tool",
+			name: "empty contact prompt keeps the static breakpoint on the preamble",
 			edit: func(_ *testing.T, o *planOpts) {
 				o.system = ""
 				o.tools = []core.ToolDef{pythonTool(), {Name: "shell", Description: "Run sh."}}
 			},
-			want: []string{"tools[1]", "system[0]", "system[1]", "messages[3].content[0]"},
+			want: []string{"system[0]", "system[1]", "system[2]", "messages[3].content[0]"},
 		},
 		{
-			name: "nothing static",
+			name: "preamble only",
 			edit: func(t *testing.T, o *planOpts) {
 				t.Helper()
 				*o = planOpts{events: firstTurn(t)}
 			},
-			want: nil,
+			want: []string{"system[0]"},
 		},
 	}
 	for _, tc := range cases {
@@ -173,7 +173,7 @@ func TestTierLayout(t *testing.T) {
 	if got := string(req.Tools[0].InputSchema); got != codeSchema {
 		t.Errorf("input_schema = %s, want the default code schema", got)
 	}
-	if len(req.System) != 3 || req.System[0].Text != "You are Ada, a careful assistant." {
+	if len(req.System) != 3 || req.System[0].Text != plan.Preamble+"\n\nYou are Ada, a careful assistant." {
 		t.Fatalf("system = %+v", req.System)
 	}
 

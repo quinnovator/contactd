@@ -179,11 +179,18 @@ func (c *Client) Rename(ctx context.Context, id core.ContactID, name string) (Co
 
 // Send posts a message and returns its sequence number once it is durable.
 // The reply arrives on the contact's stream.
-func (c *Client) Send(ctx context.Context, id core.ContactID, text string) (uint64, error) {
+func (c *Client) Send(ctx context.Context, id core.ContactID, text string, visits ...core.Visit) (uint64, error) {
+	var visit core.Visit
+	if len(visits) > 0 {
+		visit = visits[0]
+	}
 	var out struct {
 		Seq uint64 `json:"seq"`
 	}
-	err := c.do(ctx, http.MethodPost, "/v1/contacts/"+id.String()+"/messages", map[string]string{"text": text}, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/contacts/"+id.String()+"/messages", struct {
+		Text string `json:"text"`
+		core.Visit
+	}{Text: text, Visit: visit}, &out)
 	return out.Seq, err
 }
 

@@ -357,7 +357,8 @@ func TestRequestShape(t *testing.T) {
 	t.Run("a cache-write price puts breakpoints on content parts", func(t *testing.T) {
 		t.Parallel()
 		f := freeze(t, p, haiku, llm.Options{})
-		const system = `{"role":"system","content":[{"type":"text","text":"You are Ada.","cache_control":{"type":"ephemeral"}}]}`
+		rawSystem, _ := json.Marshal(plan.Preamble + "\n\nYou are Ada.")
+		system := `{"role":"system","content":[{"type":"text","text":` + strings.NewReplacer(`\u003c`, "<", `\u003e`, ">").Replace(string(rawSystem)) + `,"cache_control":{"type":"ephemeral"}}]}`
 		if !bytes.Contains(f.Body, []byte(system)) {
 			t.Errorf("body = %s\nwant the system message as %s", f.Body, system)
 		}

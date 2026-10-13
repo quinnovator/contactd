@@ -39,15 +39,18 @@ type actor struct {
 	// reserves a slot from a turn's goroutine; the actor gives it back.
 	children atomic.Int32
 
-	contact  core.Contact
-	nextSeq  uint64
-	tail     []core.Event     // hot recent window; append-only, shared with turn snapshots
-	eps      *recall.Index    // Piece 4
-	lastPlan *plan.PromptPlan // Piece 5
-	lastSent *turn.Sent       // the last request sent, for cache prediction
-	affinity string           // pins this contact, or its parent's family, to one backend
-	env      *turn.Env        // Piece 6; holds nothing until a tool needs it
-	subs     []*Subscription  // streaming subscribers
+	location  *time.Location
+	lastSpoke int64
+	sessions  map[string]struct{}
+	contact   core.Contact
+	nextSeq   uint64
+	tail      []core.Event     // hot recent window; append-only, shared with turn snapshots
+	eps       *recall.Index    // Piece 4
+	lastPlan  *plan.PromptPlan // Piece 5
+	lastSent  *turn.Sent       // the last request sent, for cache prediction
+	affinity  string           // pins this contact, or its parent's family, to one backend
+	env       *turn.Env        // Piece 6; holds nothing until a tool needs it
+	subs      []*Subscription  // streaming subscribers
 
 	turn    *inflight
 	turnSeq uint64
@@ -162,6 +165,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// it, and must be logged before it.
 		a.interrupt(ctx)
 		a.flushNotices(ctx)
+		a.beginVisit(ctx, c.Visit, time.Now())
 		ev := a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text}, c.Ack)
 		// Every stream sees the message, not only the connection that sent
 		// it: a contact may be open in more than one place.
@@ -309,6 +313,17 @@ func (a *actor) hydrate(ctx context.Context) error {
 		return err //nolint:wrapcheck // the store's error already names the contact
 	}
 	a.contact, a.nextSeq = h.Contact, h.NextSeq
+	a.location = time.UTC
+	if h.TimeZone != "" {
+		if loc, err := time.LoadLocation(h.TimeZone); err == nil {
+			a.location = loc
+		}
+	}
+	a.lastSpoke = h.LastSpoke
+	a.sessions = make(map[string]struct{}, len(h.Sessions))
+	for _, id := range h.Sessions {
+		a.sessions[id] = struct{}{}
+	}
 	a.tail = slices.DeleteFunc(h.Tail, func(ev core.Event) bool { return ev.Kind == core.KindAttempt })
 	if over := len(a.tail) - cfg.TailEvents; over > 0 {
 		a.tail = slices.Clone(a.tail[over:])
@@ -488,6 +503,15 @@ func (a *actor) append(ctx context.Context, kind core.EventKind, body any, ack c
 	}
 
 	w := core.Write{Contact: a.id, Event: &ev}
+	if kind.IsMessage() {
+		a.lastSpoke = now
+	}
+	if kind == core.KindUserMsg {
+		w.TimeZone = a.location.String()
+	}
+	if n, ok := body.(core.NoticeBody); ok && n.Source == "session-start" {
+		w.SessionID = n.SessionID
+	}
 	if kind == core.KindUserMsg {
 		w.Touch = now
 	}
@@ -541,6 +565,7 @@ func (a *actor) startTurn(ctx context.Context) {
 		TurnID:   t.id,
 		Agent:    &a.contact.Agent,
 		Profile:  a.contact.Profile,
+		Location: a.location,
 		Tail:     slices.Clip(a.tail), // the turn must not append into our backing array
 		Episodes: a.eps.Snapshot(),
 		LastPlan: a.lastPlan,

@@ -107,7 +107,7 @@ func (b *fakeBackend) Rename(_ context.Context, id core.ContactID, name string) 
 	return client.Contact{}, core.ErrContactNotFound
 }
 
-func (b *fakeBackend) Follow(context.Context, core.ContactID) Session {
+func (b *fakeBackend) Follow(context.Context, core.ContactID, ...core.Visit) Session {
 	s := &fakeSession{updates: make(chan client.Update)}
 	b.sessions = append(b.sessions, s)
 	return s

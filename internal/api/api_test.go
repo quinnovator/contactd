@@ -187,27 +187,31 @@ func TestMessageRoundTripOverSSE(t *testing.T) {
 	time.Sleep(50 * time.Millisecond) // let the subscription register
 
 	status, body := s.do(http.MethodPost, "/v1/contacts/"+id+"/messages", `{"text":"hello there"}`)
-	if status != http.StatusAccepted || body["seq"] != float64(1) {
-		t.Fatalf("post message: %d %v, want 202 with seq 1", status, body)
+	if status != http.StatusAccepted || body["seq"] != float64(2) {
+		t.Fatalf("post message: %d %v, want 202 with seq 2", status, body)
 	}
 	reply := waitMessage(t, deltas)
-	// Seq 2 is the record of the model call that produced the reply.
-	if !strings.Contains(reply.Text, "hello there") || reply.Seq != 3 {
+	// Seq 3 is the record of the model call that produced the reply.
+	if !strings.Contains(reply.Text, "hello there") || reply.Seq != 4 {
 		t.Errorf("reply = %+v", reply)
 	}
 
 	// The delta is sent before the reply's event is committed.
-	waitLogged(t, s, id, 3)
+	waitLogged(t, s, id, 4)
 	status, body = s.do(http.MethodGet, "/v1/contacts/"+id+"/events", "")
 	events, _ := body["events"].([]any)
-	if status != http.StatusOK || len(events) != 3 {
+	if status != http.StatusOK || len(events) != 4 {
 		t.Fatalf("events: %d %v", status, body)
 	}
-	if attempt, _ := events[1].(map[string]any); attempt["kind"] != "attempt" {
+	if attempt, _ := events[2].(map[string]any); attempt["kind"] != "attempt" {
 		t.Errorf("event 2 = %v, want the attempt record", attempt)
 	}
-	first, _ := events[0].(map[string]any)
-	if first["kind"] != "user_msg" || first["seq"] != float64(1) {
+	notice, _ := events[0].(map[string]any)
+	if notice["kind"] != "notice" {
+		t.Errorf("first event = %v, want session notice", notice)
+	}
+	first, _ := events[1].(map[string]any)
+	if first["kind"] != "user_msg" || first["seq"] != float64(2) {
 		t.Errorf("first event = %v", first)
 	}
 	if b, _ := first["body"].(map[string]any); b["text"] != "hello there" {
@@ -219,7 +223,7 @@ func TestMessageRoundTripOverSSE(t *testing.T) {
 	if got, _ := page["events"].([]any); len(got) != 1 || page["next_after"] != float64(1) {
 		t.Errorf("page 1 = %v", page)
 	}
-	_, page = s.do(http.MethodGet, "/v1/contacts/"+id+"/events?after=3", "")
+	_, page = s.do(http.MethodGet, "/v1/contacts/"+id+"/events?after=4", "")
 	if got, _ := page["events"].([]any); len(got) != 0 || page["next_after"] != nil {
 		t.Errorf("page past the end = %v", page)
 	}
@@ -260,13 +264,13 @@ func TestLiveWebSocket(t *testing.T) {
 		case "error":
 			sawError = true
 		case "ack":
-			sawAck = frame["seq"] == float64(1)
+			sawAck = frame["seq"] == float64(2)
 		case "message":
 			sawReply = strings.Contains(fmt.Sprint(frame["text"]), "ping over websocket")
 		}
 	}
 	if !sawError || !sawAck {
-		t.Errorf("error frame for the bad type: %t; ack with seq 1: %t", sawError, sawAck)
+		t.Errorf("error frame for the bad type: %t; ack with seq 2: %t", sawError, sawAck)
 	}
 	if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
 		t.Errorf("close: %v", err)

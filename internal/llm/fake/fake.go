@@ -310,7 +310,7 @@ func digest(msgs []core.Message) string {
 			continue
 		}
 		n++
-		if first == "" && msgs[i].Role == core.RoleUser {
+		if first == "" && msgs[i].Role == core.RoleUser && !strings.HasPrefix(msgs[i].Text, "<notice") {
 			first = msgs[i].Text
 		}
 	}
@@ -318,7 +318,7 @@ func digest(msgs []core.Message) string {
 	if len(words) > 12 {
 		words = words[:12]
 	}
-	return fmt.Sprintf("Checkpoint of %d messages. It began: %s", n-1, strings.Join(words, " "))
+	return fmt.Sprintf("I remember %d earlier messages. It began: %s", n-1, strings.Join(words, " "))
 }
 
 // latest returns the newest user text or tool output in the prompt, skipping

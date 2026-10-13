@@ -54,9 +54,16 @@ func New(ctx context.Context, deps Deps, cfg Config, log *slog.Logger) *Registry
 
 // Message sends a user message to a contact and waits until it is durable.
 // It returns the message's sequence number.
-func (r *Registry) Message(ctx context.Context, id core.ContactID, text string) (uint64, error) {
+func (r *Registry) Message(ctx context.Context, id core.ContactID, text string, visits ...core.Visit) (uint64, error) {
+	var visit core.Visit
+	if len(visits) > 0 {
+		visit = visits[0]
+	}
+	if err := visit.Validate(); err != nil {
+		return 0, fmt.Errorf("validate visit: %w", err)
+	}
 	ack := make(chan Ack, 1)
-	if err := r.Send(ctx, id, Inbound{Text: text, Ack: ack}); err != nil {
+	if err := r.Send(ctx, id, Inbound{Text: text, Visit: visit, Ack: ack}); err != nil {
 		return 0, err
 	}
 	select {

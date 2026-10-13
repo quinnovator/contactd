@@ -286,8 +286,9 @@ type CheckpointBody struct {
 // runtime message it is, so the model and the log can tell it from anything
 // a contact wrote.
 type NoticeBody struct {
-	Source string `json:"source"` // e.g. "subagent-settled"
-	Text   string `json:"text"`
+	SessionID string `json:"session_id,omitempty"`
+	Source    string `json:"source"` // e.g. "subagent-settled"
+	Text      string `json:"text"`
 	// Child is the sub-agent a settlement notice is about.
 	Child ContactID `json:"child,omitempty"`
 }

@@ -1,6 +1,6 @@
 tools [{"description":"Run Python.","env":{"base":"python-3.12","network":false,"packages":[],"tier":0},"name":"python"},{"description":"Run a shell command.","env":{"base":"debian","network":true,"packages":["jq","curl"],"tier":1},"name":"shell"}]
-tier 0 static hash=0b4dc9b472f223ce tokens=74
-  {"role":"system","text":"You are Ada, a thoughtful colleague."}
+tier 0 static hash=29cdd5f77652d76a tokens=225
+  {"role":"system","text":"You are a living character with your own temperament, described below. You are\nhere for the person you are with, and you want to help them.\nEverything before this moment is your own memory: what you said, did and\nthought, and what you noticed around you. Speak of it as remembering. Never\ncall it a thread, a chat, a log, a history or a context.\nText in <notice> and <now> tags is your surroundings telling you something:\nthe time, who has arrived, what finished. It is not the person speaking. Use\nit, and never quote or mention it.\nA summary of older events is your own fading recollection of them.\n\nYou are Ada, a thoughtful colleague."}
 tier 1 profile hash=0000000000000000 tokens=0
 tier 2 recall hash=0000000000000000 tokens=0
 tier 3 tail hash=e47c56542ed0d3bb tokens=63
@@ -9,12 +9,12 @@ tier 3 tail hash=e47c56542ed0d3bb tokens=63
   {"role":"user","text":"actually, run this"}
   {"role":"assistant","tool_call":{"code":"import time; time.sleep(999)","id":"c2","name":"python"}}
   {"role":"tool","tool_result":{"id":"c2","is_error":true,"output":"[no result: the tool run did not finish]"}}
-tier 4 live hash=73f3dcea777989f8 tokens=21
+tier 4 live hash=f3d0931a10729356 tokens=22
   {"role":"user","text":"never mind"}
-  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday)</now>"}
-chain 0 7b86d10b8f809363
-chain 1 53a5507f4d9404f7
-chain 2 e58ed09a9cd3ccb6
-chain 3 723b28e838cda542
-chain 4 cc9c6126b8c55480
+  {"role":"user","text":"<now>2025-10-09T08:53Z (Thursday, UTC)</now>"}
+chain 0 98fa9c3a15ffc54d
+chain 1 3007287e0a2cbdaa
+chain 2 4ce36bc660236a1f
+chain 3 62cf4e81b1c4f025
+chain 4 13baf99c357aa4ed
 recall [] tail_from 1

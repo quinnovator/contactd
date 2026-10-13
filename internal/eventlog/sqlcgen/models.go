@@ -15,6 +15,8 @@ type Contact struct {
 	LastActive int64
 	Name       string
 	Parent     int64
+	TimeZone   string
+	LastSpoke  int64
 }
 
 type Episode struct {
@@ -32,6 +34,11 @@ type Event struct {
 	Ts      int64
 	Kind    int64
 	Body    []byte
+}
+
+type Session struct {
+	Contact   int64
+	SessionID string
 }
 
 type Vector struct {

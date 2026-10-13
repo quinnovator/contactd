@@ -51,7 +51,7 @@ type Store interface {
 
 // Contacts is the part of the actor registry the API drives.
 type Contacts interface {
-	Message(ctx context.Context, id core.ContactID, text string) (uint64, error)
+	Message(ctx context.Context, id core.ContactID, text string, visits ...core.Visit) (uint64, error)
 	Typing(ctx context.Context, id core.ContactID) error
 	Interrupt(ctx context.Context, id core.ContactID) error
 	Subscribe(ctx context.Context, id core.ContactID) (*actor.Subscription, error)
@@ -349,6 +349,7 @@ func validateAgent(a *core.AgentConfig) error {
 }
 
 type postMessageRequest struct {
+	core.Visit
 	Text string `json:"text"`
 }
 
@@ -371,7 +372,11 @@ func (s *Server) postMessage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, http.StatusBadRequest, err)
 		return
 	}
-	seq, err := s.contacts.Message(r.Context(), id, req.Text)
+	if err := req.Validate(); err != nil {
+		s.fail(w, r, http.StatusBadRequest, err)
+		return
+	}
+	seq, err := s.contacts.Message(r.Context(), id, req.Text, req.Visit)
 	if err != nil {
 		s.fail(w, r, statusOf(err), err)
 		return

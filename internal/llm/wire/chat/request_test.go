@@ -92,9 +92,9 @@ func TestTierLayout(t *testing.T) {
 	// Tiers 0-2 in order, least volatile first.
 	sys := req.Messages[0].text()
 	static := strings.Index(sys, "You are Ada")
-	profile := strings.Index(sys, "What you know about this contact")
-	recall := strings.Index(sys, "Earlier conversations")
-	if static != 0 || profile <= static || recall <= profile {
+	profile := strings.Index(sys, "What you know about the person you are with")
+	recall := strings.Index(sys, "Things you remember")
+	if !strings.HasPrefix(sys, plan.Preamble) || static < 0 || profile <= static || recall <= profile {
 		t.Errorf("system tiers out of order: %q", sys)
 	}
 
@@ -231,11 +231,11 @@ func TestMergeSameRole(t *testing.T) {
 		}
 	})
 
-	t.Run("no system text means no system message", func(t *testing.T) {
+	t.Run("empty contact prompt still carries the server preamble", func(t *testing.T) {
 		t.Parallel()
 		p := buildPlan(t, planOpts{events: []core.Event{event(t, 1, core.KindUserMsg, core.MsgBody{Text: "Hi"})}})
 		req := decode(t, body(t, plainDialect(), plainRoute(), p))
-		if got := roles(&req); !slices.Equal(got, []string{"user"}) {
+		if got := roles(&req); !slices.Equal(got, []string{"system", "user"}) {
 			t.Errorf("roles = %v, want one user message", got)
 		}
 	})
@@ -247,10 +247,10 @@ func TestMergeSameRole(t *testing.T) {
 			event(t, 2, core.KindUserMsg, core.MsgBody{Text: "two"}),
 		}})
 		req := decode(t, body(t, plainDialect(), plainRoute(), p))
-		if len(req.Messages) != 1 {
+		if len(req.Messages) != 2 {
 			t.Fatalf("messages = %+v, want one user message", req.Messages)
 		}
-		if got := req.Messages[0].text(); !strings.HasPrefix(got, "one\n\ntwo\n\n<now>") {
+		if got := req.Messages[1].text(); !strings.HasPrefix(got, "one\n\ntwo\n\n<now>") {
 			t.Errorf("merged content = %q", got)
 		}
 	})
@@ -268,13 +268,13 @@ func TestMergeSameRole(t *testing.T) {
 			},
 		})
 		req := decode(t, body(t, plainDialect(), plainRoute(), p))
-		if got := roles(&req); !slices.Equal(got, []string{"user", "assistant", "tool", "user"}) {
+		if got := roles(&req); !slices.Equal(got, []string{"system", "user", "assistant", "tool", "user"}) {
 			t.Fatalf("roles = %v", got)
 		}
-		if got := req.Messages[2].text(); !strings.HasPrefix(got, toolErrorPrefix) {
+		if got := req.Messages[3].text(); !strings.HasPrefix(got, toolErrorPrefix) {
 			t.Errorf("tool content = %q, want the error marker", got)
 		}
-		if got := req.Messages[3].text(); !strings.HasPrefix(got, "Still there?\n\n<now>") {
+		if got := req.Messages[4].text(); !strings.HasPrefix(got, "Still there?\n\n<now>") {
 			t.Errorf("user content = %q, want the message and the time note merged", got)
 		}
 	})
@@ -408,17 +408,17 @@ func TestSiblingCalls(t *testing.T) {
 			},
 		})
 		req := decode(t, body(t, plainDialect(), plainRoute(), p))
-		want := []string{"user", "assistant", "tool", "tool", "tool", "assistant", "user"}
+		want := []string{"system", "user", "assistant", "tool", "tool", "tool", "assistant", "user"}
 		if got := roles(&req); !slices.Equal(got, want) {
 			t.Fatalf("roles = %v, want %v", got, want)
 		}
-		step := req.Messages[1]
+		step := req.Messages[2]
 		if step.text() != "Two things." || len(step.ToolCalls) != 3 {
 			t.Fatalf("step message = %+v", step)
 		}
 		for i, id := range []string{"call_a", "call_b", "call_c"} {
-			if step.ToolCalls[i].ID != id || req.Messages[2+i].ToolCallID != id {
-				t.Errorf("position %d: call %q, result for %q; want %q", i, step.ToolCalls[i].ID, req.Messages[2+i].ToolCallID, id)
+			if step.ToolCalls[i].ID != id || req.Messages[3+i].ToolCallID != id {
+				t.Errorf("position %d: call %q, result for %q; want %q", i, step.ToolCalls[i].ID, req.Messages[3+i].ToolCallID, id)
 			}
 		}
 		if got := step.ToolCalls[1].Function; got.Name != "shell" || got.Arguments != `{"code":"ls"}` {
@@ -444,13 +444,13 @@ func TestSiblingCalls(t *testing.T) {
 			},
 		})
 		req := decode(t, body(t, plainDialect(), plainRoute(), p))
-		want := []string{"user", "assistant", "tool", "tool", "user", "assistant", "user"}
+		want := []string{"system", "user", "assistant", "tool", "tool", "user", "assistant", "user"}
 		if got := roles(&req); !slices.Equal(got, want) {
 			t.Fatalf("roles = %v, want %v", got, want)
 		}
-		if len(req.Messages[1].ToolCalls) != 2 || req.Messages[2].ToolCallID != "call_a" ||
-			req.Messages[3].ToolCallID != "call_b" || req.Messages[4].text() != "Hurry" {
-			t.Errorf("messages = %+v", req.Messages[1:5])
+		if len(req.Messages[2].ToolCalls) != 2 || req.Messages[3].ToolCallID != "call_a" ||
+			req.Messages[4].ToolCallID != "call_b" || req.Messages[5].text() != "Hurry" {
+			t.Errorf("messages = %+v", req.Messages[2:5])
 		}
 	})
 
@@ -585,13 +585,13 @@ func TestReasoningReplay(t *testing.T) {
 		t.Parallel()
 		d, r := replaying(ReasoningContent)
 		req := decode(t, body(t, d, r, planWith(r.ID(), both)))
-		for _, i := range []int{1, 3} {
+		for _, i := range []int{2, 4} {
 			m := req.Messages[i]
 			if m.ReasoningContent == nil || *m.ReasoningContent != "6 * 7 <is> 42" || m.Reasoning != nil || m.ReasoningDetails != nil {
 				t.Errorf("message %d = %+v, want reasoning_content only", i, m)
 			}
 		}
-		if req.Messages[0].ReasoningContent != nil || req.Messages[2].ReasoningContent != nil {
+		if req.Messages[1].ReasoningContent != nil || req.Messages[3].ReasoningContent != nil {
 			t.Error("reasoning was put on a message that is not the assistant's")
 		}
 	})
@@ -600,7 +600,7 @@ func TestReasoningReplay(t *testing.T) {
 		t.Parallel()
 		d, r := replaying(ReasoningDetails)
 		req := decode(t, body(t, d, r, planWith(r.ID(), both)))
-		for _, i := range []int{1, 3} {
+		for _, i := range []int{2, 4} {
 			m := req.Messages[i]
 			if string(m.ReasoningDetails) != details || m.Reasoning != nil || m.ReasoningContent != nil {
 				t.Errorf("message %d = %+v, want the details unmodified and nothing else", i, m)
@@ -612,7 +612,7 @@ func TestReasoningReplay(t *testing.T) {
 		t.Parallel()
 		d, r := replaying(ReasoningDetails)
 		req := decode(t, body(t, d, r, planWith(r.ID(), mustPayload(t, payload{Text: "plain thought"}))))
-		m := req.Messages[1]
+		m := req.Messages[2]
 		if m.Reasoning == nil || *m.Reasoning != "plain thought" || m.ReasoningDetails != nil {
 			t.Errorf("message = %+v, want the reasoning string", m)
 		}
@@ -833,7 +833,7 @@ func TestBreakpoints(t *testing.T) {
 			t.Errorf("system part %d = %+v, want a text part with a breakpoint", i, p)
 		}
 	}
-	if !strings.HasPrefix(sys[1].Text, "\n\nWhat you know about this contact") {
+	if !strings.HasPrefix(sys[1].Text, "\n\nWhat you know about the person you are with") {
 		t.Errorf("profile part = %q", sys[1].Text)
 	}
 	// Breakpoints move no model-visible byte.
@@ -881,9 +881,9 @@ func TestBreakpoints(t *testing.T) {
 			},
 		})
 		req := decode(t, body(t, plainDialect(), route, p))
-		ps := parts(req.Messages[2])
-		if req.Messages[2].Role != "tool" || len(ps) != 1 || ps[0].CacheControl == nil {
-			t.Errorf("tool message content = %s, want one part with a breakpoint", req.Messages[2].Content)
+		ps := parts(req.Messages[3])
+		if req.Messages[3].Role != "tool" || len(ps) != 1 || ps[0].CacheControl == nil {
+			t.Errorf("tool message content = %s, want one part with a breakpoint", req.Messages[3].Content)
 		}
 	})
 }

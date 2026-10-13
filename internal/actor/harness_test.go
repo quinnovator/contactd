@@ -33,6 +33,7 @@ type memLog struct {
 	events   map[core.ContactID][]core.Event
 	vectors  map[core.ContactID][]core.Vector
 	episodes map[core.ContactID]map[uint32]core.EpisodeRow
+	visits   map[core.ContactID]core.Hydrated
 	// fail, when set, decides whether a write is rejected.
 	fail func(core.Write) error
 	// after, when set, runs once a write's Done callback has returned, on the
@@ -48,6 +49,7 @@ func newMemLog(t *testing.T) *memLog {
 		events:   make(map[core.ContactID][]core.Event),
 		vectors:  make(map[core.ContactID][]core.Vector),
 		episodes: make(map[core.ContactID]map[uint32]core.EpisodeRow),
+		visits:   make(map[core.ContactID]core.Hydrated),
 	}
 }
 
@@ -56,6 +58,8 @@ func (l *memLog) addContact(agent core.AgentConfig, profile string) core.Contact
 	defer l.mu.Unlock()
 	id := core.ContactID(len(l.contacts) + 1)
 	l.contacts[id] = core.Contact{ID: id, Agent: agent, Profile: profile}
+	// General actor fixtures start during a visit; session tests reset this.
+	l.visits[id] = core.Hydrated{LastSpoke: time.Now().UnixMilli()}
 	return id
 }
 
@@ -108,6 +112,17 @@ func (l *memLog) apply(w core.Write) error {
 		}
 		l.events[ev.Contact] = append(l.events[ev.Contact], *ev)
 	}
+	visit := l.visits[w.Contact]
+	if w.Event != nil && w.Event.Kind.IsMessage() {
+		visit.LastSpoke = w.Event.TS
+	}
+	if w.TimeZone != "" {
+		visit.TimeZone = w.TimeZone
+	}
+	if w.SessionID != "" {
+		visit.Sessions = append(visit.Sessions, w.SessionID)
+	}
+	l.visits[w.Contact] = visit
 	if v := w.Vector; v != nil {
 		l.vectors[w.Contact] = append(l.vectors[w.Contact], *v)
 	}
@@ -128,7 +143,8 @@ func (l *memLog) Hydrate(_ context.Context, id core.ContactID, tail int) (core.H
 		return core.Hydrated{}, fmt.Errorf("contact %d: %w", id, core.ErrContactNotFound)
 	}
 	all := l.events[id]
-	h := core.Hydrated{Contact: c, NextSeq: uint64(len(all) + 1)}
+	h := l.visits[id]
+	h.Contact, h.NextSeq = c, uint64(len(all)+1)
 	h.Tail = append(h.Tail, all[max(len(all)-tail, 0):]...)
 	for ep := uint32(0); ; ep++ {
 		row, ok := l.episodes[id][ep]
@@ -314,7 +330,7 @@ func (r *recLLM) Prepare(ctx context.Context, route llm.Route, p *plan.PromptPla
 				isTurn = true
 			case strings.HasPrefix(m.Text, "<notice"):
 				shape.WriteByte('n')
-			case strings.HasPrefix(m.Text, "[Summary of the conversation"):
+			case strings.HasPrefix(m.Text, "[What you remember from before"):
 				shape.WriteByte('K')
 			case m.Role == core.RoleUser:
 				shape.WriteByte('U')

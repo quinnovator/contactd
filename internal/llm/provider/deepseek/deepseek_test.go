@@ -157,12 +157,14 @@ func TestRequestOnTheWire(t *testing.T) {
 		}
 	}
 
-	const want = `{"model":"deepseek-flash","max_tokens":8192,"stream":true,` +
+	rawPreamble, _ := json.Marshal(plan.Preamble + "\n\nYou are Ada.")
+	quotedPreamble := strings.NewReplacer(`\u003c`, "<", `\u003e`, ">").Replace(string(rawPreamble))
+	want := `{"model":"deepseek-flash","max_tokens":8192,"stream":true,` +
 		`"tools":[{"name":"python","description":"Run Python.","input_schema":{"type":"object","properties":{"code":{"type":"string","description":"The code to run."}},"required":["code"],"additionalProperties":false}}],` +
-		`"system":[{"type":"text","text":"You are Ada."},{"type":"text","text":"What you know about this contact:\nPrefers short answers."}],` +
+		`"system":[{"type":"text","text":` + quotedPreamble + `},{"type":"text","text":"What you know about the person you are with:\nPrefers short answers."}],` +
 		`"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]},` +
 		`{"role":"assistant","content":[{"type":"text","text":"Hi."}]},` +
-		`{"role":"user","content":[{"type":"text","text":"What is 6 times 7?"},{"type":"text","text":"<now>2025-10-09T08:55Z (Thursday)</now>"}]},` +
+		`{"role":"user","content":[{"type":"text","text":"What is 6 times 7?"},{"type":"text","text":"<now>2025-10-09T08:55Z (Thursday, UTC)</now>"}]},` +
 		`{"role":"assistant","content":[{"type":"tool_use","id":"call_1","name":"python","input":{"code":"1/0"}}]},` +
 		// The endpoint drops is_error, so the failure is in the text.
 		`{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"[tool error]\nZeroDivisionError"}]}]}`
