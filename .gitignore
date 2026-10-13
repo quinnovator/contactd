@@ -13,3 +13,6 @@
 __pycache__/
 .venv/
 /replay-results.json
+# Local provider credentials and mise overrides.
+/.env
+/mise.local.toml
