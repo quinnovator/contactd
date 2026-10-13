@@ -1,12 +1,15 @@
-ada · deepseek/deepseek-flash · turn 8 call 2 │ ≈17.2k/128.0k │ cached 70% (pred 69%) ▲
+ada · deepseek/deepseek-flash                                                    turn 8 · step 2 · call 2 · following the latest
+Prompt ≈17.2k of 128.0k tokens (13% of the window) · provider counted 18.0k │ Cache 70% reused · 69% expected
 █████████████▒▒▒▒···············································································································
-1 Blocks  [2 Log]  3 Diff  4 Recall  5 Folds  6 Timeline
+█ reused from cache   ▒ sent fresh   · free window   z zooms to the prompt
+ 1 Prompt  [2 Log]  3 Changes   4 Recall   5 Checkpoints   6 Timeline 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-LOG · select an episode to inspect its messages                              │ EPISODE 36 · seq 1–6
-› ep 36   seq      1–6       ↺ recalled                                      │ ■ in prompt · □ not in prompt (this call)
-  ep 37   seq      8–9       tail (partial)                                  │ □ 1 user_msg: Run eval.py with 12 shards and seed
-                                                                             │  42
-                                                                             │ □ 2 agent_msg: Loss is 1.88
+The contact's log by episode, and what this prompt took from each            │ EPISODE 36 · log events 1–6
+  EPISODE   EVENTS         IN THIS PROMPT                                    │ Here      ↺ recalled into this prompt
+› 36        1–6            ↺ recalled into this prompt                       │ ■ sent as written · □ not sent as written
+  37        8–9            in the tail, verbatim                             │ ──────────────────── events ─────────────────────
+                                                                             │ □ 1 user: Run eval.py with 12 shards and seed 42
+                                                                             │ □ 2 agent: Loss is 1.88
 
 
 
@@ -23,8 +26,5 @@ LOG · select an episode to inspect its messages                              �
 
 
 
-
-
-
-live · 0ms · output 0 tokens
-↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit
+live · all contacts · call 2 took 0ms · 0 output tokens
+↑↓ select · enter open · / search · r raw │ ←→ call · tab contact · ? help · q quit

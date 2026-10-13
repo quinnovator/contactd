@@ -107,24 +107,30 @@ mise run ctxtop -url=http://127.0.0.1:8080
 CONTACTD_DEV_VIEWER=off mise run dev    # server only; diagnostics still enabled
 ```
 
-The panel keeps a compact context/cache strip above six views:
+The header says which call is shown, how full its context window is, and how
+much of the prompt the provider reused from cache against what the planner
+expected. The bar under it draws the same thing, with its legend. Each of the
+six views opens with the question it answers, and the last line lists the keys
+that work in it:
 
 | Key | View |
 | --- | --- |
-| `1` | **Blocks**: prompt order, estimated offsets and sizes, cache boundary, tier collapse, and a content/provenance inspector |
-| `2` | **Log**: episodes and their source messages, with verbatim prompt membership highlighted |
-| `3` | **Diff**: compare calls from the same contact and purpose, find the first differing byte, and inspect the changed tier |
-| `4` | **Recall**: the actual centroid scores, reranker logits, recency-adjusted scores and selection decisions |
-| `5` | **Folds**: checkpoint history and original spans, with a number/path retention check |
-| `6` | **Timeline**: tier sizes, cache shares and events across retained calls, plus inherited context for forks |
+| `1` | **Prompt**: what the call sent, tier by tier, with each part's size, share and cache reuse, a marker where the cache ends, and the selected part in full |
+| `2` | **Log**: the contact's episodes, what this prompt took from each, and their messages |
+| `3` | **Changes**: which tiers held since an earlier call of the same contact and purpose, where the first change is, what it did to the cache, and the bytes at that point |
+| `4` | **Recall**: the search text, the outcome, and each candidate's similarity, rerank and final scores with the decision in words |
+| `5` | **Checkpoints**: the tail against its budget, and each checkpoint beside the log events it replaced |
+| `6` | **Timeline**: prompt size by tier, cache share and events, one column per retained call, plus inherited context for forks |
 
-Use up/down to select, Enter to collapse a tier or expand the inspector, left/right
-to scrub calls, and `f` to follow. `g` jumps from a block to its episode in Log;
-`r` switches to the exact provider request body. `s` sorts Blocks by size, `/`
-searches the loaded view, `z` toggles window/occupied scaling, and Page Up/Down
-scrolls content. In Diff, `[`/`]` changes the comparison call. In Folds, `k`
-marks numbers and paths absent from the checkpoint (a heuristic, not a quality
-score). Tab/Shift+Tab cycles contacts; `?` shows help; `q` closes the viewer.
+Use up/down to select, Enter to fold a tier or open the selection full width,
+left/right to move between calls, and `f` to follow the latest; the header says
+when the view is paused on an older call. `g` jumps from a part to its episode
+in Log; `r` shows the exact provider request body. `s` sorts Prompt by size, `/`
+filters the view, `z` scales the bar to the window or to the prompt, and Page
+Up/Down scrolls content. In Changes, `[`/`]` picks the call to compare with. In
+Checkpoints, `m` marks numbers and paths absent from the summary (a heuristic,
+not a quality score). Tab/Shift+Tab cycles contacts; `?` shows the keys and a
+short glossary; `q` closes the viewer.
 
 The bar uses the planner's token estimates. Provider token counts come from a
 different tokenizer, so the reported marker is projected by its cached share;

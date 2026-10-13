@@ -2,26 +2,33 @@ package ctxtop
 
 import (
 	"fmt"
-	"strings"
+	"slices"
 
 	"github.com/quinnovator/contactd/internal/diagnostic"
 )
 
+// foldView lists the contact's checkpoints, newest first, and sets the
+// selected one beside the log events it replaced.
 func (m *model) foldView(s diagnostic.Snapshot, w, h int) []string {
 	rows := m.items()
-	out := []string{m.tail(s, max(1, min(30, w-6))), "CHECKPOINT HISTORY · source log, as of selected call"}
+	out := append([]string{m.theme.Title().Render(screens()[4].intro)}, m.tail(s, max(1, min(30, w-6)))...)
+	out = append(out, "")
 	if len(rows) == 0 {
-		return append(out, "No checkpoints recorded for this call.")
+		return append(out, m.tone("No checkpoints yet: none of this contact's history has been summarized.", "dim"))
 	}
+	out = append(out, m.tone(fmt.Sprintf("  %-12s %-18s %-14s %s", "CHECKPOINT", "REPLACES", "SUMMARY", "NEWEST FIRST"), "dim"))
 	sel := min(m.row[4], len(rows)-1)
 	start := max(0, sel-1)
 	for i := start; i < min(len(rows), start+3); i++ {
 		b := rows[i].block
-		mark := "  "
+		mark, where := "  ", "no longer in this prompt"
 		if i == sel {
-			mark = "› "
+			mark = m.tone("› ", "accent")
 		}
-		out = append(out, m.clean(fmt.Sprintf("%s#%d  seq %d–%d  summary ≈%s tokens", mark, b.Seq, b.From, b.To, k(b.Tokens))))
+		if slices.ContainsFunc(s.Blocks, func(o diagnostic.Block) bool { return o.Kind == "checkpoint" && o.Seq == b.Seq }) {
+			where = "in this prompt"
+		}
+		out = append(out, mark+m.clean(fmt.Sprintf("%-12s %-18s %-14s %s", fmt.Sprintf("#%d", b.Seq), fmt.Sprintf("events %d–%d", b.From, b.To), "≈"+k(b.Tokens)+" tokens", where)))
 	}
 	b := rows[sel].block
 	content := m.content(b.ID).Text
@@ -29,40 +36,34 @@ func (m *model) foldView(s diagnostic.Snapshot, w, h int) []string {
 		content = b.Preview
 	}
 	events := m.events[eventKey(s, b.From, b.To)]
-	out = append(out, m.tone(strings.Repeat(m.glyphs().line, w), "dim"))
 	half := max(1, (w-3)/2)
-	originals := []string{fmt.Sprintf("ORIGINAL · seq %d–%d", b.From, b.To)}
-	if events == nil {
-		originals = append(originals, "Loading source span…")
+	if w < 80 {
+		half = w
 	}
+	var originals []string
+	tokens := 0
 	for _, ev := range events {
 		text := eventText(ev)
+		tokens += (len(text) + 3) / 4
 		if m.keywords {
 			text = missingWords(text, content)
 		}
-		originals = append(originals, m.wrap(text, half)...)
+		originals = append(originals, m.prose(text, half)...)
 	}
-	summary := []string{fmt.Sprintf("CHECKPOINT #%d", b.Seq)}
-	summary = append(summary, m.wrap(content, half)...)
+	before := fmt.Sprintf("BEFORE · log events %d–%d · ≈%s tokens", b.From, b.To, k(tokens))
+	if events == nil {
+		before = fmt.Sprintf("BEFORE · log events %d–%d", b.From, b.To)
+		originals = append(originals, m.tone("Loading the original events…", "dim"))
+	}
+	originals = append([]string{m.tone(before, "accent")}, originals...)
+	summary := append([]string{m.tone(fmt.Sprintf("AFTER · checkpoint #%d · ≈%s tokens", b.Seq, k(b.Tokens)), "accent")}, m.prose(content, half)...)
 	if m.keywords {
-		summary = append(summary, "", "! marks numbers / paths absent from summary.")
+		summary = append(summary, "", m.tone("!…! on the left marks a number or path the summary does not contain.", "warn"))
 	}
-	if w < 80 {
-		return append(out, m.scrolled(append(append(originals, ""), summary...), max(0, h-len(out)))...)
-	}
+	out = append(out, m.theme.Rule(w, ""))
 	height := max(0, h-len(out))
-	left := m.scrolled(originals, height)
-	right := m.scrolled(summary, height)
-	for i := range max(len(left), len(right)) {
-		l, r := "", ""
-		if i < len(left) {
-			l = left[i]
-		}
-		if i < len(right) {
-			r = right[i]
-		}
-		l = m.theme.Truncate(l, half)
-		out = append(out, l+strings.Repeat(" ", max(0, half-m.theme.Width(l)))+" │ "+r)
+	if w < 80 {
+		return append(out, m.scrolled(append(append(originals, ""), summary...), height)...)
 	}
-	return out
+	return append(out, m.columns(m.scrolled(originals, height), m.scrolled(summary, height), half, height)...)
 }

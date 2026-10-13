@@ -2,27 +2,49 @@ package ctxtop
 
 import (
 	"fmt"
-	"math"
 	"slices"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/quinnovator/contactd/internal/diagnostic"
 	"github.com/quinnovator/contactd/internal/tui/safe"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
-type glyphs struct{ hit, miss, empty, prediction, report, line, budget string }
+type glyphs struct{ hit, miss, empty, line, budget string }
 
 func (m *model) glyphs() glyphs {
 	if m.theme.Caps.Glyphs == termcaps.GlyphsASCII {
-		return glyphs{"#", ":", ".", "^", "v", "-", "|"}
+		return glyphs{"#", ":", ".", "-", "|"}
 	}
-	return glyphs{"█", "▒", "·", "△", "▲", "─", "│"}
+	return glyphs{"█", "▒", "·", "─", "│"}
+}
+
+// asciiFold swaps the marks the views draw with for ASCII ones of the same
+// width, so that columns stay aligned on a terminal without Unicode.
+func asciiFold() *strings.Replacer {
+	return strings.NewReplacer("›", ">", "▾", "v", "▸", ">", "·", "-", "≈", "~", "…", "~", "–", "-", "→", ">", "←", "<",
+		"↑", "^", "↓", "v", "↺", "@", "◆", "*", "■", "#", "□", "o", "▲", "^", "✓", "+", "│", "|", "─", "-", "█", "#", "▒", ":", "▏", "|")
+}
+
+// asciiOnly is the last pass over a drawn line on such a terminal: what the
+// fold has no stand-in for becomes "?". The line's own styles are kept; text
+// from the server was made safe before it was styled.
+func asciiOnly(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= utf8.RuneSelf {
+			return '?'
+		}
+		return r
+	}, s)
 }
 
 func (m *model) clean(s string) string {
-	return safe.Line(s, 1024, m.theme.Caps.Glyphs == termcaps.GlyphsASCII)
+	if m.fold != nil {
+		s = m.fold.Replace(s)
+	}
+	return safe.Line(s, 1024, m.fold != nil)
 }
 
 func (m *model) tone(s, tone string) string { return m.theme.Style(tone).Render(m.clean(s)) }
@@ -53,42 +75,20 @@ func (m *model) bar(cells []cell, s diagnostic.Snapshot) (string, string) {
 	return labels.String(), fill.String()
 }
 
-func (m *model) delta(s diagnostic.Snapshot) string {
-	g := m.glyphs()
-	pred := float64(s.PredictedCached) / float64(max(1, s.Total()))
-	lead := fmt.Sprintf("%s predicted %s (%.1f%%)", g.prediction, k(s.PredictedCached), pred*100)
-	if !s.Done {
-		return lead + m.tone(" · waiting on provider...", "dim")
-	}
-	if !s.Reported {
-		return lead + m.tone(" · provider cache usage unavailable", "dim")
-	}
-	reported := float64(s.ReportedCached) / float64(max(1, s.ReportedInput))
-	delta := (reported - pred) * 100
-	tone := "dim"
-	if math.Abs(delta) > 5 {
-		tone = "bad"
-	}
-	return m.clean(lead+fmt.Sprintf(" · %s reported %s/%s (%.1f%%) · ", g.report, k(s.ReportedCached), k(s.ReportedInput), reported*100)) +
-		m.tone(fmt.Sprintf("%+.1f pp", delta), tone)
-}
-
-func (m *model) tail(s diagnostic.Snapshot, w int) string {
+// tail draws the recent history against its budget. Past the budget mark the
+// oldest part is due to be folded into a checkpoint.
+func (m *model) tail(s diagnostic.Snapshot, w int) []string {
 	if s.TailBudget <= 0 {
-		return m.tone("tail budget not applicable to this call", "dim")
+		return []string{m.tone("This call has no tail budget.", "dim")}
 	}
-	tokens := 0
-	for _, tier := range s.Tiers {
-		if tier.Index == 3 {
-			tokens = tier.Tokens
-		}
-	}
+	t, _, _ := tierOf(s, 3)
+	tokens := t.Tokens
 	guard := max(s.TailBudget, s.TailGuard)
 	fill := min(w, max(0, int(float64(tokens)*float64(w)/float64(guard))))
 	mark := min(w-1, int(float64(s.TailBudget)*float64(w)/float64(guard)))
-	g, tone := m.glyphs(), "ok"
+	g, tone, state := m.glyphs(), "ok", "of the"
 	if tokens > s.TailBudget {
-		tone = "warn"
+		tone, state = "warn", "over the"
 	}
 	var bar strings.Builder
 	for i := range w {
@@ -101,7 +101,10 @@ func (m *model) tail(s diagnostic.Snapshot, w int) string {
 			bar.WriteString(m.tone(g.empty, "dim"))
 		}
 	}
-	return fmt.Sprintf("tail %s %s / %s (guard %s)", bar.String(), k(tokens), k(s.TailBudget), k(guard))
+	return []string{
+		fmt.Sprintf("Tail now  %s  ≈%s %s %s budget", bar.String(), k(tokens), state, k(s.TailBudget)),
+		m.tone("          past the ", "dim") + m.tone(g.budget, "bad") + m.tone(" mark the oldest part is folded into a checkpoint · hard limit "+k(guard), "dim"),
+	}
 }
 
 func (m *model) strip(h []diagnostic.Snapshot, sel, width int) string {
@@ -134,6 +137,59 @@ func (m *model) strip(h []diagnostic.Snapshot, sel, width int) string {
 		b.WriteString(style.Render(glyph))
 	}
 	return b.String()
+}
+
+// share is part of whole as a fraction between 0 and 1.
+func share(part, whole int) float64 {
+	return max(0, min(1, float64(part)/float64(max(1, whole))))
+}
+
+func pct(part, whole int) string { return fmt.Sprintf("%.0f%%", 100*share(part, whole)) }
+
+// took writes a duration in milliseconds the way it is said.
+func took(ms int64) string {
+	if ms < 1000 {
+		return fmt.Sprintf("%dms", ms)
+	}
+	return fmt.Sprintf("%.1fs", float64(ms)/1000)
+}
+
+// tierNote says in a few words what a tier of the prompt holds.
+func tierNote(name string) string {
+	switch name {
+	case "static":
+		return "system prompt and tool schemas"
+	case "profile":
+		return "the contact's profile and long-term notes"
+	case "recall":
+		return "earlier episodes brought back"
+	case "tail":
+		return "recent history, kept verbatim"
+	case "live":
+		return "this turn's messages and tool steps"
+	}
+	return ""
+}
+
+// tierOf finds a tier and the estimated token offset at which it starts.
+func tierOf(s diagnostic.Snapshot, index int) (diagnostic.Tier, int, bool) {
+	offset := 0
+	for _, t := range s.Tiers {
+		if t.Index == index {
+			return t, offset, true
+		}
+		offset += t.Tokens
+	}
+	return diagnostic.Tier{}, 0, false
+}
+
+// cacheEdge is where the cached prefix ends, in estimated tokens. It is the
+// provider's reported share once there is one, and the prediction until then.
+func cacheEdge(s diagnostic.Snapshot) (edge float64, reported bool) {
+	if s.Reported {
+		return reportedPosition(s), true
+	}
+	return float64(s.PredictedCached), false
 }
 
 func k(n int) string {

@@ -1,20 +1,23 @@
-ada · deepseek/deepseek-flash · turn 8 call 2 │ ≈17.2k/128.0k │ cached 70% (pred 69%) ▲
+ada · deepseek/deepseek-flash                                                    turn 8 · step 2 · call 2 · following the latest
+Prompt ≈17.2k of 128.0k tokens (13% of the window) · provider counted 18.0k │ Cache 70% reused · 69% expected
 █████████████▒▒▒▒···············································································································
-[1 Blocks]  2 Log  3 Diff  4 Recall  5 Folds  6 Timeline
+█ reused from cache   ▒ sent fresh   · free window   z zooms to the prompt
+[1 Prompt]  2 Log   3 Changes   4 Recall   5 Checkpoints   6 Timeline 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-OFFSET  T  KIND           ≈TOKENS  CACHE  prompt order                       │ ← tool result · tier 3
-  ▾ tier 0 · static    ≈1.3k                                                 │ source  seq 8 · episode 37
-       0  0  system            1300  ██████ You are Ada, a thoughtful colle… │ size    ≈14.0k tok · 0 canonical B · 81.4%
-  ▾ tier 1 · profile   ≈100                                                  │ cache   ≈10040 hit / 3960 miss (reported ratio)
-    1300  1  profile            100  ██████ Name: Jack                       │ hash    e
-  ▾ tier 2 · recall    ≈400                                                  │ tier chain 
-    1400  2  ↺ recall           400  ██████ Earlier conversation: baseline … │ seen    since call 1 · 2 retained calls
-  ▾ tier 3 · tail      ≈14.2k                                                │ fate    selected for the next fold
-    1800  3  ◆ checkpoint       200  ██████ Jack ran eval.py with twelve sh… │ tokenizer  est 17200 / actual 18000 (-4.4%)
-  ▲ prefix ends ≈12040 tokens, within next block                             │ ────────────────────────────────────────────────
-›   2000  3  ← tool result    14000  ████▒▒ step 412 loss 1.88 ⚑ heavy       │ step 412 loss 1.88
-  ▾ tier 4 · live      ≈1.2k                                                 │ 
-   16000  4  user              1200  ▒▒▒▒▒▒ Compare the result against the … │ 
+What this call sent to the model, top to bottom                              │ TOOL RESULT · in the tail tier
+  PART              TOKENS SHARE  CACHE   CONTENT                            │ Size      ≈14.0k tokens · 81% of this prompt ·
+  ▾ static            1.3k    8%  ██████  system prompt and tool schemas     │           the largest part
+    system            1.3k    8%  ██████  You are Ada, a thoughtful colleag… │ Cache     ≈10.0k reused, ≈4.0k sent fresh ·
+  ▾ profile            100    1%  ██████  the contact's profile and long-te… │           estimated from the provider's total
+    profile            100    1%  ██████  Name: Jack                         │ From      log event 8 in episode 37 · g shows it
+  ▾ recall             400    2%  ██████  earlier episodes brought back      │           in Log
+    ↺ recall           400    2%  ██████  Earlier conversation: baseline ev… │ Age       unchanged since call 1 · in 2 of the
+  ▾ tail             14.2k   83%  ████▒▒  recent history, kept verbatim      │           calls shown
+    ◆ checkpoint       200    1%  ██████  Jack ran eval.py with twelve shar… │ Next      selected for the next fold
+›   ← tool result    14.0k   81%  ████▒▒  step 412 loss 1.88                 │ ID        hash e
+    ▲ cache ends ≈10.0k into the part above · the rest is sent fresh         │ ──────────────────── content ────────────────────
+  ▾ live              1.2k    7%  ▒▒▒▒▒▒  this turn's messages and tool ste… │ step 412 loss 1.88
+    user              1.2k    7%  ▒▒▒▒▒▒  Compare the result against the ba… │ 
 
 
 
@@ -23,8 +26,5 @@ OFFSET  T  KIND           ≈TOKENS  CACHE  prompt order                       �
 
 
 
-
-
-
-live · 0ms · output 0 tokens
-↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit
+live · all contacts · call 2 took 0ms · 0 output tokens
+↑↓ select · enter open/fold · s by size · g in Log · / search · r raw │ ←→ call · tab contact · ? help · q quit

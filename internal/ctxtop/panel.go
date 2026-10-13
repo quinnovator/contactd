@@ -3,106 +3,61 @@ package ctxtop
 import (
 	"fmt"
 	"math"
+	"slices"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/quinnovator/contactd/internal/diagnostic"
-	"github.com/quinnovator/contactd/internal/tui/safe"
-	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
+
+// screen is one of the six views: its tab, the question it answers, and the
+// keys that act on it alone.
+type screen struct{ name, intro, keys string }
+
+func screens() [6]screen {
+	return [6]screen{
+		{"Prompt", "What this call sent to the model, top to bottom", "↑↓ select · enter open/fold · s by size · g in Log · / search · r raw"},
+		{"Log", "The contact's log by episode, and what this prompt took from each", "↑↓ select · enter open · / search · r raw"},
+		{"Changes", "What changed since an earlier call, and what that did to the cache", "[ ] compare with another call · r exact request bodies · pgup/pgdn scroll"},
+		{"Recall", "How earlier episodes were chosen for this prompt", "↑↓ select · enter open · / search · r raw"},
+		{"Checkpoints", "Older history that a summary now stands in for", "↑↓ select · m mark dropped details · pgup/pgdn scroll · r raw"},
+		{"Timeline", "Prompt size and cache reuse, one column per call", "←→ move between calls"},
+	}
+}
 
 func (m *model) View() tea.View {
 	w := max(1, min(m.width-2, 998))
 	s := m.current()
-	lines := []string{}
-	if s.Call == 0 {
-		lines = append(lines, m.tone("ctxtop · waiting for a model call", "accent"), "Send a message with contactd chat. The server needs -diagnostics.")
-	} else {
-		name := s.Name
-		if name == "" {
-			name = "#" + s.Contact.String()
-		}
-		pred := float64(s.PredictedCached) / float64(max(1, s.Total()))
-		cache := "cache pending"
-		cue := m.tone("▲", "dim")
-		if s.Reported {
-			reported := float64(s.ReportedCached) / float64(max(1, s.ReportedInput))
-			cache = fmt.Sprintf("cached %.0f%% (pred %.0f%%)", reported*100, pred*100)
-			if math.Abs(reported-pred) > .05 {
-				cue = m.tone("▲", "bad")
-			}
-		}
-		if !s.Done {
-			cue = m.tone([]string{"|", "/", "-", "\\"}[m.spin%4], "accent")
-		}
-		header := fmt.Sprintf("%s · %s · turn %d call %d │ ≈%s/%s │ %s", name, s.Route, s.Turn, s.Call, k(s.Total()), k(s.Window), cache)
-		lines = append(lines, m.tone(m.theme.Truncate(m.clean(header), max(0, w-2)), "accent")+" "+cue)
-		span := s.Window
-		if m.zoom {
-			span = s.Total()
-		}
-		_, fill := m.bar(layout(s, span, w), s)
-		lines = append(lines, fill)
-		tabs := make([]string, 0, 6)
-		for i, name := range []string{"Blocks", "Log", "Diff", "Recall", "Folds", "Timeline"} {
-			label := fmt.Sprintf("%d %s", i+1, name)
-			if i == m.screen {
-				label = m.tone("["+label+"]", "accent")
-			} else {
-				label = m.tone(label, "dim")
-			}
-			tabs = append(tabs, label)
-		}
-		lines = append(lines, strings.Join(tabs, "  "), m.tone(strings.Repeat(m.glyphs().line, w), "dim"))
-		available := max(0, m.height-6)
-		var body []string
-		switch {
-		case m.help:
-			body = m.helpView()
-		case m.screen == 2:
-			body = m.diffView(s, w)
-		case m.screen == 4:
-			if m.raw {
-				body = m.scrolled(m.inspector(s, m.items(), m.row[4], w), available)
-			} else {
-				body = m.foldView(s, w, available)
-			}
-		case m.screen == 5:
-			body = m.timeline(w, max(3, available-2))
-		default:
-			body = m.listView(s, w, available)
-		}
+	var lines []string
+	switch {
+	case m.help:
+		lines = m.scrolled(m.helpView(), max(0, m.height-2))
+	case s.Call == 0:
+		lines = append(lines, m.tone("ctxtop · no model calls yet", "accent"),
+			"Send a message in contactd chat and its prompt appears here.",
+			m.tone("The server must run with -diagnostics; mise run dev sets it.", "dim"))
+	default:
+		lines = m.header(s, w)
+		available := max(0, m.height-len(lines)-2)
+		body := m.body(s, w, available)
 		if len(body) > available {
 			body = body[:available]
 		}
 		lines = append(lines, body...)
-		for len(lines) < max(0, m.height-2) {
-			lines = append(lines, "")
-		}
 	}
-	status := m.status
-	if m.notice != "" {
-		status = m.notice
+	for len(lines) < max(0, m.height-2) {
+		lines = append(lines, "")
 	}
-	if m.query != "" || m.searching {
-		status = "/" + m.query + " · search loaded view · esc clears"
-	}
-	if s.Call != 0 && !s.Done {
-		status += fmt.Sprintf(" · first event %dms · output ≈%s tok (%d B)", s.TTFT, k((s.OutputBytes+3)/4), s.OutputBytes)
-	}
-	if s.Done {
-		status += fmt.Sprintf(" · %dms · output %d tokens", s.MS, s.OutputTokens)
-	}
-	lines = append(lines, m.tone(status, "dim"))
-	lines = append(lines, m.tone("↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit", "dim"))
+	lines = append(lines, m.statusLine(s), m.keyLine(w))
 	if len(lines) > m.height {
 		lines = lines[:max(0, m.height-1)]
 		lines = append(lines, m.tone("? help · q quit", "dim"))
 	}
 	for i := range lines {
-		if m.theme.Caps.Glyphs == termcaps.GlyphsASCII {
-			lines[i] = safe.Line(lines[i], 10000, true)
+		if m.fold != nil {
+			lines[i] = asciiOnly(m.fold.Replace(lines[i]))
 		}
 		lines[i] = m.theme.Truncate(lines[i], w)
 	}
@@ -111,131 +66,272 @@ func (m *model) View() tea.View {
 	return v
 }
 
-func (m *model) helpView() []string {
-	return []string{
-		"1 Blocks  2 Log  3 Diff  4 Recall  5 Folds  6 Timeline", "",
-		"↑↓ or j/k select · ←→ or h/l scrub calls · f follow latest", "enter collapse a tier / expand inspector · g jump to Log",
-		"s prompt/size order · / search current loaded view · esc clear", "r readable / exact provider request body · z window / zoom",
-		"[ / ] choose Diff baseline from this contact and call purpose", "page up/down scroll inspector · tab/shift-tab cycle contacts",
-		"k in Folds: mark numbers and paths absent from the checkpoint", "? close help · q quit", "",
-		"≈ counts and cache boundaries use planner estimates.", "The provider reports only totals, not per-block cache hits.", "Canonical block bytes are for hashing; raw mode is the sent body.", "Log previews load up to 2,000 events in the selected span.", "Prices and parent-fork attribution are not collected yet.",
+// header says which call is shown and how its prompt did, above the tabs.
+// A short window keeps the two sentences and drops the bar.
+func (m *model) header(s diagnostic.Snapshot, w int) []string {
+	name := s.Name
+	if name == "" {
+		name = "#" + s.Contact.String()
 	}
+	where := fmt.Sprintf("turn %d · step %d · call %d", s.Turn, s.Step, s.Call)
+	if s.Purpose != "" && s.Purpose != "reply" {
+		where = s.Purpose + " call · " + where
+	}
+	h := m.calls()
+	at := m.selected(h)
+	if at < 0 {
+		at = len(h) - 1
+	}
+	follow := m.tone(" · latest call", "dim")
+	switch newer := len(h) - 1 - at; {
+	case m.follow:
+		follow = m.tone(" · following the latest", "dim")
+	case newer > 0:
+		follow = m.tone(fmt.Sprintf(" · paused, %d newer · f follows", newer), "warn")
+	}
+	if !s.Done {
+		follow += " " + m.tone([]string{"|", "/", "-", "\\"}[m.spin%4], "accent")
+	}
+	lines := []string{
+		m.theme.Spread(m.tone(name+" · "+s.Route, "accent"), m.tone(where, "dim")+follow, w),
+		m.usage(s, w),
+	}
+	if m.height >= 16 {
+		span := s.Window
+		if m.zoom {
+			span = s.Total()
+		}
+		_, fill := m.bar(layout(s, span, w), s)
+		lines = append(lines, fill, m.legend(s))
+	}
+	tabs := make([]string, 0, 6)
+	for i, sc := range screens() {
+		label := fmt.Sprintf("%d %s", i+1, sc.name)
+		if i == m.screen {
+			label = m.tone("["+label+"]", "accent")
+		} else {
+			label = m.tone(" "+label+" ", "dim")
+		}
+		tabs = append(tabs, label)
+	}
+	return append(lines, strings.Join(tabs, " "), m.tone(strings.Repeat(m.glyphs().line, w), "dim"))
 }
 
+// usage is the header's sentence about prompt size and cache reuse, in the
+// longest form that fits.
+func (m *model) usage(s diagnostic.Snapshot, w int) string {
+	total, expected := s.Total(), share(s.PredictedCached, s.Total())
+	prompt := fmt.Sprintf("Prompt ≈%s tokens", k(total))
+	long := prompt
+	if s.Window > 0 {
+		prompt = fmt.Sprintf("Prompt ≈%s of %s tokens (%s)", k(total), k(s.Window), pct(total, s.Window))
+		long = fmt.Sprintf("Prompt ≈%s of %s tokens (%s of the window)", k(total), k(s.Window), pct(total, s.Window))
+	}
+	if s.ReportedInput > 0 {
+		long += " · provider counted " + k(s.ReportedInput)
+	}
+	cache, short, verdict := fmt.Sprintf("Cache ≈%.0f%% expected", expected*100), fmt.Sprintf("cache ≈%.0f%% expected", expected*100), ""
+	switch {
+	case !s.Done:
+		cache += " · waiting for the provider"
+	case s.Error != "":
+		cache += " · the call failed"
+	case !s.Reported:
+		cache += " · the provider reported no cache use"
+	default:
+		reused := share(s.ReportedCached, s.ReportedInput)
+		cache = fmt.Sprintf("Cache %.0f%% reused · %.0f%% expected", reused*100, expected*100)
+		short = fmt.Sprintf("cache %.0f%% (%.0f%% expected)", reused*100, expected*100)
+		if gap := (reused - expected) * 100; math.Abs(gap) > 5 {
+			direction := "more"
+			if gap < 0 {
+				direction = "less"
+			}
+			verdict = m.tone(fmt.Sprintf(" · %.0f points %s than expected, see 3 Changes", math.Abs(gap), direction), "bad")
+		}
+	}
+	for _, line := range []string{long + m.tone(" │ ", "dim") + cache + verdict, prompt + " · " + cache + verdict, prompt + " · " + cache} {
+		if m.theme.Width(line) <= w {
+			return line
+		}
+	}
+	return fmt.Sprintf("≈%s/%s · %s", k(total), k(s.Window), short)
+}
+
+// legend names the three marks of the bar above it.
+func (m *model) legend(s diagnostic.Snapshot) string {
+	g := m.glyphs()
+	hit, tone := "reused from cache", "ok"
+	if !s.Reported {
+		hit, tone = "expected from cache", "dim"
+	}
+	out := m.tone(g.hit, tone) + " " + hit + "   " + m.tone(g.miss, "warn") + " sent fresh"
+	if m.zoom {
+		return out + m.tone("   zoomed to the prompt · z shows the whole window", "dim")
+	}
+	return out + "   " + m.tone(g.empty, "dim") + " free window" + m.tone("   z zooms to the prompt", "dim")
+}
+
+func (m *model) body(s diagnostic.Snapshot, w, h int) []string {
+	switch {
+	case m.screen == 2:
+		return m.scrolled(m.diffView(s, w, h), h)
+	case m.screen == 5:
+		return m.timeline(w, max(3, h-2))
+	case m.raw:
+		return m.scrolled(m.inspector(s, nil, 0, w), h)
+	case m.screen == 4:
+		return m.foldView(s, w, h)
+	}
+	return m.listView(s, w, h)
+}
+
+// statusLine says what is connected, which contacts are shown, and how the
+// selected call went.
+func (m *model) statusLine(s diagnostic.Snapshot) string {
+	switch {
+	case m.searching:
+		return m.tone("/"+m.query+"▏ type to filter this view · enter keeps the filter · esc clears it", "accent")
+	case m.query != "":
+		return m.tone("showing only rows that contain \""+m.query+"\" · esc clears the filter", "accent")
+	case m.notice != "":
+		return m.tone(m.notice, "warn")
+	}
+	status := m.status
+	if s.Call == 0 {
+		return m.tone(status, "dim")
+	}
+	if m.filter == 0 {
+		status += " · all contacts"
+	} else {
+		status += " · this contact only"
+	}
+	call := fmt.Sprintf("call %d", s.Call)
+	switch {
+	case s.Error != "":
+		return m.tone(status+" · ", "dim") + m.tone(fmt.Sprintf("%s failed after %s: %s", call, took(s.MS), s.Error), "bad")
+	case s.Done:
+		status += fmt.Sprintf(" · %s took %s · %d output tokens", call, took(s.MS), s.OutputTokens)
+	case s.TTFT == 0:
+		status += " · " + call + " running · no output yet"
+	default:
+		status += fmt.Sprintf(" · %s running · first output after %s · ≈%s output tokens so far", call, took(s.TTFT), k((s.OutputBytes+3)/4))
+	}
+	return m.tone(status, "dim")
+}
+
+// keyLine lists the keys of the current view, then the ones that work
+// everywhere. The way out stays visible however narrow the window is.
+func (m *model) keyLine(w int) string {
+	keys, always := screens()[m.screen].keys, "←→ call · tab contact · ? help · q quit"
+	switch {
+	case m.help:
+		keys, always = "pgup/pgdn scroll", "? or esc closes help · q quit"
+	case m.current().Call == 0:
+		return m.tone("? help · q quit", "dim")
+	case m.searching:
+		keys = "type to filter · enter keep · esc clear"
+	case m.raw && m.screen != 5:
+		keys = "r back to the readable view · pgup/pgdn scroll"
+	case m.expanded && m.screen != 2 && m.screen != 4 && m.screen != 5:
+		keys = "esc back to the list · ↑↓ next entry · pgup/pgdn scroll"
+	}
+	if room := w - m.theme.Width(always) - 3; room >= 12 {
+		return m.tone(m.theme.Truncate(keys, room)+" │ "+always, "dim")
+	}
+	return m.tone(always, "dim")
+}
+
+func (m *model) helpView() []string {
+	g := m.glyphs()
+	out := []string{
+		m.tone("ctxtop shows what each model call sent, and how much of it the provider reused from cache.", "accent"), "",
+		m.theme.Title().Render("KEYS"),
+		"  1–6        switch view",
+		"  ←→  h l    earlier or later call · f or end follows the latest",
+		"  ↑↓  j k    move the selection · pgup/pgdn scroll long content",
+		"  enter      open the selection full width, or fold a tier · esc closes",
+		"  tab        next contact · shift+tab goes back",
+		"  /          filter the view by text · esc clears",
+		"  r          show the exact request body sent to the provider",
+		"  z          scale the bar to the whole window, or to the prompt",
+		"  s  g       Prompt: sort by size · find the selection in Log",
+		"  [  ]       Changes: compare with an earlier or later call",
+		"  m          Checkpoints: mark numbers and paths the summary dropped",
+		"  ?  q       close help · quit", "",
+		m.theme.Title().Render("READING IT"),
+		"  " + m.tone(g.hit, "ok") + " reused from cache   " + m.tone(g.miss, "warn") + " sent fresh   " + m.tone(g.empty, "dim") + " free context window   ≈ planner estimate",
+		"  A prompt is five tiers, ordered from the least to the most often changed:",
+	}
+	for _, name := range []string{"static", "profile", "recall", "tail", "live"} {
+		out = append(out, fmt.Sprintf("    %-8s %s", name, tierNote(name)))
+	}
+	return append(out,
+		"  The cache reuses a prompt up to its first changed byte, so a change in an",
+		"  early tier sends every later tier again. A checkpoint is a summary that",
+		"  replaced the oldest part of the tail; an episode is one stretch of the log.", "",
+		m.theme.Title().Render("LIMITS"),
+		"  Providers report cache totals only: reuse per part, and where the cache",
+		"  ends, are estimates. Log previews load up to 2,000 events. Prices and",
+		"  parent-fork attribution are not collected.")
+}
+
+// listView draws the Prompt, Log and Recall views: a list on the left and
+// what is known about the selected row on the right.
 func (m *model) listView(s diagnostic.Snapshot, w, h int) []string {
 	rows := m.items()
 	sel := min(m.row[m.screen], max(0, len(rows)-1))
+	if m.expanded {
+		return m.scrolled(m.inspector(s, rows, sel, w), h)
+	}
 	leftW := w
-	split := w >= 100 && !m.expanded
+	split := w >= 100
 	if split {
 		leftW = max(48, w*3/5)
 	}
-	left := []string{}
-	switch m.screen {
-	case 0:
-		order := "prompt order"
-		if m.sizeSort {
-			order = "size order"
-		}
-		left = append(left, m.tone("OFFSET  T  KIND           ≈TOKENS  CACHE  "+order, "dim"))
-	case 1:
-		left = append(left, "LOG · select an episode to inspect its messages")
-	case 3:
-		tr := m.captures[s.Call].Recall
-		if tr == nil {
-			left = append(left, "No recall trace for this call.")
-		} else {
-			left = append(left, m.clean("query: "+tr.Query), m.clean(fmt.Sprintf("threshold %.2f · margin %.2f · warm %v → %v", tr.Threshold, tr.Margin, tr.Warm, tr.Chosen)), m.clean(tr.Status), m.tone("EPISODE     COS   RERANK  +AGE SCORE  DECISION", "dim"))
-		}
-	case 4:
-		left = append(left, m.tail(s, max(1, min(28, leftW-6))), "CHECKPOINTS currently represented in this prompt")
-	}
+	left := m.listHead(s, leftW)
 	listHeight := h
-	if !split && !m.expanded {
-		listHeight = max(3, h/2)
+	if !split {
+		// Stacked, the list has half the room, and always a few rows of its own.
+		listHeight = max(3, h/2, min(len(left)+3, h-4))
 	}
-	start := max(0, sel-max(1, listHeight-len(left)-2)/2)
-	end := min(len(rows), start+max(1, listHeight-len(left)-1))
-	boundary := float64(s.PredictedCached)
-	symbol := "△"
-	if s.Reported {
-		boundary = reportedPosition(s)
-		symbol = "▲"
-	}
-	for i := start; i < end; i++ {
-		row := rows[i]
-		line := ""
-		switch {
-		case row.tier >= 0:
-			arrow := "▾"
-			if m.collapsed[row.tier] {
-				arrow = "▸"
-			}
-			for _, t := range s.Tiers {
-				if t.Index == row.tier {
-					line = fmt.Sprintf("%s tier %d · %-9s ≈%s", arrow, t.Index, t.Name, k(t.Tokens))
-				}
-			}
-		case row.block != nil:
-			b := row.block
-			if m.screen == 4 {
-				line = fmt.Sprintf("◆ #%d  seq %d–%d  → ≈%s tok", b.Seq, b.From, b.To, k(b.Tokens))
-			} else {
-				hits := max(0, min(float64(b.Tokens), boundary-float64(b.Offset)))
-				nc := int(math.Round(6 * hits / float64(max(1, b.Tokens))))
-				bar := m.tone(strings.Repeat(m.glyphs().hit, nc), "ok") + m.tone(strings.Repeat(m.glyphs().miss, 6-nc), "warn")
-				flag := ""
-				if b.Tokens > s.Total()/10 {
-					flag = " ⚑ heavy"
-				}
-				line = fmt.Sprintf("%6d  %d  %-14s %7d  %s %s%s", b.Offset, b.Tier, m.clean(kindLabel(b.Kind)), b.Tokens, bar, m.clean(b.Preview), flag)
-				if !m.sizeSort && boundary >= float64(b.Offset) && boundary < float64(b.Offset+b.Tokens) {
-					left = append(left, m.tone(fmt.Sprintf("  %s prefix ends ≈%.0f tokens, within next block", symbol, boundary), "warn"))
-				}
-			}
-		case row.episode != nil:
-			ep := row.episode
-			state := "not selected"
-			if ep.End >= tailStart(s) {
-				state = "tail (partial)"
-			}
-			for _, b := range s.Blocks {
-				if b.Kind == "checkpoint" && ep.Start <= b.To {
-					state = "folded / outside tail"
-				}
-			}
-			for _, id := range s.Recall {
-				if id == ep.ID {
-					state = "↺ recalled"
-				}
-			}
-			line = fmt.Sprintf("ep %-4d seq %6d–%-6d  %s", ep.ID, ep.Start, ep.End, state)
-		case row.candidate != nil:
-			c := row.candidate
-			line = fmt.Sprintf("ep %-5d %5.2f  %6.2f   %7.2f  %s", c.Episode, c.Cosine, c.Rerank, c.Score, m.clean(c.Reason))
+	visible := max(1, listHeight-len(left)-1)
+	start := max(0, min(sel-visible/2, len(rows)-visible))
+	for i := start; i < min(len(rows), start+visible); i++ {
+		line := m.rowText(s, rows[i])
+		if i != sel {
+			left = append(left, "  "+line)
+		} else if line = m.tone("› ", "accent") + line; m.theme.BarFilled {
+			left = append(left, m.theme.Selected(line, leftW))
+		} else {
+			left = append(left, line)
 		}
-		prefix := "  "
-		if i == sel {
-			prefix = m.tone("› ", "accent")
+		if b := rows[i].block; b != nil {
+			if note := m.cacheEnd(s, b); note != "" {
+				left = append(left, note)
+			}
 		}
-		left = append(left, prefix+line)
 	}
-	if len(rows) == 0 {
-		left = append(left, m.tone("No entries for this call or search.", "dim"))
+	switch {
+	case len(rows) > 0:
+	case m.query != "":
+		left = append(left, m.tone("  Nothing here matches the filter.", "dim"))
+	default:
+		left = append(left, m.tone("  Nothing to list for this call.", "dim"))
 	}
 	right := m.inspector(s, rows, sel, max(1, w-leftW-3))
-	if m.expanded {
-		return m.scrolled(right, h)
-	}
 	if !split {
-		n := min(len(left), max(3, h/2))
-		left = left[:n]
+		left = left[:min(len(left), listHeight)]
 		left = append(left, m.tone(strings.Repeat(m.glyphs().line, w), "dim"))
 		return append(left, m.scrolled(right, max(0, h-len(left)))...)
 	}
-	right = m.scrolled(right, h)
+	return m.columns(left, m.scrolled(right, h), leftW, h)
+}
+
+// columns sets two blocks of lines side by side, the left one leftW wide.
+func (m *model) columns(left, right []string, leftW, h int) []string {
 	n := min(h, max(len(left), len(right)))
-	out := make([]string, 0, n)
+	out := make([]string, 0, max(0, n))
 	for i := range n {
 		l, r := "", ""
 		if i < len(left) {
@@ -244,15 +340,185 @@ func (m *model) listView(s diagnostic.Snapshot, w, h int) []string {
 		if i < len(right) {
 			r = right[i]
 		}
-		l = m.theme.Truncate(l, leftW)
-		out = append(out, l+strings.Repeat(" ", max(0, leftW-m.theme.Width(l)))+" │ "+r)
+		out = append(out, m.theme.Pad(l, leftW)+m.tone(" │ ", "dim")+r)
 	}
 	return out
+}
+
+// listHead is what stands above a list: the view's question, what was found,
+// and the column names.
+func (m *model) listHead(s diagnostic.Snapshot, w int) []string {
+	head := []string{m.theme.Title().Render(screens()[m.screen].intro)}
+	columns := ""
+	switch m.screen {
+	case 0:
+		if m.sizeSort {
+			head[0] = m.theme.Title().Render("What this call sent to the model, largest part first")
+		}
+		columns = fmt.Sprintf("  %-17s %6s %5s  %-6s  %s", "PART", "TOKENS", "SHARE", "CACHE", "CONTENT")
+	case 1:
+		columns = fmt.Sprintf("  %-9s %-14s %s", "EPISODE", "EVENTS", "IN THIS PROMPT")
+	case 3:
+		d, ok := m.captures[s.Call]
+		switch {
+		case !ok:
+			return append(head, m.tone("Loading call details…", "dim"))
+		case d.Recall == nil:
+			return append(head, m.tone("Recall did not run for this call.", "dim"))
+		}
+		tr := d.Recall
+		head = append(head, m.field("Query", tr.Query, w)...)
+		head = append(head, m.field("Outcome", recallOutcome(s.Recall, tr.Warm), w)...)
+		head = append(head, m.field("Method", tr.Status, w)...)
+		head = append(head, m.field("Rule", fmt.Sprintf("a final score of %.2f or more passes; while the cache is warm, a newcomer must beat the current set by %.2f to replace it", tr.Threshold, tr.Margin), w)...)
+		head = append(head, "")
+		columns = fmt.Sprintf("    %-8s %10s %7s %6s   %s", "EPISODE", "SIMILARITY", "RERANK", "FINAL", "DECISION")
+	}
+	return append(head, m.tone(columns, "dim"))
+}
+
+// rowText is one row of a list, without its selection mark.
+func (m *model) rowText(s diagnostic.Snapshot, row item) string {
+	switch {
+	case row.tier >= 0:
+		t, offset, ok := tierOf(s, row.tier)
+		if !ok {
+			return ""
+		}
+		arrow := "▾"
+		if m.collapsed[row.tier] {
+			arrow = "▸"
+		}
+		return m.tone(fmt.Sprintf("%s %-15s %6s %5s", arrow, t.Name, k(t.Tokens), pct(t.Tokens, s.Total())), "accent") +
+			"  " + m.meter(s, offset, t.Tokens) + "  " + m.tone(tierNote(t.Name), "dim")
+	case row.block != nil:
+		b := row.block
+		return m.clean(fmt.Sprintf("  %-15s %6s %5s", kindLabel(b.Kind), k(b.Tokens), pct(b.Tokens, s.Total()))) +
+			"  " + m.meter(s, b.Offset, b.Tokens) + "  " + m.clean(b.Preview)
+	case row.episode != nil:
+		ep := row.episode
+		return fmt.Sprintf("%-9d %-14s %s", ep.ID, fmt.Sprintf("%d–%d", ep.Start, ep.End), episodeState(s, *ep))
+	case row.candidate != nil:
+		c := row.candidate
+		mark := " "
+		if slices.Contains(s.Recall, c.Episode) {
+			mark = "✓"
+		}
+		threshold := float32(0)
+		if tr := m.captures[s.Call].Recall; tr != nil {
+			threshold = tr.Threshold
+		}
+		return m.clean(fmt.Sprintf("%s %-8d %10.2f %7.2f %6.2f   %s", mark, c.Episode, c.Cosine, c.Rerank, c.Score, decision(c.Reason, threshold)))
+	}
+	return ""
+}
+
+// meter draws how much of one part of the prompt came from the cache.
+func (m *model) meter(s diagnostic.Snapshot, offset, tokens int) string {
+	edge, reported := cacheEdge(s)
+	tone := "ok"
+	if !reported {
+		tone = "dim"
+	}
+	hits := max(0, min(float64(tokens), edge-float64(offset)))
+	n := int(math.Round(6 * hits / float64(max(1, tokens))))
+	g := m.glyphs()
+	return m.tone(strings.Repeat(g.hit, n), tone) + m.tone(strings.Repeat(g.miss, 6-n), "warn")
+}
+
+// cacheEnd is the note under the part in which the cached prefix ends. Only
+// the prompt's own order has such a place.
+func (m *model) cacheEnd(s diagnostic.Snapshot, b *diagnostic.Block) string {
+	edge, reported := cacheEdge(s)
+	from, to := float64(b.Offset), float64(b.Offset+b.Tokens)
+	if m.screen != 0 || m.sizeSort || m.query != "" || edge <= from || edge > to || edge >= float64(s.Total()) {
+		return ""
+	}
+	note := "cache ends"
+	if !reported {
+		note = "cache should end"
+	}
+	if edge < to {
+		note += fmt.Sprintf(" ≈%s into the part above", k(int(edge-from)))
+	} else {
+		note += " here"
+	}
+	return m.tone("    ▲ "+note+" · the rest is sent fresh", "warn")
 }
 
 func (m *model) scrolled(lines []string, h int) []string {
 	start := min(m.scroll, max(0, len(lines)-1))
 	return lines[start:min(len(lines), start+max(0, h))]
+}
+
+// episodeState says what a prompt took from an episode of the log.
+func episodeState(s diagnostic.Snapshot, ep diagnostic.Episode) string {
+	state := "not in this prompt"
+	if ep.End >= tailStart(s) {
+		state = "in the tail, verbatim"
+	}
+	for _, b := range s.Blocks {
+		if b.Kind == "checkpoint" && ep.Start <= b.To {
+			state = "folded into a checkpoint"
+		}
+	}
+	if slices.Contains(s.Recall, ep.ID) {
+		state = "↺ recalled into this prompt"
+	}
+	return state
+}
+
+// recallOutcome compares the episodes in this prompt with the ones before.
+func recallOutcome(now, before []uint32) string {
+	switch {
+	case len(now) == 0 && len(before) == 0:
+		return "nothing recalled"
+	case len(now) == 0:
+		return "nothing recalled · " + episodes(before) + " dropped, so the recall tier changes"
+	case slices.Equal(now, before):
+		return "recalled " + episodes(now) + " · same as the call before, so the recall tier stays cached"
+	case len(before) == 0:
+		return "recalled " + episodes(now) + " · nothing was recalled before"
+	}
+	return "recalled " + episodes(now) + " · replaces " + episodes(before) + ", so the recall tier changes"
+}
+
+func episodes(ids []uint32) string {
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.FormatUint(uint64(id), 10)
+	}
+	if len(ids) == 1 {
+		return "episode " + parts[0]
+	}
+	return "episodes " + strings.Join(parts, ", ")
+}
+
+// decision puts the planner's reason for a recall candidate in plain words.
+func decision(reason string, threshold float32) string {
+	switch reason {
+	case "selected":
+		return "recalled"
+	case "below threshold":
+		return fmt.Sprintf("below the %.2f threshold", threshold)
+	case "outside top K":
+		return "passed; others scored higher"
+	case "warm set retained by hysteresis":
+		return "passed; current set kept"
+	}
+	return reason
+}
+
+func kindName(kind string) string {
+	switch kind {
+	case "tool_call":
+		return "tool call"
+	case "tool_result":
+		return "tool result"
+	case "time":
+		return "time note"
+	}
+	return kind
 }
 
 func kindLabel(kind string) string {
@@ -265,10 +531,8 @@ func kindLabel(kind string) string {
 		return "↺ recall"
 	case "checkpoint":
 		return "◆ checkpoint"
-	case "time":
-		return "⏱ time note"
 	}
-	return kind
+	return kindName(kind)
 }
 
 func tailStart(s diagnostic.Snapshot) uint64 {

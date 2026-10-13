@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -61,10 +62,15 @@ type model struct {
 	height                                  int
 	status                                  string
 	theme                                   *theme.Theme
+	fold                                    *strings.Replacer // set when only ASCII may be drawn
 }
 
 func newModel(caps termcaps.Caps) *model {
-	return &model{collapsed: make(map[int]bool), captures: make(map[uint64]diagnostic.Details), loading: make(map[uint64]bool), failed: make(map[uint64]bool), finalized: make(map[uint64]bool), events: make(map[string][]core.Event), eventLoading: make(map[string]bool), follow: true, width: 80, height: 24, status: "waiting for plans", theme: theme.New(caps, theme.Options{})}
+	m := &model{collapsed: make(map[int]bool), captures: make(map[uint64]diagnostic.Details), loading: make(map[uint64]bool), failed: make(map[uint64]bool), finalized: make(map[uint64]bool), events: make(map[string][]core.Event), eventLoading: make(map[string]bool), follow: true, width: 80, height: 24, status: "connecting to the server", theme: theme.New(caps, theme.Options{})}
+	if caps.Glyphs == termcaps.GlyphsASCII {
+		m.fold = asciiFold()
+	}
+	return m
 }
 
 type tickMsg time.Time
@@ -118,6 +124,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = max(1, msg.Width), max(1, msg.Height)
 	case tea.KeyPressMsg:
 		oldCall := m.sel
+		m.notice = "" // a notice is read by the next key
 		if m.searching {
 			switch msg.String() {
 			case "ctrl+c":
@@ -145,13 +152,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "1", "2", "3", "4", "5", "6":
 			m.screen = int(msg.String()[0] - '1')
-			m.scroll = 0
+			m.scroll, m.expanded = 0, false
 			m.syncSelection()
-		case "up", "down", "j", "k":
-			if msg.String() == "k" && m.screen == 4 {
+		case "m":
+			if m.screen == 4 {
 				m.keywords = !m.keywords
-				break
 			}
+		case "up", "down", "j", "k":
 			n := len(m.items())
 			delta := 1
 			if msg.String() == "up" || msg.String() == "k" {
@@ -180,7 +187,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "?":
 			m.help = !m.help
 		case "g":
-			m.screen = 1
+			m.screen, m.expanded = 1, false
 			m.syncSelection()
 		case "[", "]":
 			same := m.contactCalls()
@@ -221,9 +228,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			rows := m.items()
 			ix := m.row[m.screen]
-			if ix < len(rows) && rows[ix].tier >= 0 {
+			switch {
+			case ix < len(rows) && rows[ix].tier >= 0:
 				m.collapsed[rows[ix].tier] = !m.collapsed[rows[ix].tier]
-			} else {
+			case m.screen == 0 || m.screen == 1 || m.screen == 3:
 				m.expanded = !m.expanded
 			}
 			m.details = !m.details

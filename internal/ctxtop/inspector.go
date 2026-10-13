@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/quinnovator/contactd/internal/core"
@@ -12,136 +13,164 @@ import (
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
+// inspector says what is known about the selected row, then shows its text.
+// In raw mode it shows the request body, which belongs to no row.
 func (m *model) inspector(s diagnostic.Snapshot, rows []item, sel, w int) []string {
 	if w < 20 {
 		w = max(20, m.width-2)
 	}
 	d, ok := m.captures[s.Call]
 	if !ok {
-		return []string{"Loading call details…"}
+		return []string{m.tone("Loading call details…", "dim")}
 	}
 	if m.raw {
-		head := []string{"RAW · exact provider request body", fmt.Sprintf("%d bytes · headers excluded", d.WireBytes)}
+		head := []string{
+			m.theme.Title().Render("The exact request body sent to the provider"),
+			m.tone(fmt.Sprintf("%d bytes · HTTP headers are not captured", d.WireBytes), "dim"), "",
+		}
 		if d.Wire == "" {
-			return append(head, "Body unavailable or exceeds capture limit.")
+			return append(head, "The body is unavailable, or larger than the capture limit.")
 		}
 		return append(head, m.wrap(d.Wire, w)...)
 	}
 	if sel >= len(rows) {
-		return []string{"Select an entry to inspect it."}
+		return []string{m.tone("Select a row to see it in full.", "dim")}
 	}
 	row := rows[sel]
-	out := []string{}
+	var out []string
 	if d.Truncated {
-		out = append(out, m.tone("Capture truncated at diagnostic size limit", "warn"))
+		out = append(out, m.tone("This capture was cut at the diagnostic size limit.", "warn"))
 	}
 	switch {
 	case row.block != nil:
 		b := row.block
-		content := m.content(b.ID)
-		if content.Text == "" && b.Kind == "checkpoint" {
-			content.Text = b.Preview
+		t, _, _ := tierOf(s, b.Tier)
+		out = append(out, m.tone(strings.ToUpper(kindName(b.Kind))+" · in the "+t.Name+" tier", "accent"))
+		size := fmt.Sprintf("≈%s tokens · %s of this prompt", k(b.Tokens), pct(b.Tokens, s.Total()))
+		if !slices.ContainsFunc(s.Blocks, func(o diagnostic.Block) bool { return o.Tokens > b.Tokens }) && len(s.Blocks) > 1 {
+			size += " · the largest part"
 		}
-		out = append(out, m.tone(fmt.Sprintf("%s · tier %d", kindLabel(b.Kind), b.Tier), "accent"))
-		out = append(out, fmt.Sprintf("source  seq %d · episode %d", b.Seq, b.Episode))
-		if b.From != 0 {
-			out = append(out, fmt.Sprintf("covers  seq %d–%d", b.From, b.To))
+		out = append(out, m.field("Size", size, w)...)
+		out = append(out, m.field("Cache", cacheSplit(s, b.Offset, b.Tokens), w)...)
+		switch {
+		case b.From != 0:
+			out = append(out, m.field("Covers", fmt.Sprintf("log events %d–%d, summarized · 5 Checkpoints shows the original", b.From, b.To), w)...)
+		case b.Seq != 0 && b.Episode != 0:
+			out = append(out, m.field("From", fmt.Sprintf("log event %d in episode %d · g shows it in Log", b.Seq, b.Episode), w)...)
+		case b.Seq != 0:
+			out = append(out, m.field("From", fmt.Sprintf("log event %d · g shows it in Log", b.Seq), w)...)
 		}
-		out = append(out, fmt.Sprintf("size    ≈%s tok · %d canonical B · %.1f%%", k(b.Tokens), b.Bytes, 100*float64(b.Tokens)/float64(max(1, s.Total()))))
-		cached := float64(s.PredictedCached)
-		label := "predicted"
-		if s.Reported {
-			cached = reportedPosition(s)
-			label = "reported ratio"
-		}
-		hit := max(0, min(b.Tokens, int(cached)-b.Offset))
-		out = append(out, fmt.Sprintf("cache   ≈%d hit / %d miss (%s)", hit, b.Tokens-hit, label), "hash    "+b.Hash, "tier chain "+b.Chain)
 		first, n := s.Call, 0
 		for _, call := range m.contactCalls() {
-			if call.Call > s.Call {
-				continue
-			}
-			for _, other := range call.Blocks {
-				if other.Hash == b.Hash && other.Seq == b.Seq {
-					first = min(first, call.Call)
-					n++
-					break
-				}
+			if call.Call <= s.Call && slices.ContainsFunc(call.Blocks, func(o diagnostic.Block) bool { return o.Hash == b.Hash && o.Seq == b.Seq }) {
+				first = min(first, call.Call)
+				n++
 			}
 		}
-		out = append(out, fmt.Sprintf("seen    since call %d · %d retained calls", first, n))
-		out = append(out, m.wrap("fate    "+b.Fate, w)...)
-		if s.ReportedInput > 0 {
-			out = append(out, fmt.Sprintf("tokenizer  est %d / actual %d (%+.1f%%)", s.Total(), s.ReportedInput, 100*float64(s.Total()-s.ReportedInput)/float64(s.ReportedInput)))
-		}
-		out = append(out, strings.Repeat("─", min(w, 48)))
-		if m.screen == 4 {
-			events := m.events[eventKey(s, b.From, b.To)]
-			if events == nil {
-				return append(out, "Loading original fold span…")
-			}
-			var original strings.Builder
-			tokens := 0
-			for _, ev := range events {
-				line := eventText(ev)
-				original.WriteString(line + "\n")
-				tokens += (len(line) + 3) / 4
-			}
-			out = append(out, fmt.Sprintf("ORIGINAL ≈%s → CHECKPOINT ≈%s", k(tokens), k(b.Tokens)))
-			if m.keywords {
-				out = append(out, "Keyword retention: ! marks absent numbers / paths.")
-			}
-			out = append(out, "CHECKPOINT:")
-			out = append(out, m.wrap(content.Text, w)...)
-			out = append(out, "", "ORIGINAL:")
-			for line := range strings.SplitSeq(original.String(), "\n") {
-				if m.keywords {
-					line = missingWords(line, content.Text)
-				}
-				out = append(out, m.wrap(line, w)...)
-			}
-			if len(events) >= 2000 {
-				out = append(out, "Original preview limited to 2,000 events.")
-			}
+		if n > 1 {
+			out = append(out, m.field("Age", fmt.Sprintf("unchanged since call %d · in %d of the calls shown", first, n), w)...)
 		} else {
-			out = append(out, m.wrap(content.Text, w)...)
+			out = append(out, m.field("Age", "new in this call", w)...)
 		}
+		if b.Fate != "" {
+			out = append(out, m.field("Next", b.Fate, w)...)
+		}
+		id := "hash " + b.Hash
+		if b.Chain != "" {
+			id += " · tier chain " + b.Chain
+		}
+		out = append(out, m.field("ID", id, w)...)
+		out = append(out, m.theme.Rule(w, "content"))
+		text := m.content(b.ID).Text
+		if text == "" {
+			text = b.Preview
+		}
+		out = append(out, m.wrap(text, w)...)
 	case row.episode != nil:
 		ep := row.episode
-		out = append(out, fmt.Sprintf("EPISODE %d · seq %d–%d", ep.ID, ep.Start, ep.End), "■ in prompt · □ not in prompt (this call)")
+		out = append(out, m.tone(fmt.Sprintf("EPISODE %d · log events %d–%d", ep.ID, ep.Start, ep.End), "accent"))
+		out = append(out, m.field("Here", episodeState(s, *ep), w)...)
+		out = append(out, m.tone("■ sent as written · □ not sent as written", "dim"), m.theme.Rule(w, "events"))
 		events := m.events[eventKey(s, ep.Start, ep.End)]
 		if events == nil {
-			return append(out, "Loading episode…")
+			return append(out, m.tone("Loading episode…", "dim"))
 		}
 		for _, ev := range events {
-			in := false
-			for _, b := range s.Blocks {
-				if b.Seq == ev.Seq && b.Kind != "checkpoint" {
-					in = true
-					break
-				}
-			}
 			state, tone := "□", "dim"
-			if in {
+			if slices.ContainsFunc(s.Blocks, func(b diagnostic.Block) bool { return b.Seq == ev.Seq && b.Kind != "checkpoint" }) {
 				state, tone = "■", "fg"
 			}
-			for _, line := range m.wrap(fmt.Sprintf("%s %d %s", state, ev.Seq, eventText(ev)), w) {
+			for _, line := range m.prose(fmt.Sprintf("%s %d %s", state, ev.Seq, eventText(ev)), w) {
 				out = append(out, m.tone(line, tone))
 			}
 		}
 		if len(events) >= 2000 {
-			out = append(out, "Episode preview limited to 2,000 events.")
+			out = append(out, m.tone("Only the first 2,000 events are shown.", "warn"))
 		}
 	case row.candidate != nil:
 		c := row.candidate
-		out = append(out, fmt.Sprintf("EPISODE %d · seq %d–%d", c.Episode, c.Start, c.End), fmt.Sprintf("centroid cosine %.3f", c.Cosine), fmt.Sprintf("rerank logit %.3f · with recency %.3f", c.Rerank, c.Score), c.Reason, "", "PASSAGE SHOWN TO RERANKER:")
+		threshold := float32(0)
+		if d.Recall != nil {
+			threshold = d.Recall.Threshold
+		}
+		out = append(out, m.tone(fmt.Sprintf("EPISODE %d · log events %d–%d", c.Episode, c.Start, c.End), "accent"))
+		out = append(out, m.field("Decision", decision(c.Reason, threshold), w)...)
+		out = append(out, m.field("1 Similar", fmt.Sprintf("%.3f · cosine of the search text and the episode's centroid", c.Cosine), w)...)
+		out = append(out, m.field("2 Rerank", fmt.Sprintf("%.3f · the reranker's relevance score", c.Rerank), w)...)
+		out = append(out, m.field("3 Final", fmt.Sprintf("%.3f · rerank plus a recency bonus; %.2f or more passes", c.Score, threshold), w)...)
+		out = append(out, m.theme.Rule(w, "passage the reranker read"))
 		out = append(out, m.wrap(c.Passage, w)...)
 	case row.tier >= 0:
-		for _, t := range s.Tiers {
-			if t.Index == row.tier {
-				out = append(out, fmt.Sprintf("TIER %d · %s", t.Index, t.Name), fmt.Sprintf("≈%d tokens · %d messages", t.Tokens, t.Messages), "hash  "+t.Hash, "chain "+t.Chain, "", "Enter collapses / expands this tier.")
-			}
+		t, offset, ok := tierOf(s, row.tier)
+		if !ok {
+			break
 		}
+		out = append(out, m.tone(strings.ToUpper(t.Name)+" TIER · "+tierNote(t.Name), "accent"))
+		out = append(out, m.field("Size", fmt.Sprintf("≈%s tokens in %d messages · %s of this prompt", k(t.Tokens), t.Messages, pct(t.Tokens, s.Total())), w)...)
+		out = append(out, m.field("Cache", cacheSplit(s, offset, t.Tokens), w)...)
+		out = append(out, m.field("ID", "hash "+t.Hash+" · chain "+t.Chain, w)...)
+		out = append(out, "", m.tone("Enter folds or unfolds this tier.", "dim"))
+	}
+	return out
+}
+
+// field is a labelled fact. A value too long for the pane wraps under itself.
+func (m *model) field(label, value string, w int) []string {
+	const indent = 10
+	lines := m.theme.Wrap(m.clean(value), max(8, w-indent))
+	for i := range lines {
+		head := ""
+		if i == 0 {
+			head = label
+		}
+		lines[i] = m.tone(fmt.Sprintf("%-*s", indent, head), "dim") + lines[i]
+	}
+	return lines
+}
+
+// cacheSplit says how much of one part of the prompt came from the cache.
+func cacheSplit(s diagnostic.Snapshot, offset, tokens int) string {
+	edge, reported := cacheEdge(s)
+	hit := max(0, min(tokens, int(edge)-offset))
+	reused, fresh, basis := "reused", "sent fresh", "estimated from the provider's total"
+	if !reported {
+		reused, fresh, basis = "expected from cache", "expected fresh", "the planner's prediction"
+	}
+	switch hit {
+	case tokens:
+		return "all of it " + reused + " · " + basis
+	case 0:
+		return "all of it " + fresh + " · " + basis
+	}
+	return fmt.Sprintf("≈%s %s, ≈%s %s · %s", k(hit), reused, k(tokens-hit), fresh, basis)
+}
+
+// prose wraps a message at its spaces. Each line is made safe first: the
+// theme's own wrapping keeps escape sequences, and this text is the server's.
+func (m *model) prose(s string, w int) []string {
+	var out []string
+	for line := range strings.SplitSeq(s, "\n") {
+		out = append(out, m.theme.Wrap(safe.Line(line, 2<<20, m.fold != nil), w)...)
 	}
 	return out
 }
@@ -177,7 +206,10 @@ func eventText(ev core.Event) string {
 	case core.KindUserMsg, core.KindAgentMsg:
 		var v core.MsgBody
 		if json.Unmarshal(ev.Body, &v) == nil {
-			return ev.Kind.String() + ": " + v.Text
+			if ev.Kind == core.KindUserMsg {
+				return "user: " + v.Text
+			}
+			return "agent: " + v.Text
 		}
 	case core.KindToolCall:
 		var v core.ToolCall

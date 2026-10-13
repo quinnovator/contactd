@@ -1,30 +1,30 @@
-ada · deepseek/deepseek-flash · turn 8 call 2 │ ≈17.2k/128.0k │ cached 70% (pred 69%) ▲
+ada · deepseek/deepseek-flash                                                    turn 8 · step 2 · call 2 · following the latest
+Prompt ≈17.2k of 128.0k tokens (13% of the window) · provider counted 18.0k │ Cache 70% reused · 69% expected
 █████████████▒▒▒▒···············································································································
-1 Blocks  2 Log  [3 Diff]  4 Recall  5 Folds  6 Timeline
+█ reused from cache   ▒ sent fresh   · free window   z zooms to the prompt
+ 1 Prompt   2 Log  [3 Changes]  4 Recall   5 Checkpoints   6 Timeline 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-DIFF call 1 → 2 · shared blocks ≈16.0k tokens · first changed tier 4
-canonical logical blocks (hash input, not wire)
+What changed from call 1 to call 2, and what that did to the cache
 
-first differing byte @ 211 · lengths 232 → 254
-1  ,{"text":"step 412 loss 1.88"},{"text":"Run the evaluation"}]
-2  ,{"text":"step 412 loss 1.88"},{"text":"Compare the result against the baseline."}]
+  TIER         CALL 1    CALL 2
+  static         1.3k      1.3k   unchanged
+  profile         100       100   unchanged
+  recall          400       400   unchanged
+  tail          14.2k     14.2k   unchanged
+  live           1.2k      1.2k   ← the first change is here
 
-prompt change (inferred): new turn / time note / live messages changed
-predicted re-read ≈5.3k tokens; monetary cost unavailable
-△ predicted 11.9k (69.2%) · ▲ reported 12.6k/18.0k (70.0%) · +0.8 pp
+  Same      the first ≈16.0k tokens, 93% of this prompt
+  Why       new turn / time note / live messages changed (inferred)
+  Cache     ≈5.3k tokens expected fresh · the provider reused 70.0%, 69.2% expected (+0.8 points)
 
-[ / ] baseline · r canonical / exact wire
-
-
-
-
-
-
-
+WHERE THEY FIRST DIFFER · byte 211 of the planner's canonical blocks, 232 and 254 bytes long
+  call 1  ,{"text":"step 412 loss 1.88"},{"text":"Run the evaluation"}]
+  call 2  ,{"text":"step 412 loss 1.88"},{"text":"Compare the result against the baseline."}]
+                                                  ▲ differs from here
 
 
 
 
 
-live · 0ms · output 0 tokens
-↑↓ select · enter expand · ←→ calls · / search · s sort · r raw · ? help · q quit
+live · all contacts · call 2 took 0ms · 0 output tokens
+[ ] compare with another call · r exact request bodies · pgup/pgdn scroll │ ←→ call · tab contact · ? help · q quit

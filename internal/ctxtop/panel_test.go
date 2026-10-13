@@ -9,6 +9,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/core"
 	"github.com/quinnovator/contactd/internal/diagnostic"
+	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
 func panelFixture() *model {
@@ -110,5 +111,46 @@ func TestDiffBytesAndToolCause(t *testing.T) {
 	}
 	if got := missingWords("seed 42 in data/run.json", "seed"); !strings.Contains(got, "!42!") || !strings.Contains(got, "!data/run.json!") {
 		t.Fatal(got)
+	}
+}
+
+func TestHeaderSaysWhenTheViewIsPaused(t *testing.T) {
+	t.Parallel()
+	m := panelFixture()
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "following the latest") {
+		t.Fatalf("a following view does not say so:\n%s", view)
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "call 1 · paused, 1 newer") {
+		t.Fatalf("a view paused on an older call does not say so:\n%s", view)
+	}
+}
+
+func TestCheckpointKeysLeaveTheSelectionKeysAlone(t *testing.T) {
+	t.Parallel()
+	m := panelFixture()
+	press(m, "5")
+	press(m, "m")
+	if !m.keywords || !strings.Contains(ansi.Strip(m.View().Content), "!42!") {
+		t.Fatal("m did not mark what the summary dropped")
+	}
+	press(m, "k")
+	if !m.keywords {
+		t.Fatal("k, which moves the selection, changed the marking")
+	}
+}
+
+func TestASCIIViewFoldsItsMarksAndKeepsItsStyles(t *testing.T) {
+	t.Parallel()
+	m := newModel(termcaps.Caps{Color: termcaps.ColorNone, Glyphs: termcaps.GlyphsASCII})
+	m.width, m.height = 130, 30
+	m.accept(sample())
+	view := ansi.Strip(m.View().Content)
+	// A style that lost its escape character is drawn as text, such as "[1m".
+	if strings.Contains(view, "[1m") || strings.Contains(view, "[m") {
+		t.Fatalf("styles were broken into text:\n%s", view)
+	}
+	if !strings.Contains(view, "Prompt ~17.2k of 128.0k tokens") || !strings.Contains(view, "ada - deepseek/deepseek-flash") {
+		t.Fatalf("marks were not folded to ASCII:\n%s", view)
 	}
 }
