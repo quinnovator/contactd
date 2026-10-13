@@ -1,0 +1,4 @@
+"\x1b_Ga=T,U=1,q=2,f=100,t=d,i=7,c=42,r=12,m=1;<base64>\x1b\\"
+"\x1b_Gm=1;<base64>\x1b\\"
+(and so on)
+"\x1b_Gm=0;<base64>\x1b\\"

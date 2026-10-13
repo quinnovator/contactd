@@ -1,0 +1,79 @@
+{
+  "abi": 1,
+  "op": "command",
+  "name": "stats",
+  "args": [
+    "7",
+    "two words"
+  ],
+  "width": 100,
+  "term": {
+    "color": "truecolor",
+    "glyphs": "unicode",
+    "background": "dark"
+  },
+  "data": {
+    "contact": {
+      "id": 42,
+      "name": "ada"
+    },
+    "route": {
+      "provider": "deepseek",
+      "model": "deepseek-flash"
+    },
+    "state": {
+      "conn": "live",
+      "replying": true,
+      "running": "python"
+    },
+    "model_calls": [
+      {
+        "seq": 30,
+        "ts": 1760270700000,
+        "step": 1,
+        "route": "deepseek/deepseek-flash",
+        "input": 3200,
+        "cached": 1536,
+        "output": 212,
+        "reasoning": 64,
+        "ms": 5400,
+        "error": ""
+      },
+      {
+        "seq": 33,
+        "ts": 1760270760000,
+        "step": 2,
+        "route": "deepseek/deepseek-flash",
+        "input": 0,
+        "cached": 0,
+        "output": 0,
+        "reasoning": 0,
+        "ms": 900,
+        "error": "rate_limit"
+      }
+    ],
+    "messages": [
+      {
+        "seq": 29,
+        "ts": 1760270690000,
+        "role": "user",
+        "text": "plot last week's latency"
+      },
+      {
+        "seq": 31,
+        "ts": 1760270710000,
+        "role": "agent",
+        "text": "p99 peaked on Thursday at 7.2 s."
+      }
+    ],
+    "workspace": {
+      "dir": "contactd",
+      "branch": "tui-frame"
+    },
+    "now": 1760270765000
+  },
+  "item": {
+    "kind": "code:mermaid",
+    "text": "graph TD; a-->b"
+  }
+}

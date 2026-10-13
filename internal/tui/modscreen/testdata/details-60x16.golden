@@ -1,0 +1,16 @@
+Mods                   ~/.config/contactd/mods · 4 on, 1 off
+────────────────────────────────────────────────────────────
+                                                            
+ cache 0.3.1                                                
+                                                            
+ ADDS                                                       
+ segment  cache    status line                              
+ command  /stats   token use and cache share by day         
+                                                            
+ MAY READ                                                   
+ model-call records of the open contact                     
+ no messages, no network, no files                          
+                                                            
+ LAST 100 UPDATES                                           
+ median 0.4 ms · slowest 1.9 ms                             
+space on or off · u update                          esc list

@@ -16,6 +16,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/api"
+	"github.com/quinnovator/contactd/internal/env/workdir"
 	"github.com/quinnovator/contactd/internal/eventlog"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
@@ -31,6 +32,10 @@ type Options struct {
 	LLM fakellm.Options
 	// Actor, when set, adjusts the actor configuration.
 	Actor func(*actor.Config)
+	// FSRoot, when set, is a directory the server serves contacts' files
+	// from: contact 7's are under FSRoot/7. It must exist. No tool runs
+	// here, so a test writes the files itself.
+	FSRoot string
 }
 
 // Server is a running API.
@@ -126,7 +131,17 @@ func Start(tb testing.TB, opt Options) *Server {
 		},
 	}, cfg, obs.Discard())
 
-	handler := api.New(store, reg, models, obs.Discard()).Handler()
+	server := api.New(store, reg, models, obs.Discard())
+	closeFiles := func() {}
+	if opt.FSRoot != "" {
+		dirs, err := workdir.Open(opt.FSRoot)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		server.WithFiles(dirs)
+		closeFiles = func() { _ = dirs.Close() } // read-only; nothing to lose
+	}
+	handler := server.Handler()
 	tcp := httptest.NewUnstartedServer(handler)
 	conns := &tracker{Listener: tcp.Listener}
 	tcp.Listener = conns
@@ -150,6 +165,7 @@ func Start(tb testing.TB, opt Options) *Server {
 		reg.Shutdown(ctx)
 		tcp.Close()
 		_ = unix.Close()
+		closeFiles()
 		_ = os.RemoveAll(dir)
 		cancel()
 		stopWriter()

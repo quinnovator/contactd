@@ -1,0 +1,128 @@
+truecolor-dark, keys at 100
+" \x1b[38;2;127;138;145menter send · ctrl+j new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                       "
+truecolor-dark, keys at 60
+" \x1b[38;2;127;138;145menter send · ctrl+j new line · / commands · ctrl+o details\x1b[m "
+truecolor-dark, keys at 46
+" \x1b[38;2;127;138;145menter send · ctrl+j new line · / commands\x1b[m    "
+truecolor-dark, keys at 30
+" \x1b[38;2;127;138;145menter send · / commands\x1b[m      "
+truecolor-dark, keys with shift+enter at 100
+" \x1b[38;2;127;138;145menter send · shift+enter new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                  "
+truecolor-dark, keys with shift+enter at 60
+" \x1b[38;2;127;138;145menter send · shift+enter new line · / commands\x1b[m             "
+truecolor-dark, keys with shift+enter at 46
+" \x1b[38;2;127;138;145menter send · / commands\x1b[m                      "
+truecolor-dark, keys with shift+enter at 30
+" \x1b[38;2;127;138;145menter send · / commands\x1b[m      "
+truecolor-dark, palette at 100
+" \x1b[38;2;127;138;145ma line that starts with / is a command and is never sent to the contact\x1b[m                            "
+truecolor-dark, palette at 60
+" \x1b[38;2;127;138;145ma line that starts with / is a command and is never sent t…\x1b[m"
+truecolor-dark, palette at 46
+" \x1b[38;2;127;138;145ma line that starts with / is a command and i…\x1b[m"
+truecolor-dark, palette at 30
+" \x1b[38;2;127;138;145ma line that starts with / is…\x1b[m"
+truecolor-dark, note at 100
+" \x1b[38;2;217;178;92mnot sent: not connected\x1b[m                                                                            "
+truecolor-dark, note at 60
+" \x1b[38;2;217;178;92mnot sent: not connected\x1b[m                                    "
+truecolor-dark, note at 46
+" \x1b[38;2;217;178;92mnot sent: not connected\x1b[m                      "
+truecolor-dark, note at 30
+" \x1b[38;2;217;178;92mnot sent: not connected\x1b[m      "
+16-light, keys at 100
+" \x1b[2menter send · ctrl+j new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                       "
+16-light, keys at 60
+" \x1b[2menter send · ctrl+j new line · / commands · ctrl+o details\x1b[m "
+16-light, keys at 46
+" \x1b[2menter send · ctrl+j new line · / commands\x1b[m    "
+16-light, keys at 30
+" \x1b[2menter send · / commands\x1b[m      "
+16-light, keys with shift+enter at 100
+" \x1b[2menter send · shift+enter new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                  "
+16-light, keys with shift+enter at 60
+" \x1b[2menter send · shift+enter new line · / commands\x1b[m             "
+16-light, keys with shift+enter at 46
+" \x1b[2menter send · / commands\x1b[m                      "
+16-light, keys with shift+enter at 30
+" \x1b[2menter send · / commands\x1b[m      "
+16-light, palette at 100
+" \x1b[2ma line that starts with / is a command and is never sent to the contact\x1b[m                            "
+16-light, palette at 60
+" \x1b[2ma line that starts with / is a command and is never sent t…\x1b[m"
+16-light, palette at 46
+" \x1b[2ma line that starts with / is a command and i…\x1b[m"
+16-light, palette at 30
+" \x1b[2ma line that starts with / is…\x1b[m"
+16-light, note at 100
+" \x1b[1;35mnot sent: not connected\x1b[m                                                                            "
+16-light, note at 60
+" \x1b[1;35mnot sent: not connected\x1b[m                                    "
+16-light, note at 46
+" \x1b[1;35mnot sent: not connected\x1b[m                      "
+16-light, note at 30
+" \x1b[1;35mnot sent: not connected\x1b[m      "
+256-unknown, keys at 100
+" \x1b[38;5;244menter send · ctrl+j new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                       "
+256-unknown, keys at 60
+" \x1b[38;5;244menter send · ctrl+j new line · / commands · ctrl+o details\x1b[m "
+256-unknown, keys at 46
+" \x1b[38;5;244menter send · ctrl+j new line · / commands\x1b[m    "
+256-unknown, keys at 30
+" \x1b[38;5;244menter send · / commands\x1b[m      "
+256-unknown, keys with shift+enter at 100
+" \x1b[38;5;244menter send · shift+enter new line · / commands · ctrl+o details · ctrl+p contacts\x1b[m                  "
+256-unknown, keys with shift+enter at 60
+" \x1b[38;5;244menter send · shift+enter new line · / commands\x1b[m             "
+256-unknown, keys with shift+enter at 46
+" \x1b[38;5;244menter send · / commands\x1b[m                      "
+256-unknown, keys with shift+enter at 30
+" \x1b[38;5;244menter send · / commands\x1b[m      "
+256-unknown, palette at 100
+" \x1b[38;5;244ma line that starts with / is a command and is never sent to the contact\x1b[m                            "
+256-unknown, palette at 60
+" \x1b[38;5;244ma line that starts with / is a command and is never sent t…\x1b[m"
+256-unknown, palette at 46
+" \x1b[38;5;244ma line that starts with / is a command and i…\x1b[m"
+256-unknown, palette at 30
+" \x1b[38;5;244ma line that starts with / is…\x1b[m"
+256-unknown, note at 100
+" \x1b[38;5;100mnot sent: not connected\x1b[m                                                                            "
+256-unknown, note at 60
+" \x1b[38;5;100mnot sent: not connected\x1b[m                                    "
+256-unknown, note at 46
+" \x1b[38;5;100mnot sent: not connected\x1b[m                      "
+256-unknown, note at 30
+" \x1b[38;5;100mnot sent: not connected\x1b[m      "
+none-ascii, keys at 100
+" \x1b[2menter send | ctrl+j new line | / commands | ctrl+o details | ctrl+p contacts\x1b[m                       "
+none-ascii, keys at 60
+" \x1b[2menter send | ctrl+j new line | / commands | ctrl+o details\x1b[m "
+none-ascii, keys at 46
+" \x1b[2menter send | ctrl+j new line | / commands\x1b[m    "
+none-ascii, keys at 30
+" \x1b[2menter send | / commands\x1b[m      "
+none-ascii, keys with shift+enter at 100
+" \x1b[2menter send | shift+enter new line | / commands | ctrl+o details | ctrl+p contacts\x1b[m                  "
+none-ascii, keys with shift+enter at 60
+" \x1b[2menter send | shift+enter new line | / commands\x1b[m             "
+none-ascii, keys with shift+enter at 46
+" \x1b[2menter send | / commands\x1b[m                      "
+none-ascii, keys with shift+enter at 30
+" \x1b[2menter send | / commands\x1b[m      "
+none-ascii, palette at 100
+" \x1b[2ma line that starts with / is a command and is never sent to the contact\x1b[m                            "
+none-ascii, palette at 60
+" \x1b[2ma line that starts with / is a command and is never sent...\x1b[m"
+none-ascii, palette at 46
+" \x1b[2ma line that starts with / is a command and...\x1b[m"
+none-ascii, palette at 30
+" \x1b[2ma line that starts with / ...\x1b[m"
+none-ascii, note at 100
+" \x1b[1mnot sent: not connected\x1b[m                                                                            "
+none-ascii, note at 60
+" \x1b[1mnot sent: not connected\x1b[m                                    "
+none-ascii, note at 46
+" \x1b[1mnot sent: not connected\x1b[m                      "
+none-ascii, note at 30
+" \x1b[1mnot sent: not connected\x1b[m      "

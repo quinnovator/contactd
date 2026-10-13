@@ -1,0 +1,30 @@
+Mods                                                           ~/.config/contactd/mods · 3 on, 2 off
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+       MOD      VERSION ADDS                      │  diff 1.0.0                                     
+   [x] cache    0.3.1   segment · /stats          │  Draws a diff with its added and                
+ ▸ [ ] diff     1.0.0   failed                    │  removed lines marked.                          
+   [x] git      0.1.0   segment                   │                                                 
+   [ ] mermaid  0.1.2   renderer for code:mermaid │  ADDS                                           
+   [x] standup  0.2.0   /standup                  │  renderer code:diff   transcript                
+                                                  │                                                 
+ A MOD CAN ADD                                    │  MAY READ                                       
+ segment   one cell group in the status line      │  the last 20 messages, when you run             
+ command   a /name run from the input box         │    its command, and the items it draws          
+ renderer  how one kind of item is drawn          │  no network, no files                           
+                                                  │                                                 
+                                                  │  RUNS                                           
+                                                  │  sandboxed WebAssembly, in this process         
+                                                  │  5 ms for each update                           
+                                                  │  over budget three times in a row and           
+                                                  │  it is switched off, with a notice              
+                                                  │                                                 
+                                                  │  FAILED                                         
+                                                  │  the module imports env.draw, which no          
+                                                  │  mod may                                        
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+space on or off · enter details · i install from a path · u update                          esc back

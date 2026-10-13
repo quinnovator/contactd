@@ -1,0 +1,4 @@
+go test fuzz v1
+string("\x1b[00m0\xf0")
+int(-1)
+bool(true)

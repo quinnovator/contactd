@@ -150,6 +150,54 @@ linters:
               desc: nothing imports the API layer
             - pkg: github.com/quinnovator/contactd/internal/config
               desc: the client takes its own options; cmd/contactd maps flags onto them
+        # Inside the terminal client, four more lines. The packages that hold
+        # its rules (what a terminal can do, the files it reads, the commands,
+        # the status line, the mods, the pictures) draw nothing: they are
+        # tested without a screen, and the screens are built on them. depguard
+        # matches by prefix, so charm.land covers every package under it.
+        tui-leaves-draw-nothing:
+          files:
+            - "**/internal/tui/safe/**"
+            - "**/internal/tui/termcaps/**"
+            - "**/internal/tui/toml/**"
+            - "**/internal/tui/conf/**"
+            - "**/internal/tui/scrollback/**"
+            - "**/internal/tui/markdown/**"
+            - "**/internal/tui/commands/**"
+            - "**/internal/tui/statusline/**"
+            - "**/internal/tui/mods/**"
+            - "**/internal/tui/termimg/**"
+            - "!$test"
+          deny:
+            - pkg: charm.land
+              desc: this package holds rules, not screens; drawing belongs to theme, draw and the screen packages
+        # A mod runs in one place, behind one set of limits.
+        only-mods-run-wasm:
+          files:
+            - "**/internal/tui/**"
+            - "!**/internal/tui/mods/**"
+          deny:
+            - pkg: github.com/tetratelabs/wazero
+              desc: a mod is run by internal/tui/mods, which holds its sandbox and its budget
+        # The library under Bubble Tea is an unreleased version. What the
+        # client takes from it is the terminal's answers, in one file.
+        only-probe-knows-ultraviolet:
+          files:
+            - "**/internal/tui/**"
+            - "!**/internal/tui/probe.go"
+            - "!$test"
+          deny:
+            - pkg: github.com/charmbracelet/ultraviolet
+              desc: only probe.go reads the terminal library's own events; the rest goes through Bubble Tea
+        # The API serves a contact's files through a port. What opens them is
+        # handed in by cmd/contactd.
+        api-knows-ports:
+          files:
+            - "**/internal/api/*.go"
+            - "!$test"
+          deny:
+            - pkg: github.com/quinnovator/contactd/internal/env
+              desc: the API reaches a contact's files through its Files port; cmd/contactd wires the adapter in
         # The reducer is values in, values out: no I/O and no clock.
         transcript-is-pure:
           files:

@@ -26,6 +26,7 @@ import (
 	"github.com/quinnovator/contactd/internal/config"
 	"github.com/quinnovator/contactd/internal/env/remote"
 	"github.com/quinnovator/contactd/internal/env/wasm"
+	"github.com/quinnovator/contactd/internal/env/workdir"
 	"github.com/quinnovator/contactd/internal/eventlog"
 	"github.com/quinnovator/contactd/internal/infer"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
@@ -181,6 +182,18 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	turnDeps.Delegate = registry
 
 	server := api.New(store, registry, client, log)
+	// The API serves the files tools leave in tier-0 working directories.
+	// It runs without them: every file is then not found.
+	if dirs, derr := workdirs(cfg.FSRoot()); derr != nil {
+		log.Warn("not serving contacts' files", "fs_root", cfg.FSRoot(), "error", derr)
+	} else {
+		server.WithFiles(dirs)
+		cleanups = append(cleanups, func() {
+			if cerr := dirs.Close(); cerr != nil {
+				log.Error("close working directories", "error", cerr)
+			}
+		})
+	}
 	httpServer := &http.Server{
 		Handler:           server.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -272,6 +285,20 @@ func listenSocket(ctx context.Context, path string) (net.Listener, error) {
 		return nil, errors.Join(fmt.Errorf("restrict %s: %w", path, err), l.Close())
 	}
 	return l, nil
+}
+
+// workdirs opens the directory that holds the tier-0 working directories.
+// It makes the directory first: a server that has run no tool has none yet,
+// and may have no tier-0 runtime to make it.
+func workdirs(fsRoot string) (*workdir.Dirs, error) {
+	if err := os.MkdirAll(fsRoot, 0o700); err != nil { //nolint:gosec // G703: the operator chooses the data directory
+		return nil, fmt.Errorf("create working directories: %w", err)
+	}
+	dirs, err := workdir.Open(fsRoot)
+	if err != nil {
+		return nil, fmt.Errorf("open working directories: %w", err)
+	}
+	return dirs, nil
 }
 
 // summarizer picks the route for lazy episode summaries. A summary is a

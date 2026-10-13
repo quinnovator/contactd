@@ -1,0 +1,64 @@
+# the mock-up's line
+[image: latency.png, 640×360, 18 kB]
+[image: latency.png, 640x360, 18 kB]
+
+# an uncompressed 640x360 PNG
+[image: latency.png, 640×360, 692 kB]
+[image: latency.png, 640x360, 692 kB]
+
+# still loading
+[image: latency.png]
+[image: latency.png]
+
+# a size and no picture yet
+[image: a.gif, 512 B]
+[image: a.gif, 512 B]
+
+# under a kilobyte
+[image: dot.gif, 1×1, 999 B]
+[image: dot.gif, 1x1, 999 B]
+
+# a kilobyte is 1000 bytes
+[image: a.png, 640×360, 1 kB]
+[image: a.png, 640x360, 1 kB]
+
+# rounded to the nearest kilobyte
+[image: a.png, 640×360, 2 kB]
+[image: a.png, 640x360, 2 kB]
+
+# the last size in kilobytes
+[image: a.png, 640×360, 999 kB]
+[image: a.png, 640x360, 999 kB]
+
+# the first in megabytes
+[image: a.png, 640×360, 1.0 MB]
+[image: a.png, 640x360, 1.0 MB]
+
+# the largest file fetched
+[image: photo.jpeg, 4000×3000, 8.4 MB]
+[image: photo.jpeg, 4000x3000, 8.4 MB]
+
+# a name that is not ASCII
+[image: график.png, 640×360, 2 kB]
+[image: ??????.png, 640x360, 2 kB]
+
+# a name with escape sequences in it
+[image: a]0;ownedb[31m.png, 640×360, 2 kB]
+[image: a]0;ownedb[31m.png, 640x360, 2 kB]
+
+# a name made of image placeholders
+[image: ̅̅x.png]
+[image: ??x.png]
+
+# a name on two lines
+[image: a b.png]
+[image: a b.png]
+
+# no name
+[image: file]
+[image: file]
+
+# a name of control characters only
+[image: file]
+[image: file]
+

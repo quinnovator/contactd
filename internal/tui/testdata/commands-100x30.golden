@@ -1,0 +1,30 @@
+ada  deepseek/deepseek-flash                                                                  12 Oct
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+───────────────────────────────────────── Mon 12 Oct 2026 ──────────────────────────────────────────
+
+❯ show me the numbers for turn 7
+
+⏺ python
+    print(df[df.turn == 7][["input", "cached", "ms"]])
+  ⎿    input  cached    ms
+    7   3154    1536  5408
+
+  Turn 7 sent 3,154 tokens and 1,536 of them came from cache: 48%.
+
+
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ commands matching /st                                                                    5 of 23 │
+│ ▸ /statusline       choose a preset or edit the status line                                 core │
+│   /status           connection, route and cache for this contact                            core │
+│   /stop             stop the reply in flight (esc)                                          core │
+│   /standup          summarize yesterday for the team                                 mod standup │
+│   /stats            token use and cache share by day                                   mod cache │
+│ ↑↓ choose · tab complete · enter run · esc close                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ● live │ deepseek-flash │ cache 82% │ 3.7k tok │ 7.2s                                        12:11 
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ❯ /statusline  preset | edit                                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ a line that starts with / is a command and is never sent to the contact                            

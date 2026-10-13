@@ -1,0 +1,40 @@
+truecolor-dark at 100
+"\x1b[1mada\x1b[m\x1b[38;2;127;138;145m  deepseek/deepseek-flash\x1b[m                                                          \x1b[38;2;127;138;145m7 Oct – 12 Oct\x1b[m"
+truecolor-dark at 79
+"\x1b[1mada\x1b[m\x1b[38;2;127;138;145m  deepseek-flash\x1b[m                                                   \x1b[38;2;127;138;145mcache 82%\x1b[m"
+truecolor-dark at 46
+"\x1b[1mada\x1b[m\x1b[38;2;127;138;145m  deepseek-flash\x1b[m                  \x1b[38;2;127;138;145mcache 82%\x1b[m"
+truecolor-dark at 39
+"\x1b[1mada\x1b[m                                 \x1b[38;2;127;138;145m82%\x1b[m"
+truecolor-dark at 30
+"\x1b[1mada\x1b[m                        \x1b[38;2;127;138;145m82%\x1b[m"
+16-light at 100
+"\x1b[1mada\x1b[m\x1b[2m  deepseek/deepseek-flash\x1b[m                                                          \x1b[2m7 Oct – 12 Oct\x1b[m"
+16-light at 79
+"\x1b[1mada\x1b[m\x1b[2m  deepseek-flash\x1b[m                                                   \x1b[2mcache 82%\x1b[m"
+16-light at 46
+"\x1b[1mada\x1b[m\x1b[2m  deepseek-flash\x1b[m                  \x1b[2mcache 82%\x1b[m"
+16-light at 39
+"\x1b[1mada\x1b[m                                 \x1b[2m82%\x1b[m"
+16-light at 30
+"\x1b[1mada\x1b[m                        \x1b[2m82%\x1b[m"
+256-unknown at 100
+"\x1b[1mada\x1b[m\x1b[38;5;244m  deepseek/deepseek-flash\x1b[m                                                          \x1b[38;5;244m7 Oct – 12 Oct\x1b[m"
+256-unknown at 79
+"\x1b[1mada\x1b[m\x1b[38;5;244m  deepseek-flash\x1b[m                                                   \x1b[38;5;244mcache 82%\x1b[m"
+256-unknown at 46
+"\x1b[1mada\x1b[m\x1b[38;5;244m  deepseek-flash\x1b[m                  \x1b[38;5;244mcache 82%\x1b[m"
+256-unknown at 39
+"\x1b[1mada\x1b[m                                 \x1b[38;5;244m82%\x1b[m"
+256-unknown at 30
+"\x1b[1mada\x1b[m                        \x1b[38;5;244m82%\x1b[m"
+none-ascii at 100
+"\x1b[1mada\x1b[m\x1b[2m  deepseek/deepseek-flash\x1b[m                                                          \x1b[2m7 Oct - 12 Oct\x1b[m"
+none-ascii at 79
+"\x1b[1mada\x1b[m\x1b[2m  deepseek-flash\x1b[m                                                   \x1b[2mcache 82%\x1b[m"
+none-ascii at 46
+"\x1b[1mada\x1b[m\x1b[2m  deepseek-flash\x1b[m                  \x1b[2mcache 82%\x1b[m"
+none-ascii at 39
+"\x1b[1mada\x1b[m                                 \x1b[2m82%\x1b[m"
+none-ascii at 30
+"\x1b[1mada\x1b[m                        \x1b[2m82%\x1b[m"

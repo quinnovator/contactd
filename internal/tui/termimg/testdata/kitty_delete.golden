@@ -1,0 +1,10 @@
+# direct
+"\x1b_Ga=d,d=I,i=7,q=2\x1b\\"
+# the largest id
+"\x1b_Ga=d,d=I,i=255,q=2\x1b\\"
+# through tmux
+"\x1bPtmux;\x1b\x1b_Ga=d,d=I,i=7,q=2\x1b\x1b\\\x1b\\"
+# id zero
+""
+# id 256
+""

@@ -1,0 +1,31 @@
+truecolor/dark
+"\x1b[38;2;94;196;200;1m## \x1b[m\x1b[38;2;94;196;200;1mFix\x1b[m                                                      "
+"                                                            "
+"Put the time note after the tool steps:                     "
+"                                                            "
+"\x1b[38;2;230;237;243mliveMsgs\x1b[0m\x1b[38;2;230;237;243m \x1b[0m\x1b[38;2;230;237;243m=\x1b[0m\x1b[38;2;230;237;243m \x1b[0m\x1b[38;2;230;237;243mappend\x1b[0m\x1b[38;2;230;237;243m(\x1b[0m\x1b[38;2;230;237;243mliveMsgs\x1b[0m\x1b[38;2;230;237;243m,\x1b[0m\x1b[38;2;230;237;243m \x1b[0m\x1b[38;2;230;237;243mtoolSteps\x1b[0m\x1b[1m\x1b[38;2;255;123;114m...\x1b[0m\x1b[38;2;230;237;243m)\x1b[0m\x1b[38;2;230;237;243m \x1b[0m\x1b[3m\x1b[38;2;139;148;158m// then the note\x1b[m  "
+"\x1b[3;38;2;139;148;158m\x1b[m\x1b[3;38;2;139;148;158m\x1b[0m"
+
+truecolor/light
+"\x1b[38;2;15;111;119;1m## \x1b[m\x1b[38;2;15;111;119;1mFix\x1b[m                                                      "
+"                                                            "
+"Put the time note after the tool steps:                     "
+"                                                            "
+"liveMsgs = \x1b[38;2;0;134;179mappend\x1b[0m(liveMsgs, toolSteps\x1b[1m\x1b[38;2;0;0;0m...\x1b[0m) \x1b[3m\x1b[38;2;153;153;136m// then the note\x1b[m  "
+"\x1b[3;38;2;153;153;136m\x1b[m\x1b[3;38;2;153;153;136m\x1b[0m"
+
+256/dark
+"\x1b[38;5;80;1m## \x1b[m\x1b[38;5;80;1mFix\x1b[m                                                      "
+"                                                            "
+"Put the time note after the tool steps:                     "
+"                                                            "
+"\x1b[38;5;255mliveMsgs\x1b[0m\x1b[38;5;255m \x1b[0m\x1b[38;5;255m=\x1b[0m\x1b[38;5;255m \x1b[0m\x1b[38;5;255mappend\x1b[0m\x1b[38;5;255m(\x1b[0m\x1b[38;5;255mliveMsgs\x1b[0m\x1b[38;5;255m,\x1b[0m\x1b[38;5;255m \x1b[0m\x1b[38;5;255mtoolSteps\x1b[0m\x1b[1m\x1b[38;5;209m...\x1b[0m\x1b[38;5;255m)\x1b[0m\x1b[38;5;255m \x1b[0m\x1b[3m\x1b[38;5;246m// then the note\x1b[m  "
+"\x1b[3;38;5;246m\x1b[m\x1b[3;38;5;246m\x1b[0m"
+
+16/dark
+"\x1b[36;1m## \x1b[m\x1b[36;1mFix\x1b[m                                                      "
+"                                                            "
+"Put the time note after the tool steps:                     "
+"                                                            "
+"liveMsgs = append(liveMsgs, toolSteps...) // then the note  "
+""

@@ -1,0 +1,9 @@
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ commands matching /st                                                                    5 of 23 │
+│ ▸ /statusline       choose a preset or edit the status line                                 core │
+│   /status           connection, route and cache for this contact                            core │
+│   /stop             stop the reply in flight (esc)                                          core │
+│   /standup          summarize yesterday for the team                                 mod standup │
+│   /stats            token use and cache share by day                                   mod cache │
+│ ↑↓ choose · tab complete · enter run · esc close                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯

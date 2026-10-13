@@ -1,0 +1,30 @@
+Status line                                                       ~/.config/contactd/statusline.toml|
+────────────────────────────────────────────────────────────────────────────────────────────────────|
+     SEGMENT    SHOWS               SIDE   FROM   21/40 │  s8|
+ [x] contact    ada                 left   core         │  command     "echo 8"|
+ [x] route      deepseek-flash      left   core         │  match       none|
+ [x] cache      cache 82%           left   core         │  format      "$out"|
+ [x] tokens     3.7k tok            left   core         │  short       none|
+ [x] latency    7.2s                left   core         │  warn below  none|
+ [x] activity   running python      right  core         │  drop order  never|
+ [x] stop       esc stop            right  core         │  interval    "10s"|
+ [x] scroll     ↓ newer             right  core         │  timeout     "1s"|
+ [x] agents     1 sub-agent         right  core         │|
+ [ ] load       load 0.42           right  shell        │  A shell segment runs a command|
+ [x] clock      12:04               right  core         │  on an interval, off the UI loop.|
+ [x] s0         0.42                left   shell        │|
+ [ ] s1         0.42                right  shell        │|
+ [x] s2         0.42                left   shell        │|
+ [ ] s3         0.42                right  shell        │|
+ [x] s4         0.42                left   shell        │|
+ [ ] s5         0.42                right  shell        │|
+ [x] s6         0.42                left   shell        │|
+ [ ] s7         0.42                right  shell        │|
+ [x] s8         0.42                left   shell        │|
+PREVIEW|
+100 columns  ● live │ ada │ cache 82% │ 7.2s │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42      …|
+60 columns   ● live │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42    |
+            ----------------------------------------------------------------------------------------|
+no colour    * live | ada | cache 82% | 7.2s | 0.42 | 0.42 | 0.42 | 0.42 | 0.42 | 0.42 | 0.42    ...|
+presets  minimal  default  ops|
+space toggle · ←→ side · J K reorder · e edit · a add · d delete · p preset · s save · esc back|

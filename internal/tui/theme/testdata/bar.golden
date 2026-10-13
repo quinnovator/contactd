@@ -1,0 +1,128 @@
+truecolor/dark unicode, filled true
+"\x1b[48;2;27;33;38m \x1b[38;2;125;195;143m● live\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m deepseek-flash \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;217;178;92mcache 48%\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m 3.2k tok \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m 5.4s            \x1b[38;2;110;168;230mrunning python\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145mesc stop\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m 12:06 \x1b[m"
+"\x1b[48;2;27;33;38m\x1b[38;2;125;195;143m● live\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m cache 82% \x1b[38;2;127;138;145m│\x1b[m\x1b[48;2;27;33;38m 7.2s                12:04\x1b[m"
+
+truecolor/dark ascii, filled true
+"\x1b[48;2;27;33;38m \x1b[38;2;125;195;143m* live\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m deepseek-flash \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;217;178;92mcache 48%\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m 3.2k tok \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m 5.4s            \x1b[38;2;110;168;230mrunning python\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145mesc stop\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m 12:06 \x1b[m"
+"\x1b[48;2;27;33;38m\x1b[38;2;125;195;143m* live\x1b[m\x1b[48;2;27;33;38m \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m cache 82% \x1b[38;2;127;138;145m|\x1b[m\x1b[48;2;27;33;38m 7.2s                12:04\x1b[m"
+
+truecolor/light unicode, filled true
+"\x1b[48;2;236;233;223m \x1b[38;2;44;115;65m● live\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m deepseek-flash \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;138;97;0mcache 48%\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m 3.2k tok \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m 5.4s            \x1b[38;2;42;92;171mrunning python\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116mesc stop\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m 12:06 \x1b[m"
+"\x1b[48;2;236;233;223m\x1b[38;2;44;115;65m● live\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m cache 82% \x1b[38;2;99;108;116m│\x1b[m\x1b[48;2;236;233;223m 7.2s                12:04\x1b[m"
+
+truecolor/light ascii, filled true
+"\x1b[48;2;236;233;223m \x1b[38;2;44;115;65m* live\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m deepseek-flash \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;138;97;0mcache 48%\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m 3.2k tok \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m 5.4s            \x1b[38;2;42;92;171mrunning python\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116mesc stop\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m 12:06 \x1b[m"
+"\x1b[48;2;236;233;223m\x1b[38;2;44;115;65m* live\x1b[m\x1b[48;2;236;233;223m \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m cache 82% \x1b[38;2;99;108;116m|\x1b[m\x1b[48;2;236;233;223m 7.2s                12:04\x1b[m"
+
+truecolor/unknown unicode, filled false
+"\x1b[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────\x1b[m"
+" \x1b[38;5;65m● live\x1b[m \x1b[38;5;244m│\x1b[m deepseek-flash \x1b[38;5;244m│\x1b[m \x1b[38;5;100mcache 48%\x1b[m \x1b[38;5;244m│\x1b[m 3.2k tok \x1b[38;5;244m│\x1b[m 5.4s            \x1b[38;5;67mrunning python\x1b[m \x1b[38;5;244m│\x1b[m \x1b[38;5;244mesc stop\x1b[m \x1b[38;5;244m│\x1b[m 12:06 "
+"\x1b[38;5;244m──────────────────────────────────────────────\x1b[m"
+"\x1b[38;5;65m● live\x1b[m \x1b[38;5;244m│\x1b[m cache 82% \x1b[38;5;244m│\x1b[m 7.2s                12:04"
+
+truecolor/unknown ascii, filled false
+"\x1b[38;5;244m----------------------------------------------------------------------------------------------------\x1b[m"
+" \x1b[38;5;65m* live\x1b[m \x1b[38;5;244m|\x1b[m deepseek-flash \x1b[38;5;244m|\x1b[m \x1b[38;5;100mcache 48%\x1b[m \x1b[38;5;244m|\x1b[m 3.2k tok \x1b[38;5;244m|\x1b[m 5.4s            \x1b[38;5;67mrunning python\x1b[m \x1b[38;5;244m|\x1b[m \x1b[38;5;244mesc stop\x1b[m \x1b[38;5;244m|\x1b[m 12:06 "
+"\x1b[38;5;244m----------------------------------------------\x1b[m"
+"\x1b[38;5;65m* live\x1b[m \x1b[38;5;244m|\x1b[m cache 82% \x1b[38;5;244m|\x1b[m 7.2s                12:04"
+
+256/dark unicode, filled true
+"\x1b[48;5;235m \x1b[38;5;114m● live\x1b[m\x1b[48;5;235m \x1b[38;5;244m│\x1b[m\x1b[48;5;235m deepseek-flash \x1b[38;5;244m│\x1b[m\x1b[48;5;235m \x1b[38;5;179mcache 48%\x1b[m\x1b[48;5;235m \x1b[38;5;244m│\x1b[m\x1b[48;5;235m 3.2k tok \x1b[38;5;244m│\x1b[m\x1b[48;5;235m 5.4s            \x1b[38;5;75mrunning python\x1b[m\x1b[48;5;235m \x1b[38;5;244m│\x1b[m\x1b[48;5;235m \x1b[38;5;244mesc stop\x1b[m\x1b[48;5;235m \x1b[38;5;244m│\x1b[m\x1b[48;5;235m 12:06 \x1b[m"
+"\x1b[48;5;235m\x1b[38;5;114m● live\x1b[m\x1b[48;5;235m \x1b[38;5;244m│\x1b[m\x1b[48;5;235m cache 82% \x1b[38;5;244m│\x1b[m\x1b[48;5;235m 7.2s                12:04\x1b[m"
+
+256/dark ascii, filled true
+"\x1b[48;5;235m \x1b[38;5;114m* live\x1b[m\x1b[48;5;235m \x1b[38;5;244m|\x1b[m\x1b[48;5;235m deepseek-flash \x1b[38;5;244m|\x1b[m\x1b[48;5;235m \x1b[38;5;179mcache 48%\x1b[m\x1b[48;5;235m \x1b[38;5;244m|\x1b[m\x1b[48;5;235m 3.2k tok \x1b[38;5;244m|\x1b[m\x1b[48;5;235m 5.4s            \x1b[38;5;75mrunning python\x1b[m\x1b[48;5;235m \x1b[38;5;244m|\x1b[m\x1b[48;5;235m \x1b[38;5;244mesc stop\x1b[m\x1b[48;5;235m \x1b[38;5;244m|\x1b[m\x1b[48;5;235m 12:06 \x1b[m"
+"\x1b[48;5;235m\x1b[38;5;114m* live\x1b[m\x1b[48;5;235m \x1b[38;5;244m|\x1b[m\x1b[48;5;235m cache 82% \x1b[38;5;244m|\x1b[m\x1b[48;5;235m 7.2s                12:04\x1b[m"
+
+256/light unicode, filled true
+"\x1b[48;5;254m \x1b[38;5;28m● live\x1b[m\x1b[48;5;254m \x1b[38;5;242m│\x1b[m\x1b[48;5;254m deepseek-flash \x1b[38;5;242m│\x1b[m\x1b[48;5;254m \x1b[38;5;94mcache 48%\x1b[m\x1b[48;5;254m \x1b[38;5;242m│\x1b[m\x1b[48;5;254m 3.2k tok \x1b[38;5;242m│\x1b[m\x1b[48;5;254m 5.4s            \x1b[38;5;25mrunning python\x1b[m\x1b[48;5;254m \x1b[38;5;242m│\x1b[m\x1b[48;5;254m \x1b[38;5;242mesc stop\x1b[m\x1b[48;5;254m \x1b[38;5;242m│\x1b[m\x1b[48;5;254m 12:06 \x1b[m"
+"\x1b[48;5;254m\x1b[38;5;28m● live\x1b[m\x1b[48;5;254m \x1b[38;5;242m│\x1b[m\x1b[48;5;254m cache 82% \x1b[38;5;242m│\x1b[m\x1b[48;5;254m 7.2s                12:04\x1b[m"
+
+256/light ascii, filled true
+"\x1b[48;5;254m \x1b[38;5;28m* live\x1b[m\x1b[48;5;254m \x1b[38;5;242m|\x1b[m\x1b[48;5;254m deepseek-flash \x1b[38;5;242m|\x1b[m\x1b[48;5;254m \x1b[38;5;94mcache 48%\x1b[m\x1b[48;5;254m \x1b[38;5;242m|\x1b[m\x1b[48;5;254m 3.2k tok \x1b[38;5;242m|\x1b[m\x1b[48;5;254m 5.4s            \x1b[38;5;25mrunning python\x1b[m\x1b[48;5;254m \x1b[38;5;242m|\x1b[m\x1b[48;5;254m \x1b[38;5;242mesc stop\x1b[m\x1b[48;5;254m \x1b[38;5;242m|\x1b[m\x1b[48;5;254m 12:06 \x1b[m"
+"\x1b[48;5;254m\x1b[38;5;28m* live\x1b[m\x1b[48;5;254m \x1b[38;5;242m|\x1b[m\x1b[48;5;254m cache 82% \x1b[38;5;242m|\x1b[m\x1b[48;5;254m 7.2s                12:04\x1b[m"
+
+256/unknown unicode, filled false
+"\x1b[38;5;244m────────────────────────────────────────────────────────────────────────────────────────────────────\x1b[m"
+" \x1b[38;5;65m● live\x1b[m \x1b[38;5;244m│\x1b[m deepseek-flash \x1b[38;5;244m│\x1b[m \x1b[38;5;100mcache 48%\x1b[m \x1b[38;5;244m│\x1b[m 3.2k tok \x1b[38;5;244m│\x1b[m 5.4s            \x1b[38;5;67mrunning python\x1b[m \x1b[38;5;244m│\x1b[m \x1b[38;5;244mesc stop\x1b[m \x1b[38;5;244m│\x1b[m 12:06 "
+"\x1b[38;5;244m──────────────────────────────────────────────\x1b[m"
+"\x1b[38;5;65m● live\x1b[m \x1b[38;5;244m│\x1b[m cache 82% \x1b[38;5;244m│\x1b[m 7.2s                12:04"
+
+256/unknown ascii, filled false
+"\x1b[38;5;244m----------------------------------------------------------------------------------------------------\x1b[m"
+" \x1b[38;5;65m* live\x1b[m \x1b[38;5;244m|\x1b[m deepseek-flash \x1b[38;5;244m|\x1b[m \x1b[38;5;100mcache 48%\x1b[m \x1b[38;5;244m|\x1b[m 3.2k tok \x1b[38;5;244m|\x1b[m 5.4s            \x1b[38;5;67mrunning python\x1b[m \x1b[38;5;244m|\x1b[m \x1b[38;5;244mesc stop\x1b[m \x1b[38;5;244m|\x1b[m 12:06 "
+"\x1b[38;5;244m----------------------------------------------\x1b[m"
+"\x1b[38;5;65m* live\x1b[m \x1b[38;5;244m|\x1b[m cache 82% \x1b[38;5;244m|\x1b[m 7.2s                12:04"
+
+16/dark unicode, filled false
+"\x1b[2m────────────────────────────────────────────────────────────────────────────────────────────────────\x1b[m"
+" \x1b[32m● live\x1b[m \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[33mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            \x1b[34mrunning python\x1b[m \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"\x1b[2m──────────────────────────────────────────────\x1b[m"
+"\x1b[32m● live\x1b[m \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+16/dark ascii, filled false
+"\x1b[2m----------------------------------------------------------------------------------------------------\x1b[m"
+" \x1b[32m* live\x1b[m \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[33mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            \x1b[34mrunning python\x1b[m \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"\x1b[2m----------------------------------------------\x1b[m"
+"\x1b[32m* live\x1b[m \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+
+16/light unicode, filled false
+"\x1b[2m────────────────────────────────────────────────────────────────────────────────────────────────────\x1b[m"
+" ● live \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[1;35mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            \x1b[35mrunning python\x1b[m \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"\x1b[2m──────────────────────────────────────────────\x1b[m"
+"● live \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+16/light ascii, filled false
+"\x1b[2m----------------------------------------------------------------------------------------------------\x1b[m"
+" * live \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[1;35mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            \x1b[35mrunning python\x1b[m \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"\x1b[2m----------------------------------------------\x1b[m"
+"* live \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+
+16/unknown unicode, filled false
+"\x1b[2m────────────────────────────────────────────────────────────────────────────────────────────────────\x1b[m"
+" ● live \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            running python \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"\x1b[2m──────────────────────────────────────────────\x1b[m"
+"● live \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+16/unknown ascii, filled false
+"\x1b[2m----------------------------------------------------------------------------------------------------\x1b[m"
+" * live \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            running python \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"\x1b[2m----------------------------------------------\x1b[m"
+"* live \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+
+none/dark unicode, filled false
+"────────────────────────────────────────────────────────────────────────────────────────────────────"
+" ● live \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            running python \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"──────────────────────────────────────────────"
+"● live \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+none/dark ascii, filled false
+"----------------------------------------------------------------------------------------------------"
+" * live \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            running python \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"----------------------------------------------"
+"* live \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+
+none/light unicode, filled false
+"────────────────────────────────────────────────────────────────────────────────────────────────────"
+" ● live \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            running python \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"──────────────────────────────────────────────"
+"● live \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+none/light ascii, filled false
+"----------------------------------------------------------------------------------------------------"
+" * live \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            running python \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"----------------------------------------------"
+"* live \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+
+none/unknown unicode, filled false
+"────────────────────────────────────────────────────────────────────────────────────────────────────"
+" ● live \x1b[2m│\x1b[m deepseek-flash \x1b[2m│\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m│\x1b[m 3.2k tok \x1b[2m│\x1b[m 5.4s            running python \x1b[2m│\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m│\x1b[m 12:06 "
+"──────────────────────────────────────────────"
+"● live \x1b[2m│\x1b[m cache 82% \x1b[2m│\x1b[m 7.2s                12:04"
+
+none/unknown ascii, filled false
+"----------------------------------------------------------------------------------------------------"
+" * live \x1b[2m|\x1b[m deepseek-flash \x1b[2m|\x1b[m \x1b[1mcache 48%\x1b[m \x1b[2m|\x1b[m 3.2k tok \x1b[2m|\x1b[m 5.4s            running python \x1b[2m|\x1b[m \x1b[2mesc stop\x1b[m \x1b[2m|\x1b[m 12:06 "
+"----------------------------------------------"
+"* live \x1b[2m|\x1b[m cache 82% \x1b[2m|\x1b[m 7.2s                12:04"
+

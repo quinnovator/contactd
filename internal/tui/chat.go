@@ -2,21 +2,27 @@ package tui
 
 import (
 	"fmt"
-	"slices"
-	"strconv"
+	"hash/fnv"
+	"math"
 	"strings"
 	"time"
+	"unicode"
 
-	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textarea"
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/quinnovator/contactd/internal/client"
 	"github.com/quinnovator/contactd/internal/core"
 	"github.com/quinnovator/contactd/internal/transcript"
+	"github.com/quinnovator/contactd/internal/tui/commands"
+	"github.com/quinnovator/contactd/internal/tui/draw"
+	"github.com/quinnovator/contactd/internal/tui/frame"
+	"github.com/quinnovator/contactd/internal/tui/inputbox"
+	"github.com/quinnovator/contactd/internal/tui/mods/wire"
+	"github.com/quinnovator/contactd/internal/tui/palette"
+	"github.com/quinnovator/contactd/internal/tui/safe"
+	"github.com/quinnovator/contactd/internal/tui/scrollback"
+	"github.com/quinnovator/contactd/internal/tui/statusline"
+	"github.com/quinnovator/contactd/internal/tui/theme"
 )
 
 const (
@@ -27,89 +33,444 @@ const (
 	typingEvery = 400 * time.Millisecond
 	// scrollStep is how far an arrow key moves the conversation.
 	scrollStep = 3
+	// cachedLines is how many drawn lines the transcript window keeps
+	// besides the ones in view.
+	cachedLines = 4000
 )
 
+// The kinds of block in the transcript, the Kind of a block's key.
+const (
+	blockBeginning uint8 = iota + 1
+	blockDay
+	blockItem
+	blockFailure
+	blockPending
+	blockLocal
+)
+
+// What a draft that cannot be sent or run is answered with.
+const (
+	noteRefused = "not sent: a draft that starts with / is a command; start with // to send it"
+	noteUnknown = "; /help lists them; start with // to send it"
+)
+
+// toneDone is the tone of a note that says something was done.
+const toneDone = "ok"
+
+// region names a part of the chat screen that has to be drawn again.
+type region uint8
+
+const (
+	dirtyHeader region = 1 << iota
+	// dirtyTail is the turn in flight, under the last block. dirtyBody is
+	// the transcript's rows: what the window shows of the blocks and the
+	// tail.
+	dirtyTail
+	dirtyBody
+	dirtyPalette
+	dirtyBar
+	dirtyInput
+	dirtyHint
+
+	dirtyAll = dirtyHeader | dirtyTail | dirtyBody | dirtyPalette | dirtyBar | dirtyInput | dirtyHint
+)
+
+// block is one entry of the transcript's list: an item, a message still on
+// its way, a rule, or what a command printed.
+type block struct {
+	key scrollback.Key
+	rev uint64
+	gap int
+	// item is the index of the block's item among the transcript's, or of
+	// what a command printed among the chat's local blocks.
+	item int
+	// ts is a time on a day rule's day, or the time of an item, in unix ms.
+	ts int64
+	// text is a pending message.
+	text string
+}
+
+// blockList is the transcript as the window sees it: a list of blocks, of
+// which it asks for the lines of the few in view. It is built again, without
+// drawing anything, whenever the settled part of the conversation changes.
+type blockList struct {
+	blocks []block
+	index  map[scrollback.Key]int
+	// items is the transcript's own slice, as it was when the list was
+	// built. locals is the chat's: what commands printed.
+	items  []transcript.Item
+	locals []local
+	// rd draws a block. It is made for one width, theme and expansion.
+	rd *draw.Renderer
+}
+
+// Len implements scrollback.Source.
+func (l *blockList) Len() int { return len(l.blocks) }
+
+// Key implements scrollback.Source.
+func (l *blockList) Key(i int) scrollback.Key { return l.blocks[i].key }
+
+// Rev implements scrollback.Source.
+func (l *blockList) Rev(i int) uint64 { return l.blocks[i].rev }
+
+// Gap implements scrollback.Source.
+func (l *blockList) Gap(i int) int { return l.blocks[i].gap }
+
+// Index implements scrollback.Source.
+func (l *blockList) Index(k scrollback.Key) (int, bool) {
+	i, ok := l.index[k]
+	return i, ok
+}
+
+// Lines implements scrollback.Source. The width is the renderer's own: the
+// chat makes a renderer for the new width before the window hears of it.
+func (l *blockList) Lines(i, _ int) []string {
+	b := &l.blocks[i]
+	switch b.key.Kind {
+	case blockBeginning:
+		return l.rd.Beginning()
+	case blockDay:
+		return l.rd.Day(b.ts)
+	case blockItem, blockFailure:
+		return l.rd.Item(&l.items[b.item])
+	case blockPending:
+		return l.rd.Pending(b.text)
+	case blockLocal:
+		return l.rd.Local(l.locals[b.item].title, l.locals[b.item].lines)
+	default:
+		return nil
+	}
+}
+
+// add puts a block at the end of the list. A key is never used twice: a
+// block that would repeat one takes the next free Sub.
+func (l *blockList) add(b block) {
+	for {
+		if _, taken := l.index[b.key]; !taken {
+			break
+		}
+		b.key.Sub++
+	}
+	l.index[b.key] = len(l.blocks)
+	l.blocks = append(l.blocks, b)
+}
+
+// sent is a message on its way, with the number its block is known by. The
+// number stays with the message, so the view does not move when an earlier
+// message arrives.
+type sent struct {
+	id   uint64
+	text string
+}
+
+// local is what a command printed into the conversation: the answer of
+// /help or /status. It is the chat's own and never in the log. It stands
+// after the item that was the newest when it was made, and stays there.
+type local struct {
+	id uint64
+	// after is the sequence number of the newest item there was.
+	after uint64
+	title string
+	lines []wire.Line
+}
+
 // chat is one open conversation: the transcript, the session that feeds it,
-// and the box a message is written in.
+// the window on the transcript, and the box a message or a command is
+// written in.
 type chat struct {
 	contact client.Contact
 	sess    Session
 	tr      transcript.Transcript
 
-	input textarea.Model
-	view  viewport.Model
+	th  *theme.Theme
+	loc *time.Location
+	// bar is the status line's configuration, and extra what its shell and
+	// mod segments have to show, by Segment.ID. Both are the model's.
+	bar   statusline.Config
+	extra map[string]statusline.Value
+	// label, provider and model are the contact's, safe to draw.
+	label, provider, model string
 
-	state    client.State
-	stateErr error
+	input *inputbox.Model
+	// cmds is every command there is, and pal the list of them shown while
+	// one is being typed.
+	cmds *commands.Registry
+	pal  *palette.Model
+	win  *scrollback.Window
+	list blockList
+	// drawn is what the list's renderer was made with.
+	drawn draw.Options
+
+	state client.State
+	// stateErr says why the connection is down, safe to draw.
+	stateErr string
 	// start means the beginning of the log has been read: there is nothing
 	// older to load.
 	start        bool
 	loadingOlder bool
 	expanded     bool
-	// note is a line for the person, shown until their next keypress.
-	note       string
-	lastTyping time.Time
+	// note is a line for the person, shown in place of the key hints until
+	// their next keypress, and noteTone the tone it is drawn in.
+	note, noteTone string
+	lastTyping     time.Time
 
-	// What was last drawn, so that a reply streaming in redraws only itself.
-	settled     []string
-	settledRev  uint64
-	settledFor  drawnFor
-	drawnOldest uint64
-	blocks      map[blockKey]string
+	// pending are the messages on their way, in the order they were sent.
+	pending  []sent
+	nextSent uint64
+	// locals are what commands printed, in the order they were made.
+	locals    []local
+	nextLocal uint64
+	// What the block list was last built from, and how often it was built.
+	listRev    uint64
+	listStart  bool
+	listLocals int
+	listBuilt  bool
+	rebuilds   int
+	// waiting is how many sub-agents the contact waits for.
+	waiting int
+	// turns counts the turns that ended while the conversation was open.
+	turns uint64
+	// renders has what the mods drew of this conversation, and imgs the
+	// pictures its replies name.
+	renders *renders
+	imgs    *images
+
+	// toolSince is when the running tool started, and ticking says a tick
+	// is on its way to draw its time again.
+	toolSince time.Time
+	ticking   bool
+
+	width, height int
+	rows          frame.Rows
+
+	// What was last drawn. dirty names the regions that are stale; snap and
+	// info are what the bar and the header were drawn from.
+	dirty region
+	reg   frame.Regions
+	snap  statusline.Snapshot
+	info  frame.HeaderInfo
+	view  tea.View
 }
 
-// drawnFor is everything besides the transcript that the drawn lines depend
-// on.
-type drawnFor struct {
-	width    int
-	expanded bool
-	dark     bool
-}
-
-// blockKey identifies one drawn item. An item's text is replaced only by
-// the log's account of the same event, so its length stands in for it.
-type blockKey struct {
-	seq, ts  uint64
-	kind     transcript.Kind
-	size     int
-	isError  bool
-	cutShort bool
-}
-
-func newChat(c client.Contact, sess Session, dark bool) *chat {
-	in := textarea.New()
-	in.SetPromptFunc(2, promptMark)
-	in.Placeholder = "Message " + c.Label()
-	in.ShowLineNumbers = false
-	in.DynamicHeight = true
-	in.MinHeight = 1
-	in.MaxHeight = 8
-	in.CharLimit = 0
-	// Enter sends, so a new line needs another key.
-	in.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "shift+enter", "ctrl+j"))
-	st := textarea.DefaultStyles(dark)
-	st.Focused.CursorLine = lipgloss.NewStyle()
-	st.Focused.Base = lipgloss.NewStyle()
-	st.Focused.Prompt = newStyles().you
-	in.SetStyles(st)
-	in.Focus()
-
-	vp := viewport.New()
-	vp.SoftWrap = false
-	vp.KeyMap = viewport.KeyMap{} // keys are routed by hand: the input box has first call on them
-	return &chat{contact: c, sess: sess, input: in, view: vp, state: client.StateConnecting, blocks: make(map[blockKey]string)}
-}
-
-// promptMark marks the first line of a box, and only the first.
-func promptMark(info textarea.PromptInfo) string {
-	if info.LineNumber == 0 {
-		return "❯ "
+func newChat(
+	c client.Contact, sess Session, th *theme.Theme, loc *time.Location, bar statusline.Config, cmds *commands.Registry,
+	imgs *images,
+) *chat {
+	ch := &chat{
+		sess: sess, th: th, loc: loc, bar: bar,
+		cmds: cmds, pal: palette.New(),
+		state:   client.StateConnecting,
+		win:     scrollback.New(cachedLines),
+		list:    blockList{index: make(map[scrollback.Key]int)},
+		renders: &renders{got: make(map[renderKey]*rendered)},
+		imgs:    imgs,
+		width:   80, height: 24,
+		dirty: dirtyAll,
 	}
-	return "  "
+	ch.name(c)
+	ch.input = inputbox.New(th, "Message "+ch.label)
+	ch.drawn = ch.drawOptions()
+	ch.list.rd = draw.New(ch.drawn)
+	ch.layout()
+	return ch
 }
 
-// apply folds one update from the session into the conversation.
+// name takes what the server says about the contact: what it is called and
+// what serves it, made safe to draw.
+func (c *chat) name(contact client.Contact) {
+	c.contact = contact
+	c.label = safe.Line(contact.Label(), 256, false)
+	c.provider, c.model = safe.Line(contact.Provider, 256, false), safe.Line(contact.Model, 256, false)
+}
+
+// renamed is called when the contact has a new name. The header, the title
+// and the empty box all say it.
+func (c *chat) renamed(contact client.Contact) {
+	c.name(contact)
+	draft := c.input.Value()
+	c.input = inputbox.New(c.th, "Message "+c.label)
+	c.input.SetValue(draft)
+	c.inputChanged()
+	c.dirty = dirtyAll
+}
+
+// drawOptions are what the blocks are drawn with right now.
+func (c *chat) drawOptions() draw.Options {
+	cols, rows := frame.ImageBox(c.width, c.height)
+	return draw.Options{
+		Theme: c.th, Width: max(c.width, 1), Expanded: c.expanded, Location: c.loc,
+		Images: c.imgs, Mods: c.renders,
+		MaxCols: cols, MaxRows: rows,
+	}
+}
+
+// restyle makes the renderer again when what the blocks are drawn with has
+// changed: the width, the theme, the expansion or the image box. Every
+// block is then drawn again when it next comes into view.
+func (c *chat) restyle() {
+	o := c.drawOptions()
+	if o == c.drawn {
+		return
+	}
+	c.drawn = o
+	c.list.rd = c.list.rd.With(o)
+	c.win.InvalidateAll()
+	c.dirty |= dirtyTail | dirtyBody
+}
+
+// resize gives the conversation the terminal's size.
+func (c *chat) resize(width, height int) {
+	if width == c.width && height == c.height {
+		return
+	}
+	c.width, c.height = width, height
+	c.restyle()
+	c.layout()
+	c.dirty = dirtyAll
+}
+
+// setTheme draws the conversation with another theme from now on.
+func (c *chat) setTheme(th *theme.Theme) {
+	c.th = th
+	c.input.SetTheme(th)
+	c.restyle()
+	c.layout()
+	c.dirty = dirtyAll
+}
+
+// layout shares out the rows of the screen. It is called after anything
+// that could change the plan: the terminal's size, the theme, and the
+// number of rows the draft takes.
+func (c *chat) layout() {
+	most := frame.Layout(c.width, c.height, 8, 0, c.th.BarFilled).InputText
+	c.input.SetSize(c.width, most, frame.BoxedAt(c.width, c.height))
+	rows := frame.Layout(c.width, c.height, c.input.TextRows(), c.pal.Want(c.width), c.th.BarFilled)
+	// The window hears of every size, also a width that leaves the rows as
+	// they were. It does nothing when told the size it has.
+	c.win.Resize(max(c.width, 1), rows.Body)
+	if rows == c.rows {
+		return
+	}
+	c.rows = rows
+	c.dirty = dirtyAll
+}
+
+// inputChanged is called after anything that changed the draft. The list of
+// commands follows the draft: it opens on a line that starts with a slash,
+// narrows as the word is typed, and closes when the draft is something else.
+func (c *chat) inputChanged() {
+	c.dirty |= dirtyInput
+	was := c.pal.Open()
+	open := c.pal.Set(c.cmds, c.input.Value())
+	if was || open {
+		c.dirty |= dirtyPalette
+	}
+	if was != open {
+		c.dirty |= dirtyHint
+	}
+	c.input.SetGhost(c.ghost())
+	c.layout()
+}
+
+// ghost is what is drawn dim after a command that is being typed: the rest
+// of the chosen command's name and what it takes, or what it takes alone
+// once the name and a space are there.
+func (c *chat) ghost() string {
+	draft := c.input.Value()
+	if spec, ok := c.pal.Selected(); ok {
+		return commands.Ghost(draft, spec)
+	}
+	// The list is closed once a space is typed. It is also closed after esc,
+	// and then nothing is offered.
+	if !strings.HasPrefix(draft, "/") || strings.IndexFunc(draft, unicode.IsSpace) < 0 {
+		return ""
+	}
+	line := commands.Parse(draft)
+	if line.Kind != commands.LineCommand {
+		return ""
+	}
+	spec, ok := c.cmds.Lookup(line.Name)
+	if !ok {
+		return ""
+	}
+	return commands.Ghost(draft, spec)
+}
+
+// choose moves the choice in the list of commands.
+func (c *chat) choose(delta int) {
+	c.pal.Move(delta)
+	c.input.SetGhost(c.ghost())
+	c.dirty |= dirtyPalette | dirtyInput
+}
+
+// print puts what a command has to say into the conversation, after the
+// newest item there is, and returns the key of its block.
+func (c *chat) print(title string, lines []wire.Line) scrollback.Key {
+	c.nextLocal++
+	c.locals = append(c.locals, local{id: c.nextLocal, after: c.tr.Newest(), title: title, lines: lines})
+	c.dirty |= dirtyBody
+	return scrollback.Key{Kind: blockLocal, ID: c.nextLocal}
+}
+
+// show brings a block near the end of the conversation into view. The view
+// goes to the newest line; when the block and what is under it are more
+// than the view holds, it is moved up so that the block's first row is the
+// first in view, where reading starts.
+func (c *chat) show(k scrollback.Key, now time.Time) {
+	c.sync()
+	c.win.Follow()
+	c.dirty |= dirtyBody
+	at, ok := c.list.Index(k)
+	if !ok {
+		return
+	}
+	below := len(c.tail(now))
+	for i := at; i < c.list.Len(); i++ {
+		below += len(c.list.Lines(i, c.width))
+		if i > at {
+			below += c.list.Gap(i)
+		}
+	}
+	if over := below - c.rows.Body; over > 0 {
+		c.win.Scroll(&c.list, -over)
+	}
+}
+
+// clearInput empties the box.
+func (c *chat) clearInput() {
+	c.input.Reset()
+	c.inputChanged()
+}
+
+// setNote shows a line in place of the key hints, or with "" the hints
+// again. Where there is no hint row the note takes the bar's. A note can
+// quote the server, so it is made safe to draw.
+func (c *chat) setNote(note string) { c.say(note, "") }
+
+// say shows a note in a tone: "" is the tone of a warning, which is what
+// most notes are. toneDone is for one that says something was done.
+func (c *chat) say(note, tone string) {
+	note = safe.Line(note, 512, false)
+	if note == c.note && tone == c.noteTone {
+		return
+	}
+	c.note, c.noteTone = note, tone
+	c.dirty |= dirtyHint | dirtyBar
+}
+
+// apply folds one update from the session into the conversation, and counts
+// the turn it ended, if it ended one.
 func (c *chat) apply(u client.Update, now time.Time) {
+	replying := c.tr.Live().Typing
+	c.fold(u, now)
+	if replying && !c.tr.Live().Typing {
+		c.turns++
+	}
+}
+
+// fold is what one update does to the conversation.
+func (c *chat) fold(u client.Update, now time.Time) {
+	c.dirty |= dirtyTail | dirtyBody
 	switch u.Kind {
 	case client.UpdateEvents:
 		c.tr.Events(u.Events)
@@ -117,29 +478,58 @@ func (c *chat) apply(u client.Update, now time.Time) {
 	case client.UpdateOlder:
 		c.loadingOlder = false
 		if u.Err != nil {
-			c.note = "could not load earlier messages: " + u.Err.Error()
+			c.setNote("could not load earlier messages: " + u.Err.Error())
 			return
 		}
 		c.tr.Events(u.Events)
 		c.start = u.Start
 	case client.UpdateDelta:
 		c.tr.Delta(u.Delta, now.UnixMilli())
+		if u.Delta.Type == core.DeltaToolCall {
+			c.toolSince = now
+		}
 	case client.UpdateAck:
 		c.tr.Acked(u.Text, u.Seq, now.UnixMilli())
 	case client.UpdateRefused:
 		c.tr.Refused(u.Text)
-		c.giveBack(u.Text)
-		c.note = "not sent: " + u.Reason
+		// A refusal that names no message has none to give back.
+		if u.Text != "" {
+			c.giveBack(u.Text)
+		}
+		c.setNote("not sent: " + u.Reason)
 	case client.UpdateSynced:
 		if lost := c.tr.DropPending(); len(lost) > 0 {
 			c.giveBack(strings.Join(lost, "\n"))
-			c.note = "not sent: the connection dropped first"
+			c.setNote("not sent: the connection dropped first")
 		}
 	case client.UpdateState:
-		if u.State == client.StateLive && c.state != client.StateLive && strings.HasSuffix(c.note, "not connected") {
-			c.note = "" // no longer true
-		}
-		c.state, c.stateErr = u.State, u.Err
+		c.setState(u.State, u.Err, now)
+	}
+}
+
+// setState records the state of the connection. The bar says what it is;
+// why it went down is a note.
+//
+// The turn in flight is known from the stream alone, so it goes with the
+// connection: nothing says any more that a reply is being written or a tool
+// is running. What the turn committed is in the log, which is read again on
+// the way back, and a turn that is still going then is described again by
+// the new stream. Without this a reply that ended while the connection was
+// down would stay half written under the log's account of it for good.
+func (c *chat) setState(state client.State, err error, now time.Time) {
+	if c.state == client.StateLive && state != client.StateLive {
+		c.tr.Delta(core.Delta{Type: core.DeltaTyping}, now.UnixMilli())
+	}
+	if state == client.StateLive && c.state != client.StateLive &&
+		(strings.HasSuffix(c.note, "not connected") || strings.HasPrefix(c.note, "disconnected")) {
+		c.setNote("") // no longer true
+	}
+	c.state, c.stateErr = state, ""
+	if err != nil {
+		c.stateErr = safe.Line(err.Error(), 256, false)
+	}
+	if state == client.StateDown && c.stateErr != "" {
+		c.setNote("disconnected: " + c.stateErr)
 	}
 }
 
@@ -150,15 +540,46 @@ func (c *chat) giveBack(text string) {
 		text += "\n" + rest
 	}
 	c.input.SetValue(text)
+	c.inputChanged()
 }
 
-// key handles a keypress. It reports whether the chat used it; what it does
-// not use is typing, and goes to the input box.
-func (c *chat) key(msg tea.KeyPressMsg) (used bool) {
-	c.note = ""
+// key handles a keypress in the conversation. What it does not use is
+// typing, and goes to the input box. The note of the key before is gone by
+// now: the model clears it for every key.
+//
+// When the key was enter on a command, the command is returned for the
+// model to run: what a command does reaches beyond the conversation.
+func (c *chat) key(msg tea.KeyPressMsg, now time.Time) (tea.Cmd, *commands.Line) {
+	// While the list of commands is open, four keys are its own.
+	if c.pal.Open() {
+		switch msg.String() {
+		case "up":
+			c.choose(-1)
+			return nil, nil
+		case "down":
+			c.choose(1)
+			return nil, nil
+		case "tab":
+			if spec, ok := c.pal.Selected(); ok {
+				c.input.SetValue(commands.Complete(spec))
+				c.inputChanged()
+			}
+			return nil, nil
+		case "esc":
+			c.pal.Dismiss()
+			c.dirty |= dirtyPalette | dirtyHint
+			c.inputChanged()
+			return nil, nil
+		}
+	}
 	switch msg.String() {
 	case "enter":
-		c.send()
+		// A backslash before the cursor makes enter a new line.
+		text, done := c.input.Enter()
+		c.inputChanged()
+		if done {
+			return nil, c.submit(text)
+		}
 	case "esc":
 		// Only while there is a reply to stop: an interrupt with nothing in
 		// flight does nothing, and esc should not feel like it did.
@@ -166,268 +587,307 @@ func (c *chat) key(msg tea.KeyPressMsg) (used bool) {
 			c.sess.Interrupt()
 		}
 	case "ctrl+o":
-		c.expanded = !c.expanded
+		c.unfold()
 	case "pgup":
-		c.scroll(-c.view.Height() + 1)
+		c.scroll(-c.page())
 	case "pgdown":
-		c.scroll(c.view.Height() - 1)
-	case "up":
-		// With one line in the box there is nowhere for the cursor to go, so
+		c.scroll(c.page())
+	case "up", "down":
+		// With one row in the box there is nowhere for the cursor to go, so
 		// the arrows move the conversation. Many terminals send them for the
 		// mouse wheel, too.
-		if c.input.LineCount() > 1 {
-			return false
+		if c.input.TextRows() > 1 {
+			return c.typing(msg, now), nil
 		}
-		c.scroll(-scrollStep)
-	case "down":
-		if c.input.LineCount() > 1 {
-			return false
+		// Never past rows that were not shown: a transcript of a row or two
+		// moves by less.
+		step := min(scrollStep, max(c.rows.Body, 1))
+		if msg.String() == "up" {
+			step = -step
 		}
-		c.scroll(scrollStep)
+		c.scroll(step)
+	case "tab":
+		// Nothing to complete.
 	default:
-		return false
+		return c.typing(msg, now), nil
 	}
-	return true
+	return nil, nil
 }
 
-// typed is called after the input box has taken a keypress.
-func (c *chat) typed(now time.Time) {
-	if strings.TrimSpace(c.input.Value()) == "" || now.Sub(c.lastTyping) < typingEvery {
-		return
+// unfold shows all of every tool call and its output, or folds them again.
+func (c *chat) unfold() {
+	c.expanded = !c.expanded
+	c.restyle()
+}
+
+// top goes to the oldest message that has been loaded, and asks for the
+// ones before it when there are any.
+func (c *chat) top() {
+	c.sync()
+	c.win.Top(&c.list)
+	c.dirty |= dirtyBody
+	if !c.start && !c.loadingOlder {
+		c.loadingOlder = true
+		c.sess.Older()
+	}
+}
+
+// page is how far page up and page down move the conversation: the rows of
+// the transcript less one, so that a row of what was in view stays, and one
+// row where the transcript has no more than that.
+func (c *chat) page() int { return max(c.rows.Body-1, 1) }
+
+// typing hands a key or pasted text to the input box, and tells the contact
+// that its human is writing. A command is not written to the contact, so
+// nothing is said about a draft that starts with one slash.
+func (c *chat) typing(msg tea.Msg, now time.Time) tea.Cmd {
+	before := c.input.Value()
+	cmd, changed := c.input.Update(msg)
+	if changed {
+		c.inputChanged()
+	}
+	after := c.input.Value()
+	if after == before || strings.TrimSpace(after) == "" || now.Sub(c.lastTyping) < typingEvery {
+		return cmd
+	}
+	if commands.Parse(after).Kind != commands.LineMessage {
+		return cmd
 	}
 	// A pending reply waits a moment longer while its human is still
 	// writing, as a person would.
 	c.lastTyping = now
 	c.sess.Typing()
+	return cmd
 }
 
-func (c *chat) send() {
-	text := strings.TrimSpace(c.input.Value())
+// submit takes the draft as enter left it, trimmed of trailing space. It is
+// the one place a finished draft goes: a message is sent, a command is
+// handed back to be run, and a draft that is neither is refused with a note.
+func (c *chat) submit(text string) *commands.Line {
+	line := commands.Parse(text)
+	switch line.Kind {
+	case commands.LineCommand:
+		return c.command(line)
+	case commands.LineRefused:
+		c.setNote(noteRefused)
+	case commands.LineMessage:
+		c.send(line.Message)
+	}
+	return nil
+}
+
+// command decides what enter means on a command line. The name as typed is
+// run when it is a command's. Otherwise, with the list open, the draft is
+// completed to the chosen command, which is then run unless it needs an
+// argument first. A slash alone is only completed: nothing was asked for
+// yet. Any other name is returned as it is, for the model to say there is
+// no such command.
+func (c *chat) command(line commands.Line) *commands.Line {
+	if _, typed := c.cmds.Lookup(line.Name); typed {
+		return &line
+	}
+	spec, ok := c.pal.Selected()
+	if !ok {
+		return &line
+	}
+	c.input.SetValue(commands.Complete(spec))
+	c.inputChanged()
+	if line.Name == "" || spec.NeedsArg {
+		return nil
+	}
+	return &commands.Line{Kind: commands.LineCommand, Name: spec.Name}
+}
+
+// send sends a message to the contact.
+func (c *chat) send(text string) {
+	text = strings.TrimSpace(text)
 	switch {
 	case text == "":
 	case len(text) > maxMessageBytes:
-		c.note = fmt.Sprintf("not sent: the message is %d bytes and the limit is %d", len(text), maxMessageBytes)
+		c.setNote(fmt.Sprintf("not sent: the message is %d bytes and the limit is %d", len(text), maxMessageBytes))
 	case c.state != client.StateLive:
-		c.note = "not sent: not connected"
+		c.setNote("not sent: not connected")
 	default:
 		c.tr.Sent(text)
 		c.sess.Say(text)
-		c.input.Reset()
-		c.view.GotoBottom()
+		c.clearInput()
+		c.win.Follow()
+		c.dirty |= dirtyBody
 	}
 }
 
 // scroll moves the conversation, and asks for earlier history on reaching
 // the top of what has been loaded.
 func (c *chat) scroll(lines int) {
-	if lines < 0 {
-		if c.view.AtTop() && !c.start && !c.loadingOlder {
-			c.loadingOlder = true
-			c.sess.Older()
-		}
-		c.view.ScrollUp(-lines)
+	if lines == 0 {
 		return
 	}
-	c.view.ScrollDown(lines)
-}
-
-// layout sizes the parts for the window and redraws the conversation. It is
-// called after anything that could have changed either.
-func (c *chat) layout(r *renderer, dark bool, width, height int) {
-	// Whether the newest line is in view is asked before anything is
-	// resized: a box that grows by a line must not count as scrolling away.
-	atBottom := c.view.AtBottom() || c.view.TotalLineCount() <= c.view.Height()
-	before := len(c.settled)
-	offset := c.view.YOffset()
-
-	c.input.SetWidth(width)
-	c.view.SetWidth(width)
-	c.view.SetHeight(max(height-2-c.input.Height(), 1)) // a header line and a status line
-
-	want := drawnFor{width: width, expanded: c.expanded, dark: dark}
-	if want != c.settledFor {
-		clear(c.blocks)
-	}
-	if want != c.settledFor || c.tr.SettledRev() != c.settledRev || c.settled == nil {
-		grewAtTop := c.grewAtTop()
-		c.settled = c.drawSettled(r)
-		c.settledFor, c.settledRev = want, c.tr.SettledRev()
-		if grewAtTop && !atBottom {
-			// Earlier history arrived above: keep the same lines in view.
-			offset += len(c.settled) - before
-		}
-	}
-	lines := c.settled
-	if live := r.live(c.tr.Live()); live != "" {
-		lines = append(slices.Clip(lines), "")
-		lines = append(lines, strings.Split(live, "\n")...)
-	}
-	c.view.SetContentLines(lines)
-	if atBottom {
-		c.view.GotoBottom()
-	} else {
-		c.view.SetYOffset(offset)
+	c.sync()
+	top := c.win.Scroll(&c.list, lines)
+	c.dirty |= dirtyBody
+	if top && !c.start && !c.loadingOlder {
+		c.loadingOlder = true
+		c.sess.Older()
 	}
 }
 
-// grewAtTop reports whether the transcript's oldest item is older than the
-// oldest one last drawn.
-func (c *chat) grewAtTop() bool {
-	return c.drawnOldest != 0 && c.tr.Oldest() != 0 && c.tr.Oldest() < c.drawnOldest
+// sync brings the block list up to date with the transcript. It draws
+// nothing, and does nothing while the settled part of the conversation is
+// what the list was built from.
+func (c *chat) sync() {
+	if c.listBuilt && c.tr.SettledRev() == c.listRev && c.start == c.listStart && len(c.locals) == c.listLocals {
+		return
+	}
+	c.listBuilt, c.listRev, c.listStart, c.listLocals = true, c.tr.SettledRev(), c.start, len(c.locals)
+	c.rebuild()
+	c.waiting = c.tr.Waiting()
+	c.win.Sync(&c.list)
 }
 
-// drawSettled draws everything but the turn in flight: the items, with a
-// line between days, and the messages still being sent.
-func (c *chat) drawSettled(r *renderer) []string {
-	items := c.tr.Items()
-	lines := make([]string, 0, 4*len(items))
-	// Only the blocks still in use are kept, so the cache cannot outgrow
-	// the conversation.
-	kept := make(map[blockKey]string, len(items))
-	add := func(block string) {
-		if block == "" {
-			return
-		}
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, strings.Split(block, "\n")...)
+// rebuild makes the block list from the transcript: one block for each
+// item, a rule above the first thing ever said and one where a day begins,
+// what commands printed, and the messages still on their way. It is one
+// pass over the items. Every block has a blank row above it but a tool's
+// result, which belongs to the call above it.
+//
+// What a command printed stands before the first item that is newer than
+// the newest there was when it was made, and so before that item's day rule
+// and before every message still on its way. Nothing that arrives later
+// moves it.
+func (c *chat) rebuild() {
+	c.rebuilds++
+	l := &c.list
+	l.items, l.locals = c.tr.Items(), c.locals
+	l.blocks = l.blocks[:0]
+	clear(l.index)
+	if c.start && len(l.items) > 0 {
+		l.add(block{key: scrollback.Key{Kind: blockBeginning}, gap: 1})
 	}
-	if c.start && len(items) > 0 {
-		add(r.rule("the beginning"))
+	// dayFrom and dayTo bound the day of the item before, in unix ms, so
+	// that the calendar is asked only when an item falls outside it.
+	var dayFrom, dayTo int64
+	call := false // the block before is a tool call
+	printed := 0  // the local blocks placed so far
+	locals := func(before uint64) {
+		for ; printed < len(l.locals) && l.locals[printed].after < before; printed++ {
+			l.add(block{key: scrollback.Key{Kind: blockLocal, ID: l.locals[printed].id}, gap: 1, item: printed})
+			call = false
+		}
 	}
-	var prev int64
-	for i := range items {
-		it := &items[i]
-		if it.TS != 0 && (prev == 0 || !r.sameDay(prev, it.TS)) {
-			add(r.day(it.TS))
+	for i := range l.items {
+		it := &l.items[i]
+		// An item with no sequence number, a failure, stands with the item
+		// it follows.
+		if it.Seq != 0 {
+			locals(it.Seq)
 		}
-		if it.TS != 0 {
-			prev = it.TS
+		if it.TS != 0 && (it.TS < dayFrom || it.TS >= dayTo) {
+			y, m, d := time.UnixMilli(it.TS).In(c.loc).Date()
+			from := time.Date(y, m, d, 0, 0, 0, 0, c.loc)
+			dayFrom, dayTo = from.UnixMilli(), from.AddDate(0, 0, 1).UnixMilli()
+			day := uint64(y)*10000 + uint64(m)*100 + uint64(d) //nolint:gosec // a calendar date is never negative
+			l.add(block{key: scrollback.Key{Kind: blockDay, ID: day}, gap: 1, ts: it.TS})
+			call = false
 		}
-		k := blockKey{
-			seq: it.Seq, ts: uint64(max(it.TS, 0)), kind: it.Kind, size: len(it.Text) + len(it.Lead),
-			isError: it.IsError, cutShort: it.Interrupted,
+		b := block{key: scrollback.Key{Kind: blockItem, ID: it.Seq}, rev: it.Rev, gap: 1, item: i, ts: it.TS}
+		if it.Kind == transcript.Failure {
+			b.key = scrollback.Key{Kind: blockFailure, ID: it.After}
 		}
-		block, ok := c.blocks[k]
-		if !ok {
-			block = r.item(it)
+		if it.Kind == transcript.ToolResult && call {
+			b.gap = 0
 		}
-		kept[k] = block
-		// A result belongs to the call above it: no blank line between.
-		if it.Kind == transcript.ToolResult && len(lines) > 0 {
-			lines = append(lines, strings.Split(block, "\n")...)
+		l.add(b)
+		call = it.Kind == transcript.ToolCall
+	}
+	locals(math.MaxUint64)
+	c.pending = renumber(c.pending, c.tr.Pending(), &c.nextSent)
+	for _, p := range c.pending {
+		h := fnv.New64a()
+		_, _ = h.Write([]byte(p.text)) // a hash's Write never fails
+		l.add(block{key: scrollback.Key{Kind: blockPending, ID: p.id}, rev: h.Sum64(), gap: 1, text: p.text})
+	}
+}
+
+// renumber matches the messages on their way against the numbers they were
+// given when they were sent. A message that is gone loses its number, one
+// that is new takes the next, and the rest keep theirs.
+func renumber(old []sent, texts []string, next *uint64) []sent {
+	out := make([]sent, 0, len(texts))
+	for _, text := range texts {
+		for len(old) > 0 && old[0].text != text {
+			old = old[1:]
+		}
+		if len(old) > 0 {
+			out, old = append(out, old[0]), old[1:]
 			continue
 		}
-		add(block)
-	}
-	for _, text := range c.tr.Pending() {
-		add(r.pending(text))
-	}
-	c.blocks, c.drawnOldest = kept, c.tr.Oldest()
-	return lines
-}
-
-// header is the line above the conversation: who this is, what serves it,
-// and how its cache is doing.
-func (c *chat) header(st styles, width int) string {
-	left := st.title.Render(clean(c.contact.Label()))
-	if c.contact.Provider != "" {
-		left += st.dim.Render("  " + clean(c.contact.Provider+"/"+c.contact.Model))
-	}
-	var right string
-	if a, ok := c.tr.Attempt(); ok {
-		right = st.dim.Render(usage(a))
-	}
-	return spread(left, right, width)
-}
-
-// usage sums up a model call for the header: how much of the prompt came
-// from the provider's cache, and how long the call took.
-func usage(a core.AttemptBody) string {
-	if a.Error != "" {
-		return "last call failed: " + clean(a.Error)
-	}
-	if a.Input <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("%d%% of %s tokens cached · %s", 100*a.Cached/a.Input, thousands(a.Input), seconds(a.MS))
-}
-
-func thousands(n int) string {
-	if n < 1000 {
-		return strconv.Itoa(n)
-	}
-	return fmt.Sprintf("%.1fk", float64(n)/1000)
-}
-
-func seconds(ms int64) string {
-	return fmt.Sprintf("%.1fs", float64(ms)/1000)
-}
-
-// status is the line between the conversation and the input box: what is
-// happening now on the left, and what the keys do on the right.
-func (c *chat) status(st styles, width int) string {
-	live := c.tr.Live()
-	var left string
-	switch {
-	case c.note != "":
-		left = st.warn.Render(clean(c.note))
-	case c.state == client.StateGone:
-		left = st.bad.Render("this contact no longer exists")
-	case c.state == client.StateDown:
-		left = st.warn.Render("disconnected; trying again")
-		if c.stateErr != nil {
-			left += st.dim.Render("  " + clean(c.stateErr.Error()))
-		}
-	case c.state == client.StateConnecting:
-		left = st.dim.Render("connecting…")
-	case live.Running != "":
-		left = st.tool.Render("running " + toolName(live.Running) + "…")
-	case live.Typing:
-		left = st.dim.Render(clean(c.contact.Label()) + " is replying…")
-	case c.loadingOlder:
-		left = st.dim.Render("loading earlier messages…")
-	case !c.view.AtBottom():
-		left = st.dim.Render("↓ pgdn for newer")
-	}
-	hints := []string{"enter send", "alt+enter new line", "ctrl+o details", "ctrl+p contacts"}
-	if live.Typing {
-		hints = append([]string{"esc stop"}, hints...)
-	}
-	return spread(left, st.dim.Render(fit(hints, width-ansi.StringWidth(left)-2)), width)
-}
-
-// fit joins as many of the hints as there is room for, the first ones first.
-func fit(hints []string, room int) string {
-	var out string
-	for _, h := range hints {
-		next := h
-		if out != "" {
-			next = out + " · " + h
-		}
-		if ansi.StringWidth(next) > room {
-			break
-		}
-		out = next
+		*next++
+		out = append(out, sent{id: *next, text: text})
 	}
 	return out
 }
 
-// spread puts one string at the left edge and one at the right. When both do
-// not fit, the right one gives way.
-func spread(left, right string, width int) string {
-	lw, rw := ansi.StringWidth(left), ansi.StringWidth(right)
-	switch {
-	case lw >= width:
-		return ansi.Truncate(left, width, "…")
-	case lw+rw+2 > width:
-		return left
-	default:
-		return left + strings.Repeat(" ", width-lw-rw) + right
+// tail draws the turn in flight: what goes under the last block.
+func (c *chat) tail(now time.Time) []string {
+	live := c.tr.Live()
+	var running time.Duration
+	if live.Running != "" {
+		running = max(now.Sub(c.toolSince), 0)
 	}
+	lines := c.list.rd.Live(live, running)
+	if len(lines) == 0 {
+		return nil
+	}
+	// The running row belongs directly under its tool call. Anything else
+	// stands apart from the block above it.
+	if strings.TrimSpace(live.Text) == "" && live.Starting == "" {
+		return lines
+	}
+	return append([]string{""}, lines...)
 }
 
-func (c *chat) render(st styles, width int) string {
-	return strings.Join([]string{c.header(st, width), c.view.View(), c.status(st, width), c.input.View()}, "\n")
+// draw returns the screen. Only the regions that are stale are drawn again,
+// and when none is, the view is the one returned last time.
+func (c *chat) draw(now time.Time) tea.View {
+	if c.dirty == 0 {
+		return c.view
+	}
+	dirty := c.dirty
+	c.dirty = 0
+	// The transcript first: the header says which days are in view.
+	if dirty&(dirtyTail|dirtyBody) != 0 {
+		c.sync()
+		if dirty&dirtyTail != 0 {
+			c.win.SetTail(c.tail(now))
+		}
+		c.reg.Body = c.win.View(&c.list)
+	}
+	if info := c.headerInfo(); dirty&dirtyHeader != 0 || info != c.info {
+		c.info = info
+		c.reg.Header = frame.Header(c.th, info, c.width)
+		c.reg.HeaderRule = c.th.Rule(c.width, "")
+	}
+	if dirty&dirtyPalette != 0 {
+		c.reg.Palette = c.pal.Lines(c.th, c.width, c.rows.Palette)
+	}
+	if dirty&dirtyHint != 0 {
+		c.reg.Hint = c.hints()
+	}
+	if snap := c.snapshot(now); dirty&dirtyBar != 0 || snap != c.snap {
+		c.snap = snap
+		c.reg.BarRule, c.reg.Bar = c.barRow(snap)
+	}
+	if dirty&dirtyInput != 0 {
+		c.reg.Input = c.input.Lines()
+	}
+	v := tea.NewView(frame.Compose(c.rows, c.reg))
+	v.AltScreen = true
+	v.WindowTitle = "contactd: " + c.label
+	if c.rows.Input > 0 {
+		x, y := c.input.Cursor()
+		v.Cursor = tea.NewCursor(x, c.rows.InputTop()+y)
+		v.Cursor.Blink = false
+	}
+	c.view = v
+	return v
 }

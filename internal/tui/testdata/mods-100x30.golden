@@ -1,0 +1,30 @@
+Mods                                                           ~/.config/contactd/mods · 3 on, 1 off
+────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                    
+       MOD      VERSION ADDS                      │  cache 0.3.1                                    
+ ▸ [x] cache    0.3.1   segment · /stats          │  How much of each prompt the provider           
+   [x] git      0.1.0   segment                   │  served from its cache.                         
+   [ ] mermaid  0.1.2   renderer for code:mermaid │                                                 
+   [x] standup  0.2.0   /standup                  │  ADDS                                           
+                                                  │  segment  cache    status line                  
+ A MOD CAN ADD                                    │  command  /stats   token use and cache share by 
+ segment   one cell group in the status line      │                    day                          
+ command   a /name run from the input box         │                                                 
+ renderer  how one kind of item is drawn          │  MAY READ                                       
+                                                  │  model-call records of the open contact         
+                                                  │  no messages, no network, no files              
+                                                  │                                                 
+                                                  │  RUNS                                           
+                                                  │  sandboxed WebAssembly, in this process         
+                                                  │  5 ms for each update                           
+                                                  │  over budget three times in a row and           
+                                                  │  it is switched off, with a notice              
+                                                  │                                                 
+                                                  │  LAST 100 UPDATES                               
+                                                  │  median 0.4 ms · slowest 1.9 ms                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+space on or off · enter details · i install from a path · u update                          esc back

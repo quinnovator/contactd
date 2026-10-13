@@ -1,0 +1,4 @@
+go test fuzz v1
+string("00000\xe6\xe5")
+int(9)
+bool(true)

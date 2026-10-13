@@ -1,0 +1,18 @@
+# cache: how much of each prompt the provider served from its cache.
+# The reference for this file is docs/MODS.md.
+abi = 1
+name = "cache"
+version = "0.3.1"
+description = "How much of each prompt the provider served from its cache."
+module = "cache.wasm"
+read = ["model_calls"]
+budget = "5ms"
+
+[[segment]]
+name = "cache"
+refresh = "model_call"
+
+[[command]]
+name = "stats"
+usage = "[days]"
+summary = "token use and cache share by day"

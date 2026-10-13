@@ -1,0 +1,30 @@
+ada  deepseek/deepseek-flash                                                          7 Oct – 12 Oct
+────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────── Wed 7 Oct 2026 ──────────────────────────────────────────
+
+❯ why did Thursday spike?
+
+  Two things overlapped:
+
+  • Turn 6 ran three model calls with tool runs in between.
+  • The turn after it re-read the tool results uncached.
+
+  The fix is small. Put the time note after the tool steps:
+
+   go                                                         
+   liveMsgs = append(liveMsgs, toolSteps...)                  
+   liveMsgs = append(liveMsgs, timeNote(now))                 
+
+───────────────────────────────────────── Mon 12 Oct 2026 ──────────────────────────────────────────
+
+❯ show me the numbers for turn 7
+
+⏺ python
+    print(df[df.turn == 7][["input", "cached", "ms"]])
+  ⎿ running… 2.1s
+ ● live │ deepseek-flash │ cache 48% │ 3.2k tok │ 5.4s            running python │ esc stop │ 12:06 
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ❯ and what would the share have been with the fix?                                               │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+ enter send · ctrl+j new line · / commands · ctrl+o details · ctrl+p contacts                       

@@ -1,0 +1,116 @@
+# contactd status line. Written by /statusline edit; comments are not kept.
+
+[[segment]]
+name = "state"
+from = "core"
+on = true
+side = "left"
+format = "$dot $state"
+short = "$dot $state"
+drop = 0
+
+[[segment]]
+name = "contact"
+from = "core"
+on = true
+side = "left"
+format = "$name"
+drop = 5
+
+[[segment]]
+name = "route"
+from = "core"
+on = true
+side = "left"
+format = "$model"
+drop = 2
+
+[[segment]]
+name = "cache"
+from = "core"
+on = true
+side = "left"
+format = "cache $pct%"
+short = "$pct%"
+warn_below = 50
+drop = 4
+
+[[segment]]
+name = "tokens"
+from = "core"
+on = false
+side = "left"
+format = "$input tok"
+drop = 1
+
+[[segment]]
+name = "latency"
+from = "core"
+on = true
+side = "left"
+format = "${secs}s"
+drop = 3
+
+[[segment]]
+name = "activity"
+from = "core"
+on = true
+side = "right"
+format = "$what"
+short = "$tool"
+drop = 6
+
+[[segment]]
+name = "stop"
+from = "core"
+on = true
+side = "right"
+format = "esc stop"
+short = "esc"
+drop = 0
+
+[[segment]]
+name = "scroll"
+from = "core"
+on = true
+side = "right"
+format = "$newer newer"
+short = "$newer"
+drop = 0
+
+[[segment]]
+name = "agents"
+from = "core"
+on = false
+side = "right"
+format = "$n sub-agent$s"
+short = "$n"
+drop = 1
+
+[[segment]]
+name = "load"
+from = "shell"
+on = false
+side = "right"
+format = "load $1"
+drop = 1
+command = "uptime"
+match = "load averages?: ([0-9.]+)"
+interval = "10s"
+timeout = "1s"
+
+[[segment]]
+name = "branch"
+from = "mod:git"
+on = true
+side = "right"
+drop = 1
+
+[[segment]]
+name = "clock"
+from = "core"
+on = true
+side = "right"
+format = "$time"
+short = "$time"
+drop = 7

@@ -1,0 +1,4 @@
+{
+  "abi": 1,
+  "error": "usage: /stats [days], with days from 1 to 366"
+}

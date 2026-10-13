@@ -1,0 +1,12 @@
+ada                        82%
+──────────────────────────────
+❯ plot last week's latency
+
+⏺ python
+  ⎿ saved latency.png
+
+  p99 peaked on Thursday at
+  7.2 s.
+──────────────────────────────
+● live │ 82%             12:04
+❯ compare with the week       

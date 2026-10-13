@@ -49,7 +49,8 @@ type Item struct {
 	// Text is the message, the code a tool call runs, a tool's output, the
 	// notice, the checkpoint's summary, or the reason a turn failed.
 	Text string
-	// Tool names the tool of a call or a result.
+	// Tool names the tool of a call or a result. A result read from the log
+	// ahead of its call has no name until the call is read.
 	Tool string
 	// Lead is what the agent said before calling the tool, in the same step.
 	Lead string
@@ -61,12 +62,20 @@ type Item struct {
 	Child core.ContactID
 	// Task marks the message that gave a sub-agent its task.
 	Task bool
+	// Rev is the transcript's settled revision at the moment the item was
+	// put, or last changed: replaced by the log's account of it, or given
+	// the name of its tool. It is never zero and no two items share one. A
+	// view that drew the item at one Rev must draw it again when it sees
+	// another, and need not while it sees the same.
+	Rev uint64
+	// After anchors a Failure: the sequence number of the event it follows,
+	// or zero for a failure before any event. One failure is kept per
+	// event. Every other kind of item leaves it zero.
+	After uint64
 
 	// fromLog is set once the item has been read from the log, which knows
 	// more about it than the stream said.
 	fromLog bool
-	// after anchors a Failure: it sorts after the event with this number.
-	after uint64
 }
 
 // Live is the turn in flight.
@@ -91,11 +100,15 @@ type Transcript struct {
 	// calls maps a tool call's ID to its tool, so that a result read from
 	// the log can be labelled.
 	calls map[string]string
+	// orphans maps a tool call's ID to the sequence number of its result,
+	// for a result the log gave before its call and so without a label.
+	orphans map[string]uint64
 
-	attempt    core.AttemptBody
-	attemptSeq uint64
-	rev        uint64
-	settled    uint64
+	// attempts holds the newest model calls a turn made, ordered by
+	// sequence number.
+	attempts []Attempt
+	rev      uint64
+	settled  uint64
 }
 
 type pending struct {
@@ -124,17 +137,14 @@ func (t *Transcript) Pending() []string {
 	return out
 }
 
-// Attempt returns the record of the newest model call a turn made, and
-// whether there is one.
-func (t *Transcript) Attempt() (core.AttemptBody, bool) { return t.attempt, t.attemptSeq != 0 }
-
 // Rev changes whenever the transcript does, so a view can tell when what it
 // last drew is stale.
 func (t *Transcript) Rev() uint64 { return t.rev }
 
 // SettledRev changes whenever the items or the pending messages do, and not
 // when only the turn in flight does. A view can keep what it drew for the
-// settled part of the conversation while a reply streams in.
+// settled part of the conversation while a reply streams in. An item's Rev
+// is the value this had when the item last changed.
 func (t *Transcript) SettledRev() uint64 { return t.settled }
 
 // Oldest returns the lowest sequence number in the transcript, or zero.
@@ -145,6 +155,60 @@ func (t *Transcript) Oldest() uint64 {
 		}
 	}
 	return 0
+}
+
+// Newest returns the highest sequence number among the items, or zero. A
+// Failure has no sequence number and does not count.
+func (t *Transcript) Newest() uint64 {
+	for _, it := range slices.Backward(t.items) {
+		if it.Seq != 0 {
+			return it.Seq
+		}
+	}
+	return 0
+}
+
+// Waiting counts the sub-agents the contact is still waiting for: the
+// delegation results, which name the child they started, that no notice
+// naming the same child has settled. It reads every item, so a caller
+// should keep the answer until SettledRev changes.
+//
+// Only the log says which child a result or a notice is about. One known
+// from the stream alone counts for nothing until the log's account of it
+// arrives.
+func (t *Transcript) Waiting() int {
+	var settled map[core.ContactID]struct{}
+	started := 0
+	for i := range t.items {
+		it := &t.items[i]
+		if it.Child == 0 {
+			continue
+		}
+		switch it.Kind {
+		case ToolResult:
+			started++
+		case Notice:
+			if settled == nil {
+				settled = make(map[core.ContactID]struct{})
+			}
+			settled[it.Child] = struct{}{}
+		case User, Agent, ToolCall, Checkpoint, Failure:
+		}
+	}
+	if started == 0 || len(settled) == 0 {
+		return started
+	}
+	waiting := 0
+	for i := range t.items {
+		it := &t.items[i]
+		if it.Kind != ToolResult || it.Child == 0 {
+			continue
+		}
+		if _, done := settled[it.Child]; !done {
+			waiting++
+		}
+	}
+	return waiting
 }
 
 // Events applies events read from the log, in any order.
@@ -183,12 +247,21 @@ func (t *Transcript) event(ev *core.Event) {
 			t.calls = make(map[string]string)
 		}
 		t.calls[b.ID] = b.Name
+		t.label(b.ID, b.Name, ev.Seq)
 	case core.KindToolResult:
 		var b core.ToolResult
 		if json.Unmarshal(ev.Body, &b) != nil {
 			return
 		}
 		it.Kind, it.Tool, it.Text, it.IsError, it.Child = ToolResult, t.calls[b.ID], b.Output, b.IsError, b.Child
+		if it.Tool == "" {
+			// Its call has not been read yet: it is on an older page, or
+			// later in this one.
+			if t.orphans == nil {
+				t.orphans = make(map[string]uint64)
+			}
+			t.orphans[b.ID] = ev.Seq
+		}
 	case core.KindNotice:
 		var b core.NoticeBody
 		if json.Unmarshal(ev.Body, &b) != nil {
@@ -204,8 +277,8 @@ func (t *Transcript) event(ev *core.Event) {
 	case core.KindAttempt:
 		var b core.AttemptBody
 		// Only a turn's own calls: a checkpoint or a summary is a side job.
-		if json.Unmarshal(ev.Body, &b) == nil && b.Purpose == "" && ev.Seq > t.attemptSeq {
-			t.attempt, t.attemptSeq = b, ev.Seq
+		if json.Unmarshal(ev.Body, &b) == nil && b.Purpose == "" {
+			t.attempted(Attempt{AttemptBody: b, Seq: ev.Seq, TS: ev.TS})
 		}
 		return
 	case core.KindSummary, core.KindEnvSnapshot:
@@ -259,7 +332,7 @@ func (t *Transcript) Delta(d core.Delta, now int64) {
 		t.put(it)
 		t.live.Text = ""
 	case core.DeltaError:
-		it.Kind, it.Text, it.after = Failure, d.Text, t.lastSeq()
+		it.Kind, it.Text, it.After = Failure, d.Text, t.Newest()
 		t.put(it)
 		t.live.Text = ""
 	case core.DeltaNotice:
@@ -333,8 +406,26 @@ func (t *Transcript) arrived(text string, seq uint64) {
 	}
 }
 
+// label names the tool of a result that was read from the log before its
+// call. That happens when the two fall either side of a page of history. The
+// result's content changes, so its Rev does.
+func (t *Transcript) label(id, name string, call uint64) {
+	seq, waiting := t.orphans[id]
+	if !waiting || seq < call || name == "" {
+		return
+	}
+	delete(t.orphans, id)
+	i, found := slices.BinarySearchFunc(t.items, Item{Seq: seq}, order)
+	if !found || t.items[i].Kind != ToolResult || t.items[i].Tool != "" {
+		return
+	}
+	t.settled++
+	t.items[i].Tool, t.items[i].Rev = name, t.settled
+}
+
 // put inserts an item in order and reports whether it is new. An item
-// already present is replaced only by the log's account of it.
+// already present is replaced only by the log's account of it. Either way
+// the item that lands is stamped with the settled revision it brought about.
 func (t *Transcript) put(it Item) (added bool) {
 	if it.Seq == 0 && it.Kind != Failure {
 		return false // an announcement without a sequence number has no place
@@ -344,13 +435,20 @@ func (t *Transcript) put(it Item) (added bool) {
 		// The log's account wins, and so does a newer failure after the
 		// same event.
 		if (it.fromLog && !t.items[i].fromLog) || it.Kind == Failure {
-			t.items[i] = it
+			if it.Tool == "" {
+				// The log names a result's tool only once its call has been
+				// read. Until then the stream's word for it stands.
+				it.Tool = t.items[i].Tool
+			}
 			t.settled++
+			it.Rev = t.settled
+			t.items[i] = it
 		}
 		return false
 	}
-	t.items = slices.Insert(t.items, i, it)
 	t.settled++
+	it.Rev = t.settled
+	t.items = slices.Insert(t.items, i, it)
 	return true
 }
 
@@ -359,10 +457,10 @@ func (t *Transcript) put(it Item) (added bool) {
 func order(a, b Item) int {
 	ka, kb := a.Seq, b.Seq
 	if a.Kind == Failure {
-		ka = a.after
+		ka = a.After
 	}
 	if b.Kind == Failure {
-		kb = b.after
+		kb = b.After
 	}
 	switch {
 	case ka != kb:
@@ -377,15 +475,6 @@ func order(a, b Item) int {
 	default:
 		return 0
 	}
-}
-
-func (t *Transcript) lastSeq() uint64 {
-	for _, it := range slices.Backward(t.items) {
-		if it.Seq != 0 {
-			return it.Seq
-		}
-	}
-	return 0
 }
 
 // compactJSON renders a tool's arguments on one line.

@@ -1,0 +1,16 @@
+Status line                             |
+────────────────────────────────────────|
+     SEGMENT    SHOWS              4/13|
+ [x] state      ● live          left    |
+ [x] contact    ada             left    |
+ [x] route      deepseek-flash  left    |
+ [x] cache      cache 82%       left    |
+ [ ] tokens     3.7k tok        left    |
+ [x] latency    7.2s            left    |
+ [x] activity   running python  right   |
+ [x] stop       esc stop        right   |
+ [x] scroll     ↓ newer         right   |
+ [ ] agents     1 sub-agent     right   |
+ [ ] load       load 0.42       right   |
+presets  minimal  default  ops|
+space toggle · s save · esc back|

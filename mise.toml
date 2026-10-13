@@ -64,6 +64,19 @@ description = "Build contactd with the ONNX Runtime backend"
 depends = ["deps:native"]
 run = "go build -tags ORT -trimpath -o bin/contactd ./cmd/contactd"
 
+[tasks."mods:build"]
+description = "Build the example mods into dist/mods/<name>, each beside its manifest"
+# A mod is a WASI reactor: wasip1, no cgo, and none of the flags the server is
+# built with. In the client, `/mods install dist/mods/git` installs one.
+run = """
+set -e
+for mod in cache git standup; do
+  mkdir -p "dist/mods/$mod"
+  GOOS=wasip1 GOARCH=wasm CGO_ENABLED=0 GOFLAGS= go build -buildmode=c-shared -trimpath -ldflags='-s -w' -o "dist/mods/$mod/$mod.wasm" "./examples/mods/$mod"
+  cp "examples/mods/$mod/mod.toml" "dist/mods/$mod/"
+done
+"""
+
 [tasks.test]
 description = "Unit tests: needs cgo for SQLite only"
 run = "go test -race -shuffle=on ./..."

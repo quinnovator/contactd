@@ -1,0 +1,30 @@
+[1mMods[m                                                           [38;2;127;138;145m~/.config/contactd/mods · 4 on, 1 off[m
+[38;2;47;55;62m────────────────────────────────────────────────────────────────────────────────────────────────────[m
+                                                                                                    
+       [38;2;127;138;145mMOD[m      [38;2;127;138;145mVERSION[m [38;2;127;138;145mADDS[m                      [38;2;47;55;62m│[m  [1;38;2;94;196;200mcache[m[38;2;127;138;145m 0.3.1[m                                    
+[48;2;27;33;38m [1;38;2;94;196;200m▸[m[48;2;27;33;38m [38;2;125;195;143m[x][m[48;2;27;33;38m [1;38;2;94;196;200mcache[m[48;2;27;33;38m    0.3.1   segment · /stats          [m[38;2;47;55;62m│[m  [38;2;127;138;145mHow much of each prompt the provider[m           
+   [38;2;125;195;143m[x][m diff     [38;2;127;138;145m1.0.0[m   [38;2;127;138;145mrenderer for code:diff[m    [38;2;47;55;62m│[m  [38;2;127;138;145mserved from its cache.[m                         
+   [38;2;125;195;143m[x][m git      [38;2;127;138;145m0.1.0[m   [38;2;127;138;145msegment[m                   [38;2;47;55;62m│[m                                                 
+   [38;2;127;138;145m[ ][m [38;2;127;138;145mmermaid[m  [38;2;127;138;145m0.1.2[m   [38;2;127;138;145mrenderer for code:mermaid[m [38;2;47;55;62m│[m  [38;2;127;138;145mADDS[m                                           
+   [38;2;125;195;143m[x][m standup  [38;2;127;138;145m0.2.0[m   [38;2;127;138;145m/standup[m                  [38;2;47;55;62m│[m  [38;2;196;154;224msegment[m  cache    [38;2;127;138;145mstatus line[m                  
+                                                  [38;2;47;55;62m│[m  [38;2;196;154;224mcommand[m  /stats   [38;2;127;138;145mtoken use and cache share by[m 
+ [38;2;127;138;145mA MOD CAN ADD[m                                    [38;2;47;55;62m│[m                    [38;2;127;138;145mday[m                          
+ [38;2;196;154;224msegment[m   [38;2;127;138;145mone cell group in the status line[m      [38;2;47;55;62m│[m                                                 
+ [38;2;196;154;224mcommand[m   [38;2;127;138;145ma /name run from the input box[m         [38;2;47;55;62m│[m  [38;2;127;138;145mMAY READ[m                                       
+ [38;2;196;154;224mrenderer[m  [38;2;127;138;145mhow one kind of item is drawn[m          [38;2;47;55;62m│[m  model-call records of the open contact         
+                                                  [38;2;47;55;62m│[m  [38;2;127;138;145mno messages, no network, no files[m              
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m  [38;2;127;138;145mRUNS[m                                           
+                                                  [38;2;47;55;62m│[m  sandboxed WebAssembly, in this process         
+                                                  [38;2;47;55;62m│[m  5 ms for each update                           
+                                                  [38;2;47;55;62m│[m  [38;2;127;138;145mover budget three times in a row and[m           
+                                                  [38;2;47;55;62m│[m  [38;2;127;138;145mit is switched off, with a notice[m              
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m  [38;2;127;138;145mLAST 100 UPDATES[m                               
+                                                  [38;2;47;55;62m│[m  median 0.4 ms · slowest 1.9 ms                 
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m                                                 
+                                                  [38;2;47;55;62m│[m                                                 
+[38;2;127;138;145mspace on or off · enter details · i install from a path · u update[m                          [38;2;127;138;145mesc back[m

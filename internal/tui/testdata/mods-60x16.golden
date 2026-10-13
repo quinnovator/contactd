@@ -1,0 +1,16 @@
+Mods                   ~/.config/contactd/mods · 3 on, 1 off
+────────────────────────────────────────────────────────────
+                                                            
+       MOD      VERSION ADDS                                
+ ▸ [x] cache    0.3.1   segment · /stats                    
+   [x] git      0.1.0   segment                             
+   [ ] mermaid  0.1.2   renderer for code:mermaid           
+   [x] standup  0.2.0   /standup                            
+                                                            
+ A MOD CAN ADD                                              
+ segment   one cell group in the status line                
+ command   a /name run from the input box                   
+ renderer  how one kind of item is drawn                    
+                                                            
+                                                            
+space on or off · enter details                     esc back

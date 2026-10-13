@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/client"
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
 // The interface is driven the way Bubble Tea drives it: messages into
@@ -39,7 +42,35 @@ type fakeBackend struct {
 	contacts []client.Contact
 	created  []client.NewContact
 	sessions []*fakeSession
-	err      error
+	// files are the files of every contact's working directory, by path,
+	// and failing the ones that cannot be fetched right now, with why.
+	files   map[string]client.File
+	failing map[string]error
+	err     error
+
+	// mu guards what is written down about File, which commands call.
+	mu sync.Mutex
+	// asked is every file that was asked for, in order. onLoop are the ones
+	// asked for while Update ran, which must never happen: loop says it runs.
+	asked  []fileAsk
+	loop   bool
+	onLoop []string
+	// flying is how many fetches are on their way, and most the most there
+	// were at one moment.
+	flying, most int
+	// hold, when set, keeps a fetch waiting until it is closed or the caller
+	// gives up. Each fetch that starts to wait says so on waiting, and gaveUp
+	// then tells whether the caller of the last one has given up.
+	hold    chan struct{}
+	waiting chan struct{}
+	gaveUp  func() error
+}
+
+// fileAsk is one request for a file: whose, which, and the tag of the copy
+// the caller said it holds.
+type fileAsk struct {
+	id         core.ContactID
+	path, etag string
 }
 
 func (b *fakeBackend) Contacts(context.Context) ([]client.Contact, error) { return b.contacts, b.err }
@@ -82,6 +113,59 @@ func (b *fakeBackend) Follow(context.Context, core.ContactID) Session {
 	return s
 }
 
+func (b *fakeBackend) File(ctx context.Context, id core.ContactID, path, etag string) (client.File, error) {
+	defer b.fetching(id, path, etag)()
+	if b.hold != nil {
+		b.mu.Lock()
+		b.gaveUp = ctx.Err
+		b.mu.Unlock()
+		if b.waiting != nil {
+			b.waiting <- struct{}{}
+		}
+		select {
+		case <-b.hold:
+		case <-ctx.Done():
+			return client.File{}, fmt.Errorf("fetch %s: %w", path, ctx.Err())
+		}
+	}
+	f, ok := b.files[path]
+	switch {
+	case b.failing[path] != nil:
+		return client.File{}, b.failing[path]
+	case !ok:
+		return client.File{}, client.ErrFileNotFound
+	case etag != "" && etag == f.ETag:
+		return client.File{ETag: f.ETag, Modified: f.Modified, NotModified: true}, nil
+	default:
+		return f, nil
+	}
+}
+
+// fetching writes down that a file is asked for. What it returns is called
+// when the fetch is over.
+func (b *fakeBackend) fetching(id core.ContactID, path, etag string) func() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.asked = append(b.asked, fileAsk{id: id, path: path, etag: etag})
+	if b.loop {
+		b.onLoop = append(b.onLoop, path)
+	}
+	b.flying++
+	b.most = max(b.most, b.flying)
+	return func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		b.flying--
+	}
+}
+
+// fetched is the files asked for so far, in order.
+func (b *fakeBackend) fetched() []fileAsk {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return slices.Clone(b.asked)
+}
+
 func (b *fakeBackend) Where() string { return "/data/contactd.sock" }
 
 // noon on a Monday, UTC.
@@ -92,21 +176,94 @@ type harness struct {
 	m   *model
 	b   *fakeBackend
 	now time.Time
+	// With keep, the commands Update answers with are kept, for a test that
+	// runs every one of them. around, when set, is called before and after
+	// each Update.
+	keep   bool
+	kept   []tea.Cmd
+	around func(in bool)
 }
 
-func newHarness(t *testing.T, contacts ...client.Contact) *harness {
+// The four terminals the client is drawn for in tests: the best one, a
+// 16-colour one on a light background, a 256-colour one that never said what
+// its background is, and a serial console.
+func trueDark() termcaps.Caps {
+	return termcaps.Caps{
+		Color: termcaps.ColorTrue, Background: termcaps.BgDark, Glyphs: termcaps.GlyphsUnicode,
+		Images: termcaps.ImagesText, Width: termcaps.WidthWc, CellW: 8, CellH: 16, Settled: true,
+	}
+}
+
+func light16() termcaps.Caps {
+	c := trueDark()
+	c.Color, c.Background = termcaps.Color16, termcaps.BgLight
+	return c
+}
+
+func unknown256() termcaps.Caps {
+	c := trueDark()
+	c.Color, c.Background = termcaps.Color256, termcaps.BgUnknown
+	return c
+}
+
+func noneASCII() termcaps.Caps {
+	c := trueDark()
+	c.Color, c.Background, c.Glyphs = termcaps.ColorNone, termcaps.BgUnknown, termcaps.GlyphsASCII
+	return c
+}
+
+// terminal is an environment and settings from which the client works out
+// caps, for a terminal that is asked nothing: the colours as detected, the
+// rest as set.
+func terminal(t *testing.T, caps termcaps.Caps) (termcaps.Env, termcaps.Overrides) {
+	t.Helper()
+	env := termcaps.Env{Term: "xterm-256color", Detected: caps.Color}
+	over := termcaps.Overrides{Glyphs: caps.Glyphs.String(), Images: caps.Images.String(), NoProbe: true}
+	if caps.Background != termcaps.BgUnknown {
+		over.Theme = caps.Background.String()
+	}
+	if got := termcaps.Resolve(env, over, termcaps.Replies{}); got != caps {
+		t.Fatalf("the environment and settings give\n%+v, want\n%+v", got, caps)
+	}
+	return env, over
+}
+
+// newHarness makes the interface for a terminal that can do caps, 80
+// columns by 24 rows, over a server that has these contacts.
+func newHarness(t *testing.T, caps termcaps.Caps, contacts ...client.Contact) *harness {
+	t.Helper()
+	env, over := terminal(t, caps)
+	return newHarnessWith(t, Options{Env: env, Overrides: over}, contacts...)
+}
+
+// newHarnessWith is newHarness for the terminal and the settings opt holds.
+// The server, the clock and the time zone are the harness's own.
+func newHarnessWith(t *testing.T, opt Options, contacts ...client.Contact) *harness {
 	t.Helper()
 	h := &harness{t: t, b: &fakeBackend{contacts: contacts}, now: fixedNow()}
-	h.m = newModel(t.Context(), Options{Backend: h.b, Now: func() time.Time { return h.now }, Location: time.UTC})
-	h.m.md = plainMarkdown // what a reply looks like must not depend on a Markdown library's taste
-	h.send(tea.WindowSizeMsg{Width: 72, Height: 18})
+	opt.Backend, opt.Now, opt.Location = h.b, func() time.Time { return h.now }, time.UTC
+	h.m = newModel(t.Context(), opt)
+	h.size(80, 24)
 	return h
+}
+
+// size tells the interface the terminal's size.
+func (h *harness) size(width, height int) {
+	h.t.Helper()
+	h.send(tea.WindowSizeMsg{Width: width, Height: height})
 }
 
 // send delivers one message and returns the command Update answered with.
 func (h *harness) send(msg tea.Msg) tea.Cmd {
 	h.t.Helper()
+	if h.around != nil {
+		h.around(true)
+		defer h.around(false)
+	}
 	_, cmd := h.m.Update(msg)
+	if h.keep && cmd != nil {
+		h.kept = append(h.kept, cmd)
+	}
 	return cmd
 }
 
@@ -159,7 +316,6 @@ func (h *harness) wantNotOnScreen(parts ...string) {
 func (h *harness) openChat() *fakeSession {
 	h.t.Helper()
 	h.m.open(client.Contact{ID: 1, Name: "ada", Provider: "fake", Model: "fake-1"})
-	h.send(tea.WindowSizeMsg{Width: 72, Height: 18})
 	return h.b.sessions[len(h.b.sessions)-1]
 }
 
@@ -184,9 +340,9 @@ func logged(t *testing.T, seq uint64, at time.Time, kind core.EventKind, body an
 
 func TestChatShowsHistoryThenAReplyArriving(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
-	h.wantOnScreen("ada", "fake/fake-1", "connecting…")
+	h.wantOnScreen("ada", "fake/fake-1", "● connecting")
 
 	at := fixedNow().Add(-time.Hour)
 	h.from(sess, client.Update{Kind: client.UpdateEvents, Start: true, Events: []core.Event{
@@ -199,10 +355,10 @@ func TestChatShowsHistoryThenAReplyArriving(t *testing.T) {
 	h.wantOnScreen(
 		"the beginning", "Mon 12 Oct 2026",
 		"❯ what is 6*7?", "Let me check.", "⏺ python", "print(6*7)", "⎿ 42", "It is 42.",
-		"75% of 2.0k tokens cached · 1.2s",
+		"● live │ fake-1 │ cache 75% │ 2.0k tok │ 1.2s",
 		"Message ada",
 	)
-	h.wantNotOnScreen("connecting…", "is replying", "esc stop")
+	h.wantNotOnScreen("connecting", "replying", "esc stop")
 
 	h.from(sess,
 		delta(core.Delta{Type: core.DeltaUser, Text: "and 6*8?", Seq: 6}),
@@ -210,7 +366,7 @@ func TestChatShowsHistoryThenAReplyArriving(t *testing.T) {
 		delta(core.Delta{Type: core.DeltaText, Text: "That would "}),
 		delta(core.Delta{Type: core.DeltaText, Text: "be"}),
 	)
-	h.wantOnScreen("❯ and 6*8?", "That would be", "ada is replying…", "esc stop")
+	h.wantOnScreen("❯ and 6*8?", "That would be", "replying │ esc stop")
 
 	h.from(sess,
 		delta(core.Delta{Type: core.DeltaText, Text: " 48."}),
@@ -218,7 +374,7 @@ func TestChatShowsHistoryThenAReplyArriving(t *testing.T) {
 		delta(core.Delta{Type: core.DeltaTyping}),
 	)
 	h.wantOnScreen("That would be 48.")
-	h.wantNotOnScreen("is replying", "esc stop")
+	h.wantNotOnScreen("replying", "esc stop")
 	if n := strings.Count(h.screen(), "That would be 48."); n != 1 {
 		t.Errorf("the reply is on screen %d times", n)
 	}
@@ -226,7 +382,7 @@ func TestChatShowsHistoryThenAReplyArriving(t *testing.T) {
 
 func TestSendingAMessage(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 
 	// Not connected yet: nothing is sent, and nothing typed is lost.
@@ -263,7 +419,7 @@ func TestAMessageThatDidNotArriveComesBack(t *testing.T) {
 
 	t.Run("refused", func(t *testing.T) {
 		t.Parallel()
-		h := newHarness(t)
+		h := newHarness(t, trueDark())
 		sess := h.openChat()
 		h.from(sess, live())
 		h.typeText("one more")
@@ -279,7 +435,7 @@ func TestAMessageThatDidNotArriveComesBack(t *testing.T) {
 
 	t.Run("lost when the connection dropped", func(t *testing.T) {
 		t.Parallel()
-		h := newHarness(t)
+		h := newHarness(t, trueDark())
 		sess := h.openChat()
 		h.from(sess, live())
 		h.typeText("made it")
@@ -289,7 +445,7 @@ func TestAMessageThatDidNotArriveComesBack(t *testing.T) {
 		h.from(sess,
 			client.Update{Kind: client.UpdateState, State: client.StateDown, Err: errors.New("connection reset")},
 		)
-		h.wantOnScreen("disconnected; trying again", "connection reset")
+		h.wantOnScreen("● offline, retrying", "disconnected: connection reset")
 		// On reconnect the log has the first message and not the second.
 		h.from(sess,
 			client.Update{Kind: client.UpdateEvents, Events: []core.Event{logged(t, 1, fixedNow(), core.KindUserMsg, core.MsgBody{Text: "made it"})}},
@@ -300,13 +456,13 @@ func TestAMessageThatDidNotArriveComesBack(t *testing.T) {
 			t.Errorf("the box holds %q, want the message that was lost", got)
 		}
 		h.wantOnScreen("❯ made it", "not sent: the connection dropped first")
-		h.wantNotOnScreen("sending…", "disconnected")
+		h.wantNotOnScreen("sending…", "disconnected", "offline")
 	})
 }
 
 func TestEscStopsAReplyAndOnlyAReply(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 	h.from(sess, live())
 	h.key(esc())
@@ -320,12 +476,12 @@ func TestEscStopsAReplyAndOnlyAReply(t *testing.T) {
 	}
 	h.from(sess, delta(core.Delta{Type: core.DeltaInterrupted, Seq: 2}), delta(core.Delta{Type: core.DeltaTyping}))
 	h.wantOnScreen("It began on a Tuesday", "⏹ interrupted")
-	h.wantNotOnScreen("is replying")
+	h.wantNotOnScreen("replying")
 }
 
 func TestCtrlCClearsTheBoxBeforeItQuits(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	h.openChat()
 	h.typeText("half a thought")
 	if cmd := h.key(ctrl('c')); cmd != nil {
@@ -345,7 +501,7 @@ func TestCtrlCClearsTheBoxBeforeItQuits(t *testing.T) {
 
 func TestToolOutputFoldsUntilAsked(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 	var out strings.Builder
 	for i := 1; i <= 9; i++ {
@@ -355,18 +511,18 @@ func TestToolOutputFoldsUntilAsked(t *testing.T) {
 		logged(t, 1, fixedNow(), core.KindToolCall, core.ToolCall{ID: "c1", Name: "python", Code: "for i in range(9): print(i)"}),
 		logged(t, 2, fixedNow(), core.KindToolResult, core.ToolResult{ID: "c1", Output: out.String(), IsError: true}),
 	}})
-	h.wantOnScreen("⎿ row 1", "row 4", "… 5 more lines (ctrl+o)")
+	h.wantOnScreen("⎿ row 1", "row 4", "… 5 more rows (ctrl+o)")
 	h.wantNotOnScreen("row 5")
 	h.key(ctrl('o'))
 	h.wantOnScreen("row 5", "row 9")
-	h.wantNotOnScreen("more lines")
+	h.wantNotOnScreen("more rows")
 	h.key(ctrl('o'))
 	h.wantNotOnScreen("row 5")
 }
 
 func TestScrollingToTheTopLoadsEarlierHistory(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 	page := func(from, to uint64) []core.Event {
 		var events []core.Event
@@ -387,7 +543,7 @@ func TestScrollingToTheTopLoadsEarlierHistory(t *testing.T) {
 	if sess.olders != 1 {
 		t.Fatalf("asked for earlier history %d times, want once", sess.olders)
 	}
-	h.wantOnScreen("message 21", "loading earlier messages…")
+	h.wantOnScreen("message 21", "loading earlier")
 	// From the first message down: the day line above it is about to move.
 	rows := func() string {
 		lines := strings.Split(h.screen(), "\n")
@@ -426,9 +582,8 @@ func TestScrollingToTheTopLoadsEarlierHistory(t *testing.T) {
 func TestEscapeSequencesFromTheServerAreNotPrinted(t *testing.T) {
 	t.Parallel()
 	hostile := "\x1b]0;owned\x07\x1b[2J\x1b[31mred\u202e alert\r\x00"
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	h.m.open(client.Contact{ID: 1, Name: "ad\x1b[5ma", Provider: "fa\x1bke", Model: "m"})
-	h.send(tea.WindowSizeMsg{Width: 72, Height: 18})
 	sess := h.b.sessions[0]
 	h.from(sess, live(), client.Update{Kind: client.UpdateEvents, Events: []core.Event{
 		logged(t, 1, fixedNow(), core.KindUserMsg, core.MsgBody{Text: hostile}),
@@ -459,7 +614,7 @@ func TestEscapeSequencesFromTheServerAreNotPrinted(t *testing.T) {
 
 func TestADayLineSeparatesDays(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 	h.from(sess, live(), client.Update{Kind: client.UpdateEvents, Events: []core.Event{
 		logged(t, 1, fixedNow().Add(-48*time.Hour), core.KindUserMsg, core.MsgBody{Text: "saturday"}),
@@ -475,7 +630,7 @@ func TestADayLineSeparatesDays(t *testing.T) {
 
 func TestTypingIsReportedButNotOnEveryKey(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t)
+	h := newHarness(t, trueDark())
 	sess := h.openChat()
 	h.from(sess, live())
 	h.typeText("a long sentence typed quickly")
@@ -491,7 +646,7 @@ func TestTypingIsReportedButNotOnEveryKey(t *testing.T) {
 
 func TestContactListAndItsForms(t *testing.T) {
 	t.Parallel()
-	h := newHarness(t,
+	h := newHarness(t, trueDark(),
 		client.Contact{ID: 1, Name: "ada", Provider: "deepseek", Model: "deepseek-flash", LastActive: fixedNow().Add(-3 * time.Minute).UnixMilli()},
 		client.Contact{ID: 2, Provider: "fake", Model: "fake-1", LastActive: fixedNow().Add(-26 * time.Hour).UnixMilli()},
 	)

@@ -83,6 +83,35 @@ func TestContactNamesAndListing(t *testing.T) {
 	}
 }
 
+// waitLogged waits until a contact's log holds the event with a sequence
+// number. The server streams a reply as soon as its event is queued for the
+// log, and does not wait for the write. So a test that reads the log after
+// seeing a reply on the stream waits here first, or it may read the log one
+// event short.
+func waitLogged(t *testing.T, s *server, id string, seq int) {
+	t.Helper()
+	timeout := time.After(10 * time.Second)
+	again := time.NewTicker(2 * time.Millisecond)
+	defer again.Stop()
+	for {
+		status, body := s.do(http.MethodGet, "/v1/contacts/"+id+"/events?tail=1&limit=1", "")
+		if status != http.StatusOK {
+			t.Fatalf("events: %d %v", status, body)
+		}
+		if events, _ := body["events"].([]any); len(events) == 1 {
+			last, _ := events[0].(map[string]any)
+			if got, _ := last["seq"].(float64); got >= float64(seq) {
+				return
+			}
+		}
+		select {
+		case <-again.C:
+		case <-timeout:
+			t.Fatalf("event %d is not in the log after 10s: %v", seq, body)
+		}
+	}
+}
+
 func TestEventsBackwardAndByKind(t *testing.T) {
 	t.Parallel()
 	s := start(t)
@@ -94,6 +123,9 @@ func TestEventsBackwardAndByKind(t *testing.T) {
 		}
 		waitMessage(t, deltas)
 	}
+	// The stream shows a reply before the log holds it, so the second
+	// reply's event, the sixth, is waited for before the log is read.
+	waitLogged(t, s, id, 6)
 	// The log now reads: message, model call, reply, twice over.
 	page := func(query string) (string, map[string]any) {
 		t.Helper()

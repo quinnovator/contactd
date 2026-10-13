@@ -68,6 +68,7 @@ type Server struct {
 	store    Store
 	contacts Contacts
 	routes   Routes
+	files    Files // nil when no working directories are served
 	log      *slog.Logger
 	draining atomic.Bool
 }
@@ -77,6 +78,14 @@ type Server struct {
 // first turn.
 func New(store Store, contacts Contacts, routes Routes, log *slog.Logger) *Server {
 	return &Server{store: store, contacts: contacts, routes: routes, log: log}
+}
+
+// WithFiles lets the API serve files from the contacts' working directories,
+// and returns the server. Call it before the server takes requests. Without
+// it every file is not found.
+func (s *Server) WithFiles(f Files) *Server {
+	s.files = f
+	return s
 }
 
 // Drain makes /healthz report 503 so load balancers stop sending traffic.
@@ -95,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/contacts/{id}/stream", s.stream)
 	mux.HandleFunc("GET /v1/contacts/{id}/live", s.live)
 	mux.HandleFunc("GET /v1/contacts/{id}/events", s.events)
+	mux.HandleFunc("GET /v1/contacts/{id}/files/{path...}", s.file)
 	mux.Handle("GET /metrics", obs.Handler())
 	mux.HandleFunc("GET /healthz", s.healthz)
 	return mux

@@ -1,0 +1,12 @@
+ada  deepseek-flash                  cache 82%
+----------------------------------------------
+> plot last week's latency
+
+* python
+    df.plot.bar()
+  |_ saved latency.png
+
+  p99 peaked on Thursday at 7.2 s.
+----------------------------------------------
+* live | cache 82% | 7.2s                12:04
+> compare with the week before                

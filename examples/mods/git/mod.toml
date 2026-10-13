@@ -1,0 +1,12 @@
+# git: the branch checked out where the client started.
+# The reference for this file is docs/MODS.md.
+abi = 1
+name = "git"
+version = "0.1.0"
+description = "The git branch checked out where the client started."
+module = "git.wasm"
+read = ["workspace"]
+
+[[segment]]
+name = "branch"
+refresh = "turn"

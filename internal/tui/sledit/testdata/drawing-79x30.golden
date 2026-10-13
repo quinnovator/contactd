@@ -1,0 +1,30 @@
+Status line                                  ~/.config/contactd/statusline.toml|
+───────────────────────────────────────────────────────────────────────────────|
+|
+     SEGMENT    SHOWS               SIDE   FROM|
+ [x] state      ● live              left   core         |
+ [x] contact    ada                 left   core         |
+ [x] route      deepseek-flash      left   core         |
+ [x] cache      cache 82%           left   core         |
+ [ ] tokens     3.7k tok            left   core         |
+ [x] latency    7.2s                left   core         |
+ [x] activity   running python      right  core         |
+ [x] stop       esc stop            right  core         |
+ [x] scroll     ↓ newer             right  core         |
+ [ ] agents     1 sub-agent         right  core         |
+ [ ] load       load 0.42           right  shell        |
+ [x] branch     ⎇ main              right  mod git      |
+ [x] clock      12:04               right  core         |
+|
+ cache|
+ format      "cache $pct%"|
+ short       "$pct%"|
+ warn below  50|
+ drop order  3rd when narrow|
+ refresh     each model call|
+|
+PREVIEW|
+ ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s               ⎇ main │ 12:04 |
+|
+presets  minimal  default  ops|
+space toggle · ←→ side · J K reorder · e edit · p preset · s save · esc back|

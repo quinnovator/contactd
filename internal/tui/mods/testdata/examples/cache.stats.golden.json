@@ -1,0 +1,42 @@
+{
+  "abi": 1,
+  "lines": [
+    [
+      {
+        "t": "Sat 10 Oct",
+        "tone": "dim"
+      },
+      {
+        "t": "   1 call   9.0k in  "
+      },
+      {
+        "t": "cache 20%",
+        "tone": "warn"
+      }
+    ],
+    [
+      {
+        "t": "Sun 11 Oct",
+        "tone": "dim"
+      },
+      {
+        "t": "  2 calls  41.2k in  "
+      },
+      {
+        "t": "cache 70%"
+      }
+    ],
+    [
+      {
+        "t": "Mon 12 Oct",
+        "tone": "dim"
+      },
+      {
+        "t": "  2 calls   5.2k in  "
+      },
+      {
+        "t": "cache 69%"
+      }
+    ]
+  ]
+}

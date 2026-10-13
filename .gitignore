@@ -5,6 +5,8 @@
 # Build output and local data.
 /bin/
 /data/
+# The example mods, built by `mise run mods:build`.
+/dist/
 *.db
 *.db-shm
 *.db-wal

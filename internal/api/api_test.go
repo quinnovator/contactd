@@ -196,6 +196,8 @@ func TestMessageRoundTripOverSSE(t *testing.T) {
 		t.Errorf("reply = %+v", reply)
 	}
 
+	// The delta is sent before the reply's event is committed.
+	waitLogged(t, s, id, 3)
 	status, body = s.do(http.MethodGet, "/v1/contacts/"+id+"/events", "")
 	events, _ := body["events"].([]any)
 	if status != http.StatusOK || len(events) != 3 {

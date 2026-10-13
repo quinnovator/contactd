@@ -1,0 +1,32 @@
+{
+  "abi": 1,
+  "text": "cache avg 61%",
+  "short": "61%",
+  "tone": "warn",
+  "lines": [
+    [
+      {
+        "t": "11 Oct",
+        "tone": "dim"
+      },
+      {
+        "t": "  14 calls  "
+      },
+      {
+        "t": "61%",
+        "tone": "ok",
+        "bold": true
+      }
+    ],
+    [],
+    [
+      {
+        "t": "<&> stays as written"
+      }
+    ]
+  ],
+  "insert": "Summarize what we did yesterday (Sun 11 Oct) for the team: done, next, blocked.",
+  "note": "7 days",
+  "pass": true,
+  "error": "no calls yet"
+}

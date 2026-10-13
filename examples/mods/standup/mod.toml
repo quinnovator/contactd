@@ -1,0 +1,12 @@
+# standup: a command that drafts the question for a daily summary.
+# The reference for this file is docs/MODS.md.
+abi = 1
+name = "standup"
+version = "0.2.0"
+description = "Drafts a message that asks for yesterday's work, ready to edit and send."
+module = "standup.wasm"
+read = ["clock"]
+
+[[command]]
+name = "standup"
+summary = "summarize yesterday for the team"

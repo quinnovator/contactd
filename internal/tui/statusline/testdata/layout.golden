@@ -1,0 +1,39 @@
+minimal, idle
+ 100 | ● live │ cache 82%                                                                           12:04 |
+  60 | ● live │ cache 82%                                   12:04 |
+  46 |● live │ cache 82%                       12:04|
+  30 |● live │ 82%             12:04|
+
+minimal, a tool running
+ 100 | ● live │ cache 48%                                                                esc stop │ 12:06 |
+  60 | ● live │ cache 48%                        esc stop │ 12:06 |
+  46 |● live │ cache 48%            esc stop │ 12:06|
+  30 |● live │ 48%       esc │ 12:06|
+
+default, idle
+ 100 | ● live │ deepseek-flash │ cache 82% │ 3.7k tok │ 7.2s                                        12:04 |
+  60 | ● live │ deepseek-flash │ cache 82% │ 7.2s           12:04 |
+  46 |● live │ cache 82% │ 7.2s                12:04|
+  30 |● live │ 82%             12:04|
+
+default, a tool running
+ 100 | ● live │ deepseek-flash │ cache 48% │ 3.2k tok │ 5.4s            running python │ esc stop │ 12:06 |
+  60 | ● live │ cache 48%       running python │ esc stop │ 12:06 |
+  46 |● live │ 48%         python │ esc stop │ 12:06|
+  30 |● live    python │ esc │ 12:06|
+
+ops, idle
+ 100 | ● live │ ada │ deepseek-flash │ cache 82% │ 3.7k tok │ 7.2s                                  12:04 |
+  60 | ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s     12:04 |
+  46 |● live │ ada │ cache 82% │ 7.2s          12:04|
+  30 |● live │ 82%             12:04|
+
+ops, a tool running
+ 100 | ● live │ ada │ deepseek-flash │ cache 48% │ 3.2k tok │ 5.4s      running python │ esc stop │ 12:06 |
+  60 | ● live │ ada │ 48%       running python │ esc stop │ 12:06 |
+  46 |● live │ 48%         python │ esc stop │ 12:06|
+  30 |● live    python │ esc │ 12:06|
+
+the drawing's segments, idle
+ 100 | ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s                                    ⎇ main │ 12:04 |
+  60 | ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s     12:04 |

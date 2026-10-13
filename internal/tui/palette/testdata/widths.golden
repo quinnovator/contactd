@@ -1,0 +1,336 @@
+truecolor dark unicode, draft "/st", 100 columns
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
+│ commands matching /st                                                                    5 of 23 │$
+│   /statusline       choose a preset or edit the status line                                 core │$
+│ ▸ /status           connection, route and cache for this contact                            core │$
+│   /stop             stop the reply in flight (esc)                                          core │$
+│   /standup          summarize yesterday for the team                                 mod standup │$
+│   /stats            token use and cache share by day                                   mod cache │$
+│ ↑↓ choose · tab complete · enter run · esc close                                                 │$
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/st", 60 columns
+╭──────────────────────────────────────────────────────────╮$
+│ commands matching /st                            5 of 23 │$
+│   /statusline       choose a preset or…             core │$
+│ ▸ /status           connection, route …             core │$
+│   /stop             stop the reply in …             core │$
+│   /standup          summarize yesterda…      mod standup │$
+│   /stats            token use and cach…        mod cache │$
+│ ↑↓ choose · tab complete · enter run · esc close         │$
+╰──────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/st", 59 columns
+╭─────────────────────────────────────────────────────────╮$
+│ commands matching /st                           5 of 23 │$
+│   /statusline       choose a preset or edit the status… │$
+│ ▸ /status           connection, route and cache for th… │$
+│   /stop             stop the reply in flight (esc)      │$
+│   /standup          summarize yesterday for the team    │$
+│   /stats            token use and cache share by day    │$
+│ ↑↓ choose · tab complete · enter run · esc close        │$
+╰─────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/st", 40 columns
+╭──────────────────────────────────────╮$
+│ commands matching /st        5 of 23 │$
+│   /statusline       choose a preset… │$
+│ ▸ /status           connection, rou… │$
+│   /stop             stop the reply … │$
+│   /standup          summarize yeste… │$
+│   /stats            token use and c… │$
+│ ↑↓ choose · tab complete · enter run │$
+╰──────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/st", 39 columns
+  /statusline                          $
+▸ /status                              $
+  /stop                                $
+  /standup                             $
+  /stats                               $
+
+truecolor dark unicode, draft "/st", 30 columns
+  /statusline                 $
+▸ /status                     $
+  /stop                       $
+  /standup                    $
+  /stats                      $
+
+truecolor dark unicode, draft "/", 100 columns
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
+│ commands                                                                                23 of 23 │$
+│   /statusline       choose a preset or edit the status line                                 core │$
+│ ▸ /status           connection, route and cache for this contact                            core │$
+│   /stop             stop the reply in flight (esc)                                          core │$
+│   /help             list the commands and the keys                                          core │$
+│   /contacts         back to the list of contacts (ctrl+p)                                   core │$
+│   /open             open another contact by name or id                                      core │$
+│   /new              start a new contact                                                     core │$
+│   /rename           rename this contact                                                     core │$
+│ ↑↓ choose · tab complete · enter run · esc close                                                 │$
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/", 60 columns
+╭──────────────────────────────────────────────────────────╮$
+│ commands                                        23 of 23 │$
+│   /statusline       choose a preset or…             core │$
+│ ▸ /status           connection, route …             core │$
+│   /stop             stop the reply in …             core │$
+│   /help             list the commands …             core │$
+│   /contacts         back to the list o…             core │$
+│   /open             open another conta…             core │$
+│   /new              start a new contact             core │$
+│   /rename           rename this contact             core │$
+│ ↑↓ choose · tab complete · enter run · esc close         │$
+╰──────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/", 59 columns
+╭─────────────────────────────────────────────────────────╮$
+│ commands                                       23 of 23 │$
+│   /statusline       choose a preset or edit the status… │$
+│ ▸ /status           connection, route and cache for th… │$
+│   /stop             stop the reply in flight (esc)      │$
+│   /help             list the commands and the keys      │$
+│   /contacts         back to the list of contacts (ctrl… │$
+│   /open             open another contact by name or id  │$
+│   /new              start a new contact                 │$
+│   /rename           rename this contact                 │$
+│ ↑↓ choose · tab complete · enter run · esc close        │$
+╰─────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/", 40 columns
+╭──────────────────────────────────────╮$
+│ commands                    23 of 23 │$
+│   /statusline       choose a preset… │$
+│ ▸ /status           connection, rou… │$
+│   /stop             stop the reply … │$
+│   /help             list the comman… │$
+│   /contacts         back to the lis… │$
+│   /open             open another co… │$
+│   /new              start a new con… │$
+│   /rename           rename this con… │$
+│ ↑↓ choose · tab complete · enter run │$
+╰──────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/", 39 columns
+  /statusline                          $
+▸ /status                              $
+  /stop                                $
+  /help                                $
+  /contacts                            $
+  /open                                $
+  /new                                 $
+  /rename                              $
+
+truecolor dark unicode, draft "/", 30 columns
+  /statusline                 $
+▸ /status                     $
+  /stop                       $
+  /help                       $
+  /contacts                   $
+  /open                       $
+  /new                        $
+  /rename                     $
+
+truecolor dark unicode, draft "/zzz", 100 columns
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
+│ commands matching /zzz                                                                   0 of 23 │$
+│ no command matches; start with // to send it                                                     │$
+│ esc close                                                                                        │$
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/zzz", 60 columns
+╭──────────────────────────────────────────────────────────╮$
+│ commands matching /zzz                           0 of 23 │$
+│ no command matches; start with // to send it             │$
+│ esc close                                                │$
+╰──────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/zzz", 59 columns
+╭─────────────────────────────────────────────────────────╮$
+│ commands matching /zzz                          0 of 23 │$
+│ no command matches; start with // to send it            │$
+│ esc close                                               │$
+╰─────────────────────────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/zzz", 40 columns
+╭──────────────────────────────────────╮$
+│ commands matching /zzz       0 of 23 │$
+│ no command matches; start with // t… │$
+│ esc close                            │$
+╰──────────────────────────────────────╯$
+
+truecolor dark unicode, draft "/zzz", 39 columns
+no command matches                     $
+
+truecolor dark unicode, draft "/zzz", 30 columns
+no command matches            $
+
+none ascii, draft "/st", 100 columns
++--------------------------------------------------------------------------------------------------+$
+| commands matching /st                                                                    5 of 23 |$
+|   /statusline       choose a preset or edit the status line                                 core |$
+| > /status           connection, route and cache for this contact                            core |$
+|   /stop             stop the reply in flight (esc)                                          core |$
+|   /standup          summarize yesterday for the team                                 mod standup |$
+|   /stats            token use and cache share by day                                   mod cache |$
+| up/down choose | tab complete | enter run | esc close                                            |$
++--------------------------------------------------------------------------------------------------+$
+
+none ascii, draft "/st", 60 columns
++----------------------------------------------------------+$
+| commands matching /st                            5 of 23 |$
+|   /statusline       choose a preset ...             core |$
+| > /status           connection, rout...             core |$
+|   /stop             stop the reply i...             core |$
+|   /standup          summarize yester...      mod standup |$
+|   /stats            token use and ca...        mod cache |$
+| up/down choose | tab complete | enter run | esc close    |$
++----------------------------------------------------------+$
+
+none ascii, draft "/st", 59 columns
++---------------------------------------------------------+$
+| commands matching /st                           5 of 23 |$
+|   /statusline       choose a preset or edit the stat... |$
+| > /status           connection, route and cache for ... |$
+|   /stop             stop the reply in flight (esc)      |$
+|   /standup          summarize yesterday for the team    |$
+|   /stats            token use and cache share by day    |$
+| up/down choose | tab complete | enter run | esc close   |$
++---------------------------------------------------------+$
+
+none ascii, draft "/st", 40 columns
++--------------------------------------+$
+| commands matching /st        5 of 23 |$
+|   /statusline       choose a pres... |$
+| > /status           connection, r... |$
+|   /stop             stop the repl... |$
+|   /standup          summarize yes... |$
+|   /stats            token use and... |$
+| up/down choose | tab complete        |$
++--------------------------------------+$
+
+none ascii, draft "/st", 39 columns
+  /statusline                          $
+> /status                              $
+  /stop                                $
+  /standup                             $
+  /stats                               $
+
+none ascii, draft "/st", 30 columns
+  /statusline                 $
+> /status                     $
+  /stop                       $
+  /standup                    $
+  /stats                      $
+
+none ascii, draft "/", 100 columns
++--------------------------------------------------------------------------------------------------+$
+| commands                                                                                23 of 23 |$
+|   /statusline       choose a preset or edit the status line                                 core |$
+| > /status           connection, route and cache for this contact                            core |$
+|   /stop             stop the reply in flight (esc)                                          core |$
+|   /help             list the commands and the keys                                          core |$
+|   /contacts         back to the list of contacts (ctrl+p)                                   core |$
+|   /open             open another contact by name or id                                      core |$
+|   /new              start a new contact                                                     core |$
+|   /rename           rename this contact                                                     core |$
+| up/down choose | tab complete | enter run | esc close                                            |$
++--------------------------------------------------------------------------------------------------+$
+
+none ascii, draft "/", 60 columns
++----------------------------------------------------------+$
+| commands                                        23 of 23 |$
+|   /statusline       choose a preset ...             core |$
+| > /status           connection, rout...             core |$
+|   /stop             stop the reply i...             core |$
+|   /help             list the command...             core |$
+|   /contacts         back to the list...             core |$
+|   /open             open another con...             core |$
+|   /new              start a new contact             core |$
+|   /rename           rename this contact             core |$
+| up/down choose | tab complete | enter run | esc close    |$
++----------------------------------------------------------+$
+
+none ascii, draft "/", 59 columns
++---------------------------------------------------------+$
+| commands                                       23 of 23 |$
+|   /statusline       choose a preset or edit the stat... |$
+| > /status           connection, route and cache for ... |$
+|   /stop             stop the reply in flight (esc)      |$
+|   /help             list the commands and the keys      |$
+|   /contacts         back to the list of contacts (ct... |$
+|   /open             open another contact by name or id  |$
+|   /new              start a new contact                 |$
+|   /rename           rename this contact                 |$
+| up/down choose | tab complete | enter run | esc close   |$
++---------------------------------------------------------+$
+
+none ascii, draft "/", 40 columns
++--------------------------------------+$
+| commands                    23 of 23 |$
+|   /statusline       choose a pres... |$
+| > /status           connection, r... |$
+|   /stop             stop the repl... |$
+|   /help             list the comm... |$
+|   /contacts         back to the l... |$
+|   /open             open another ... |$
+|   /new              start a new c... |$
+|   /rename           rename this c... |$
+| up/down choose | tab complete        |$
++--------------------------------------+$
+
+none ascii, draft "/", 39 columns
+  /statusline                          $
+> /status                              $
+  /stop                                $
+  /help                                $
+  /contacts                            $
+  /open                                $
+  /new                                 $
+  /rename                              $
+
+none ascii, draft "/", 30 columns
+  /statusline                 $
+> /status                     $
+  /stop                       $
+  /help                       $
+  /contacts                   $
+  /open                       $
+  /new                        $
+  /rename                     $
+
+none ascii, draft "/zzz", 100 columns
++--------------------------------------------------------------------------------------------------+$
+| commands matching /zzz                                                                   0 of 23 |$
+| no command matches; start with // to send it                                                     |$
+| esc close                                                                                        |$
++--------------------------------------------------------------------------------------------------+$
+
+none ascii, draft "/zzz", 60 columns
++----------------------------------------------------------+$
+| commands matching /zzz                           0 of 23 |$
+| no command matches; start with // to send it             |$
+| esc close                                                |$
++----------------------------------------------------------+$
+
+none ascii, draft "/zzz", 59 columns
++---------------------------------------------------------+$
+| commands matching /zzz                          0 of 23 |$
+| no command matches; start with // to send it            |$
+| esc close                                               |$
++---------------------------------------------------------+$
+
+none ascii, draft "/zzz", 40 columns
++--------------------------------------+$
+| commands matching /zzz       0 of 23 |$
+| no command matches; start with //... |$
+| esc close                            |$
++--------------------------------------+$
+
+none ascii, draft "/zzz", 39 columns
+no command matches                     $
+
+none ascii, draft "/zzz", 30 columns
+no command matches            $
+

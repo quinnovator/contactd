@@ -1,0 +1,4 @@
+"\x1bPtmux;\x1b\x1b_Gi=32,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\x1b\\\x1b\x1b[>q\x1b\x1b[c\x1b\\"
+    carries "\x1b_Gi=32,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"
+    carries "\x1b[>q"
+    carries "\x1b[c"
