@@ -179,6 +179,7 @@ func (r *run) send(p *plan.PromptPlan, o llm.Options) (llm.Result, error) {
 	res, err := stream.Result()
 	r.spent.Input += res.Usage.Input
 	r.spent.Cached += res.Usage.Cached
+	r.spent.CacheReported = res.Usage.CacheReported && (r.requests == 1 || r.spent.CacheReported)
 	r.spent.Output += res.Usage.Output
 	return res, err //nolint:wrapcheck // as above
 }
@@ -234,9 +235,18 @@ func (r *run) cache() {
 		r.failed("repeated prefix", declared, err)
 		return
 	}
-	observed := fmt.Sprintf("second request: %d of %d input tokens cached (first: %d)", second.Usage.Cached, second.Usage.Input, first.Usage.Cached)
+	firstCache := "unreported"
+	if first.Usage.CacheReported {
+		firstCache = strconv.Itoa(first.Usage.Cached)
+	}
+	observed := fmt.Sprintf("second request: %d of %d input tokens cached (first: %s)", second.Usage.Cached, second.Usage.Input, firstCache)
+	if !second.Usage.CacheReported {
+		observed = "second request: cache usage not reported"
+	}
 	hit := second.Usage.Cached > 0
 	switch {
+	case caps.CacheUsage && !second.Usage.CacheReported:
+		r.add("repeated prefix", declared, observed, Differs)
 	case hit && caps.Cache != llm.CacheNone && caps.CacheUsage:
 		r.add("repeated prefix", declared, observed, OK)
 	case hit:

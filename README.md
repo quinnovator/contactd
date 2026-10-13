@@ -41,7 +41,9 @@ git diff | contactd chat ada - # the same, with the message read from stdin
 contactd chat -list            # id, name, route and last activity, tab-separated
 ```
 
-In a conversation: `enter` sends and `ctrl+j` starts a new line. `esc` stops the reply in flight. `pgup` and `pgdn` scroll, and scrolling past the top loads earlier history. `ctrl+o` unfolds tool calls and their output, `ctrl+p` goes back to the contacts, and `ctrl+c` clears the box, then quits. A line that starts with `/` is a command for the client, and `/help` lists them. There is nothing to do before typing while the agent is replying: a message sent then interrupts it, as it does a person.
+Where the terminal can draw one, an avatar says the contact's replies aloud and there is no thread to scroll: see [The avatar](#the-avatar). `-avatar=off` gives the thread, and `-mute` an avatar that makes no sound.
+
+In a conversation: `enter` sends and `ctrl+j` starts a new line. `esc` stops the reply in flight, and the avatar's voice with it. In a thread, `pgup` and `pgdn` scroll, and scrolling past the top loads earlier history. `ctrl+o` unfolds tool calls and their output, or on a stage shows the turn as a thread would; `ctrl+p` goes back to the contacts, and `ctrl+c` clears the box, then quits. A line that starts with `/` is a command for the client, and `/help` lists them. There is nothing to do before typing while the agent is replying: a message sent then interrupts it, as it does a person.
 
 The client draws for the terminal it finds: its colours, its background, its font. `-color`, `-glyphs` (or `-ascii`), `-theme` and `-images` say otherwise for one run, and `chat.toml` for every run.
 
@@ -264,10 +266,12 @@ The core reaches every provider through one typed contract (`internal/llm`) and 
 | `anthropic` | `ANTHROPIC_API_KEY` | Messages | Breakpoints, 5 minutes | `low` to `max` | Within a turn |
 | `openrouter` | `OPENROUTER_API_KEY` | Chat Completions | Per model, from the catalog's prices; pinned with `session_id` | Per model, from the catalog | Every turn where the model reasons |
 | `opencode` | `OPENCODE_API_KEY` | Per model: Chat Completions or Messages (Responses-only models are refused) | Automatic, or breakpoints where a cached-write price is listed; pinned with `x-opencode-session` | None declared | Every turn for DeepSeek models, within a turn for Claude |
-| `ollama` | `OLLAMA_API_KEY` | Chat Completions at `ollama.com/v1` | None declared | Per model, from `/api/show` | None declared |
+| `ollama` | `OLLAMA_API_KEY` | Chat Completions at `ollama.com/v1` | Automatic by prefix; reports cache reads; retention unknown | Per model, from `/api/show` | None declared |
 | `openai` | `OPENAI_API_KEY` and/or `-openai-base-urls`, plus `-openai-models` | Chat Completions | Automatic by prefix per replica | None | None |
 
 Each profile's source file states where every declared value comes from and what is a guess. OpenRouter, OpenCode Go and Ollama Cloud read their model catalogs once at start-up; `-openrouter-catalog` starts from a saved copy instead.
+
+Ollama's [cache accounting](https://docs.ollama.com/api/chat) is exposed by its [OpenAI-compatible endpoint](https://docs.ollama.com/api/openai-compatibility) as `usage.prompt_tokens_details.cached_tokens` ([upstream implementation](https://github.com/ollama/ollama/pull/17943)). We request streaming usage and keep the full input count, cache reads, and raw usage object. An explicit zero means a cold cache; an omitted, null, or invalid count remains unknown and is excluded from cache metrics. Attempts persist that distinction, `ctxtop` reports it, and the TUI only shows a cache percentage when known. Historical attempts with positive cache counts remain readable; historical zeros are ambiguous. Ollama's cache lifetime is undocumented, so we record actual hits without assuming a warm prefix between calls.
 
 ### Probing a route
 
@@ -291,7 +295,9 @@ What the probe found on Oct 11, 2026, with real keys:
 
 On every DeepSeek route, a tool loop that left the model's reasoning out was still accepted, though DeepSeek's documentation says the Chat Completions endpoint rejects it. The profiles keep replaying reasoning on every turn, which is the documented contract and costs little when it is read from cache.
 
-Not probed: `anthropic` and `ollama` (no key was available), and every OpenRouter and OpenCode Go model other than the ones above.
+A focused Ollama Cloud cache probe on Oct 13, 2026, using `glm-5.3-flash`, reported 0 of 1,929 input tokens cached on the first request and 1,792 (92.9%) on an identical second request. This confirmed cache reporting, not a retention guarantee or a full capability probe.
+
+Not fully probed: `anthropic`, `ollama`, and every OpenRouter and OpenCode Go model other than the ones above.
 
 ## How it is laid out
 
@@ -335,7 +341,7 @@ The client's own packages are listed under [Where the client's code is](#where-t
 
 What follows from the platform's shape:
 
-- **There is nothing to pick but a contact.** No sessions and no threads; opening a contact opens the end of its one log, and earlier history loads a page at a time on scrolling up. A rule marks each new day.
+- **There is nothing to pick but a contact.** No sessions and no threads; each contact keeps one log. The avatar opens idle, with no previous question or reply on the stage, ready for whatever you want to talk about. The conversation remains in the assistant's context; `ctrl+o` shows the latest turn when you want to read it. Once you start talking, the stage holds the turn in flight, or the last one from this visit. In a thread, earlier history loads a page at a time on scrolling up, and a rule marks each new day.
 - **The input never locks.** A message sent mid-reply interrupts it. `esc` interrupts without saying anything: the reply so far is kept and flagged, a running tool finishes first, and the message that was being answered stays unanswered until the next one.
 - **A message is shown as sending until the server says it is durable.** One the server refuses, or one that was in flight when the connection dropped and is not in the log afterwards, is put back in the input box.
 - **The status bar shows the cache working**: the share of the last prompt that the provider reported as cached, the tokens, and how long the call took.
@@ -397,6 +403,74 @@ The rows there are decide what is shown. The input is never the part that goes.
 
 At 46 by 12 that is the header, a rule, eight rows of transcript, the bar and one input row with no box; the same at 30 columns, with the bar and the header in their short forms.
 
+### The avatar
+
+Where the terminal can draw one, the transcript's rows are a stage, and a conversation is not a thread. Everything around those rows is as above: the header, the status bar, the input, the list of commands and the hint line, and every command.
+
+```text
+ada  fake/fake-1                                                                              13 Oct
+────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ plot last week's latency
+                        ▄▄▄▄
+                   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+                 ▗▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▖
+               ▗▗▄▄▗▄▄▄▄▄▄▄▄▄▄▙▄▖▄▄▖▖
+              ▗▗▗▗▗▟▟▗▄▖▌▐▐▐▐▐▌▌▙▖▖▖▖▖
+              ▐▐▐▗▐▌▙▄▗▄▖▄▄▗▄▄▄▐▐▐▖▌▌▌                 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+             ▐▐▐▐▐▌▄▄▄▟▄▄▄▄▝▄▙▟▐▐▐▐▌▌▌                 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+             ▐▌▌▌▌▄▄▄▄▄▗▄▄▄▄▄▟▐▐▟▄▐▐▐▐                 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+              ▌▌▌▌▄▄▄▄▄▝▄▄▄▚▟▄▄▄▄▄▐▐▐▐                 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+              ▙▙▙▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▞▗▟▟▟▟                 ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+               ▙▙▄▄▙▄▖▄▄▄▄▄▄▄▄▗▄▟▄▄▟▟                  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                ▝▙▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▘                   ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                   ▀▄▄▄▄▄▄▄▄▄▄▄▄▀                      ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                       ▀▀▀▀▀▀                          ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                                                       ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  Here it is, and that is the whole picture,           chart.png · 160×90 · 43 kB · /image save 24
+  drawn by hand.▍
+```
+
+The layout is a real client's, in tmux against the scripted model, read back as text; the words are put in. In a terminal the avatar is shaded in colour, and the picture is the picture.
+
+- **It says the reply.** The words appear under it as they are said, at 38 characters a second, with a pause at a comma and a longer one at a full stop; the lips follow the letters, and a small synthesised voice babbles along. What the reply said before a tool call and after it is one speech. On opening, the avatar is idle: previous questions, replies and exhibits stay off the stage, while `ctrl+o` still lets you read the latest turn. New replies appear normally, including a reply already in progress when you connect.
+- **It says prose, and shows the rest.** Markdown's marks are not said: emphasis, headings, links and code spans are read as their text. A fenced code block, a table and a picture are shown on the stage at the moment the words reach them, drawn as a thread draws them (highlighting, a mod's renderer, the picture's caption and `/image save` number), and the avatar moves over for them and glances at what it put up. What a turn showed stays up through the next one, until that one shows something of its own.
+- **A picture stands where the reply puts it.** The place is the image's title, the quoted word after the path:
+
+  ```markdown
+  ![latency by day](latency.png "right")
+  ```
+
+  `top`, `bottom`, `left`, `right` or `center`, or one of the first two with one of the second (`top-left`, `bottom right`). `upper`, `lower`, `middle` and `centre` are read too. With no title, or one that names no place, the picture stands beside the avatar on a stage of 72 columns or more and over it on a narrower one, which is also where a code block and a table go. An exhibit never covers the frame around the stage, and is cut before it leaves the avatar no room. Two that would overlap give way to the newer.
+- **The contact has to be told.** Nothing in the server mentions pictures or places; that a reply can show `![alt](file "place")` is something a contact's system prompt says, for instance: `Show a file you wrote with ![description](path "left"); the place can be top, bottom, left, right, center or a corner.`
+- **Above it, the message it is answering**, on one line, with `sending…` until the server has it. Between it and its words, what the turn is busy with (`⏺ python  running… 2.1s`), or how it ended when it did not end with a reply (`✗ no reply: …`, `⏹ interrupted`).
+- **`esc` and a new message stop it talking.** The words are then all there to read. The avatar looks down at a draft while it is typed.
+- **What has no place on a stage is read on a sheet** that lies over it: `ctrl+o` (or `/details`) shows the turn as a thread would, tool calls and their output unfolded and the reply as Markdown, and what `/help`, `/status` or a mod's command prints opens the same way. `up`, `down`, `pgup`, `pgdn`, `/top` and `/bottom` scroll the sheet, and `esc` or a new message closes it.
+- **`/avatar off` is the thread**, with every message of the conversation, for the session; `/avatar on` is the stage again, with nothing said twice.
+
+It is shown when all of this holds:
+
+| Needs | Why | Otherwise |
+| --- | --- | --- |
+| Unicode glyphs | It is drawn with block characters, four pixels a cell | a thread |
+| 256 colours or more | Its shading; the renderer brings the 24-bit colours down to 256 | a thread |
+| A background the terminal named, or `-theme` | Its glow is blended against that colour; `-avatar=on` takes a dark one on trust | a thread, in tmux before 3.4, mosh and screen |
+
+`/avatar` says which of these keeps it away. The rest is settings, in `chat.toml` and for a session by command:
+
+```toml
+[avatar]
+show = "auto"     # auto | on | off        -avatar, CONTACTD_AVATAR, /avatar on|off|auto
+look = "ember"    # ember | tide | orchid | moss                     /avatar look <name>
+voice = "chirp"   # chirp | pip | mellow | retro | deep              /avatar voice <name>
+rate = 38         # characters a second, 8 to 240                    /avatar rate <n>
+cells = "auto"    # auto | quadrant | octant                         /avatar cells <kind>
+mute = false      #                          -mute, CONTACTD_MUTE,   /avatar mute|unmute
+```
+
+- **Cells.** A cell is 2 by 2 pixels (quadrants), which every terminal draws. Octants are 2 by 4, square pixels and twice the detail, but only a terminal that draws block characters itself has them; `auto` uses them in Ghostty.
+- **Sound.** The voice is opened with the client when the avatar may be shown, also when it starts muted, and never over SSH, where it would sound at the far end. With no audio device the avatar is silent and `/avatar` says so.
+- **An idle avatar is not an idle client.** It breathes and blinks, at 30 frames a second, 60 while it speaks, and each frame rewrites the cells that changed: see [Known limits](#known-limits). A thread still writes nothing when nothing happens.
+
 ### Keys
 
 | Key | Does |
@@ -405,10 +479,10 @@ At 46 by 12 that is the header, a rule, eight rows of transcript, the bar and on
 | `ctrl+j` | A new line. So are `alt+enter`, `shift+enter` and a backslash before `enter`. The hint line names `shift+enter` once the terminal reports that it can tell it from `enter` |
 | `/` | Start a command; `//` starts a message with a slash |
 | `tab` | Complete the command |
-| `up`, `down` | Choose a command; else scroll three rows, or move in a draft of several rows |
-| `pgup`, `pgdn` | Scroll a page less one row. Reaching the top loads earlier history |
-| `esc` | Close the list of commands; else stop the reply in flight |
-| `ctrl+o` | Fold or unfold tool calls and their output |
+| `up`, `down` | Choose a command; else scroll three rows, or move in a draft of several rows. On a stage they scroll the sheet, when one is open |
+| `pgup`, `pgdn` | Scroll a page less one row. Reaching the top loads earlier history. On a stage, a page of the sheet |
+| `esc` | Close the list of commands, or the sheet; else stop the reply in flight and the avatar's voice |
+| `ctrl+o` | Fold or unfold tool calls and their output. On a stage, show the turn on a sheet, or close it |
 | `ctrl+p` | Back to the contacts |
 | `ctrl+l` | Clear the screen and draw it again; pictures are sent again |
 | `ctrl+c` | Empty the box; leave when it is empty |
@@ -430,14 +504,15 @@ A one-line draft that starts with `/` is a command. It is run in the client and 
 | `/open` | `<contact>` | Open another contact by its name, the start of its name when only one starts so, or its id (`3` or `#3`) | |
 | `/new` | | The new-contact form | |
 | `/rename` | `[name]` | Rename this contact; no argument opens the prompt | |
-| `/details` | | Fold or unfold tool calls | `ctrl+o` |
+| `/details` | | Fold or unfold tool calls; on a stage, show the turn on a sheet | `ctrl+o` |
 | `/mods` | `[on\|off\|update <name>]`, `[install <path>]` | The mods screen, or one action | |
 | `/image` | `pixels`, `blocks`, `text`, `auto`, or `save <n> [path]` | How pictures are shown this session, or save one | |
+| `/avatar` | `on`, `off`, `auto`, `look <name>`, `voice <name>`, `rate <n>`, `cells <kind>`, `mute` or `unmute` | Whether the avatar is shown, and how it looks and sounds, this session. No argument says how things are | |
 | `/theme` | `auto`, `dark` or `light` | The background, this session | |
 | `/glyphs` | `auto`, `unicode` or `ascii` | The symbols, this session | |
 | `/color` | `auto`, `truecolor`, `256`, `16` or `none` | The number of colours, this session | |
-| `/top` | | The oldest loaded message; asks for earlier ones | |
-| `/bottom` | | The newest; follow again | |
+| `/top` | | The oldest loaded message; asks for earlier ones. On a stage, the top of the sheet | |
+| `/bottom` | | The newest; follow again. On a stage, the end of the sheet | |
 | `/redraw` | | Clear the screen and draw it again | `ctrl+l` |
 | `/reload` | | Read the `[glyph]` table of `chat.toml` and `statusline.toml` again, start mods that are on and not running, ask every mod again, and fetch again the pictures that could not be shown | |
 | `/quit` | | Leave | `ctrl+c` |
@@ -445,7 +520,7 @@ A one-line draft that starts with `/` is a command. It is run in the client and 
 - **Enter.** A name typed in full is run. Anything else is completed to the chosen command, which is then run unless it needs an argument (`/open`). A bare `/` is only completed.
 - **A draft is kept when its command did nothing.** `no command /foo; /help lists them; start with // to send it`, a wrong argument (the note is the usage) and a refusal all leave the line in the box. A command that takes no argument refuses one: `/top of the morning` is not run as `/top`.
 - **A draft of several lines that starts with one `/` is not sent**: `not sent: a draft that starts with / is a command; start with // to send it`.
-- **What a command prints** (`/help`, `/status`, a mod's command) is a block in the transcript, after the message that was the newest when it was made. It is the client's own and never in the log.
+- **What a command prints** (`/help`, `/status`, a mod's command) is a block in the transcript, after the message that was the newest when it was made, or on a stage a sheet over it. It is the client's own and never in the log.
 - **The four setting commands change the running session only.** Their note names the line of `chat.toml` that makes the choice last: `theme: light for this session; theme = "light" in chat.toml keeps it`.
 
 ### The status line
@@ -576,6 +651,8 @@ Everything drawn follows from one value, worked out when the client starts from 
 | `-glyphs`, `-ascii` | `CONTACTD_GLYPHS` | `glyphs` | `auto`, `unicode`, `ascii` |
 | `-theme` | `CONTACTD_THEME` | `theme` | `auto`, `dark`, `light` |
 | `-images` | `CONTACTD_IMAGES` | `images` | `auto`, `pixels`, `blocks`, `text` |
+| `-avatar` | `CONTACTD_AVATAR` | `show` under `[avatar]` | `auto`, `on`, `off` |
+| `-mute` | `CONTACTD_MUTE` | `mute` under `[avatar]` | `true`, `false` |
 | `-probe` | `CONTACTD_PROBE` | `probe` | `true`, `false` |
 | `-mods` | `CONTACTD_MODS` | `mods` | `true`, `false` |
 | `-config-dir` | `CONTACTD_CONFIG_DIR` | | a directory |
@@ -648,13 +725,22 @@ internal/tui/mods/wire   the JSON a mod is sent and answers with
 internal/tui/mods/guest  the glue for a mod written in Go
 internal/tui/modscreen   the mods screen
 internal/tui/termimg     pictures: limits, scaling, half blocks, kitty bytes, the store
+internal/tui/script      a reply read as a performance: what is said, what is shown, and never a word taken back
+internal/tui/stage       the avatar's stage: the voice's pace, where an exhibit stands, the rows it is drawn in
+internal/tui/avatar      the puppet: springs for every moving part, and a signed-distance shader that paints a pose
+internal/tui/speech      text paced into speech: mouth shapes, beats, syllables and their melody
+internal/tui/sound       the voice: a formant synth driven by the mouth, and the audio device
+internal/tui/canvas      a framebuffer of block characters, two colours a cell
+internal/tui/motion      the fixed-step clock and the springs
 internal/tui/tuitest     golden files and an output recorder, for tests
 internal/env/workdir     the server's read of a contact's working directory, for the files endpoint
 examples/mods            cache, git, standup
 docs/MODS.md             the mod manifest and ABI
 ```
 
-The packages that hold rules and no screen (`safe`, `termcaps`, `toml`, `conf`, `scrollback`, `markdown`, `commands`, `statusline`, `mods`, `termimg`) may not import Bubble Tea, Lip Gloss or anything else under `charm.land`. Only `mods` may import wazero. Only `probe.go` may import the terminal library under Bubble Tea, which is an unreleased version. `internal/api` reaches a contact's files through a port and never imports `internal/env`. Each is a `depguard` rule.
+The packages that hold rules and no screen (`safe`, `termcaps`, `toml`, `conf`, `scrollback`, `markdown`, `commands`, `statusline`, `mods`, `termimg`, `script`, `speech`, `motion`, `sound`, `canvas`, `avatar`) may not import Bubble Tea, Lip Gloss or anything else under `charm.land`. Only `mods` may import wazero, and only `sound` the audio library.
+
+Five of the avatar's seven packages came from a prototype of it alone, `bubble-claude`: `avatar`, `canvas`, `motion`, `speech` and `sound` are here nearly as they were. What changed is that the avatar's chance is its own and seeded, and that the voice can be handed a whole text, skipped to its end and reset. `stage` does here what the prototype's own program did, and `script` is new. Only `probe.go` may import the terminal library under Bubble Tea, which is an unreleased version. `internal/api` reaches a contact's files through a port and never imports `internal/env`. Each is a `depguard` rule.
 
 ### Where the build differs from the drawings
 
@@ -688,12 +774,21 @@ The screens were drawn first, as mock-ups. Each has a golden file of its 100 by 
 | Mods from a URL, a registry, signing, host functions, a mod SDK outside this repository | Each widens what a mod can reach |
 | Holding `esc` for a moment to tell it from a split arrow key; holding keys while the terminal answers | It delays every stop, and the stray bytes are typed all the same |
 | `/copy`, the mouse, search, a scrollbar | Outside the approved screens |
+| The avatar's eyes following the pointer, as in its prototype | The mouse is never asked for. It looks at what it shows and at the draft |
+| Pausing, replaying or rewinding the avatar's speech; older turns on the stage | `ctrl+o` shows the turn and `/avatar off` the thread |
+| A size for a picture, or a place by row and column | A picture is as large as a thread shows it, 44 by 12 cells at most; nine places and "where there is room" |
 | Showing a sub-agent's own log beside its parent's; editing a contact's agent config or profile | The settlement appears as a notice, and `contactd chat <id>` opens a sub-agent like any contact |
 | Windows | Not examined. Shell segments report that they are not supported, and `statusline.toml` is never trusted with commands there |
 
 ### Known limits
 
 - **Nothing here was run on a real terminal while it was built.** The client was driven through its update loop and through a real Bubble Tea program on a pipe, with what it writes read back byte for byte. That a picture shows in kitty and Ghostty, alone and through tmux, and that the picked colours read well on real themes, is still to be looked at by a person.
+- **The avatar was never seen or heard while it was built.** It was run for real, in tmux against the scripted model, and its screen read back as text: the layout, the pacing, a picture placed by a reply, the sheet and `/avatar`. Its colours on real themes, octants in Ghostty, a kitty picture beside it and the sound of its voice are still to be looked at and listened to by a person.
+- **The avatar reads Markdown its own way**, a line at a time, so that it can speak while a reply is still arriving and never take a word back. It is not the parser the thread uses. Where the two disagree a mark is said aloud that should not be, or a picture written as a reference (`![alt][ref]`) is said by its description and not shown. A table without a leading `|` is read out. `ctrl+o` shows what the thread makes of the turn.
+- **A picture's number can differ between the stage and the thread** in a reply that mixes pictures the two read differently; the picture is then fetched once for each.
+- **Text arrives faster than it is said**, so the avatar can be a good way behind a long reply; `esc` gives the rest at once. More than 32 KiB of one reply is not said.
+- **The avatar animates while it is on screen.** At rest in a window of 100 by 30 it writes about 250 kB a second, measured through a real program on a pipe: its breathing changes the shade of most of its 640 cells in every frame. Over a slow link `-avatar=off` is the switch.
+- **On Linux the audio library looks for PulseAudio and then ALSA when the client starts.** Where there is neither, ALSA may write a line to the terminal before the screen is up.
 - **Picture ids are 8 bits and shared with every program in the same terminal.** The first is taken from the clock and each is given back on leaving, but two programs that place pictures this way can show each other's. Past 255 pictures in one conversation the one shown longest ago is dropped and sent again when next in view.
 - **A resize that changes a picture's box sends the picture again**, from what the client kept, with no fetch. A terminal that reports larger cells than 8 by 16 after pictures were drawn costs one more fetch for each.
 - **One very long word in the draft makes every key slow.** A word of 1 KiB with no space costs 12 ms a key, 4 KiB 150 ms, 8 KiB over half a second; pasting 64 KiB of it stops the client for about 20 seconds. Text with spaces is not affected. The cause is in the text area's wrapping.
@@ -719,6 +814,7 @@ The screens were drawn first, as mock-ups. Each has a golden file of its 100 by 
 - **Counts**, with 10,000 messages loaded: a key draws no block and does not rebuild the list, a batch of a streaming reply draws no settled block, a resize draws only the blocks in view, and the list of commands or a second draft line encodes no picture and writes nothing beside the screen.
 - **The wire**, with a real program on a pipe: no mouse mode is ever switched on, a message that changes nothing writes nothing, a typed character writes at most 40 bytes (13 measured, 30 for the first of a draft), a tick of a running tool at most 120 (82 measured), a picture is sent once and before the cells that show it, and the deadline for the terminal's answers writes nothing.
 - **The renderer**, pinned so that an update of it fails a test: a picture's cell with its two marks is one cell of width 1, a colour given as one of the 256 is written as that number at 256 colours and at all of them, what is written beside the screen comes before the frame of the same turn, and a string sequence that never ends is dropped.
+- **The avatar**, with time handed in: a reply is said at a speaker's pace and never unsaid, a turn from the log is not said, `esc` and a message stop it, an exhibit is shown when the words reach it and stands at each of the nine places with the avatar whole beside it, the stage has the terminal's rows and width at every size from 140 by 40 down to 1 by 1, nothing a reply holds reaches the terminal as more than text, and under a real program a frame in which nothing moved writes nothing. The reader of replies is fuzzed for the one thing the voice depends on: what it says of a text that only grew begins with what it said before. The avatar's own picture has no golden file, because its shading need not round alike on every machine.
 - **Faults**, put into the client one at a time through `go test -overlay` at each step of the integration, several hundred in all, each of which a test had to fail or be shown to change nothing.
 
 ## Tests
@@ -754,6 +850,7 @@ On an Apple M-series laptop (18 cores, darwin/arm64), Go race detector off unles
 | Terminal client: a batch of three pieces of a streaming reply and its screen (`BenchmarkStreamedBatch`) | 300 µs | 23 µs |
 | Terminal client: the screen asked for again with nothing changed (`BenchmarkViewUnchanged`) | under 1 µs | 16 ns, no allocation |
 | Terminal client: a resize and its screen (`BenchmarkResize`) | under 20 ms | 0.30 ms |
+| Terminal client: one frame of the avatar, stepped and drawn, 100 by 23 (`BenchmarkFrame` in `internal/tui/stage`) | | 0.28 ms |
 | Terminal client, bytes written to the terminal: nothing changed / one typed character / one tick of a running tool's time | 0 / at most 40 / at most 120 | 0 / 13, and 30 for the first character of a draft / 82 at most |
 
 **Cache simulator and recall benchmark** (`cmd/replay`), over 12 generated transcripts in `testdata/transcripts` (204 conversations, 632 turns, 8 topics, callbacks labelled), real int8 models, breakpoint-style provider cache, and a deliberately tiny 1,500-token tail so that compaction and recall happen at all:

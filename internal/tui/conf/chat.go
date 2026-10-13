@@ -28,7 +28,33 @@ type Chat struct {
 	// name. It is nil when there are none. The names and the values are not
 	// checked here; the theme knows the glyphs.
 	Glyph map[string]string
+	// Avatar is the [avatar] table: the avatar that speaks a contact's
+	// replies.
+	Avatar Avatar
 }
+
+// Avatar is the [avatar] table of chat.toml.
+type Avatar struct {
+	// Show is "" or "auto" to have the avatar where the terminal can draw
+	// it, "on" or "off".
+	Show string
+	// Look and Voice name what the avatar wears and what it sounds like, or
+	// are "". The names are not checked here; the client knows them.
+	Look, Voice string
+	// Cells is how finely it is drawn: "", "auto", "quadrant" or "octant".
+	Cells string
+	// Rate is its pace in characters a second, from 8 to 240, or zero for
+	// the client's own.
+	Rate int
+	// Mute starts it silent.
+	Mute bool
+}
+
+// The bounds of [avatar] rate, in characters a second.
+const (
+	minRate = 8
+	maxRate = 240
+)
 
 // LoadChat reads chat.toml. A missing file is the defaults, and so is no
 // path at all.
@@ -101,17 +127,24 @@ func parseChat(src []byte) (Chat, []string, error) {
 	arrays := make(map[string]bool)
 	for i := range doc.Tables[1:] {
 		t := &doc.Tables[i+1]
+		known := t.Name == "glyph" || t.Name == "avatar"
 		switch {
-		case t.Name != "glyph" && t.Array:
+		case !known && t.Array:
 			// One note for the whole array, at its first element.
 			if !arrays[t.Name] {
 				arrays[t.Name] = true
 				warnings = append(warnings, warning(t.Line, "unknown table [["+clip(t.Name)+"]]"))
 			}
-		case t.Name != "glyph":
+		case !known:
 			warnings = append(warnings, warning(t.Line, "unknown table ["+clip(t.Name)+"]"))
 		case t.Array:
-			return chat, nil, &toml.Error{Line: t.Line, Msg: "glyph is one table, written [glyph]"}
+			return chat, nil, &toml.Error{Line: t.Line, Msg: t.Name + " is one table, written [" + t.Name + "]"}
+		case t.Name == "avatar":
+			var more []string
+			if chat.Avatar, more, err = avatar(t); err != nil {
+				return chat, nil, err
+			}
+			warnings = append(warnings, more...)
 		default:
 			if chat.Glyph, err = glyphs(t); err != nil {
 				return chat, nil, err
@@ -171,6 +204,45 @@ func colour(t *toml.Table, key string) (string, error) {
 		Line: t.KeyLine(key),
 		Msg:  fmt.Sprintf("%s is %d; it can be auto, truecolor, 256, 16 or none", key, n),
 	}
+}
+
+// avatar reads the [avatar] table. A key it does not know is a warning, as
+// in the rest of the file.
+func avatar(t *toml.Table) (Avatar, []string, error) {
+	var (
+		a        Avatar
+		warnings []string
+		err      error
+	)
+	for _, key := range t.Keys() {
+		switch key {
+		case "show":
+			a.Show, err = choice(t, key, "on", "off")
+		case "look":
+			a.Look, _, err = t.String(key)
+		case "voice":
+			a.Voice, _, err = t.String(key)
+		case "cells":
+			a.Cells, err = choice(t, key, "quadrant", "octant")
+		case "rate":
+			var n int64
+			if n, _, err = t.Int(key); err == nil && (n < minRate || n > maxRate) {
+				err = &toml.Error{
+					Line: t.KeyLine(key),
+					Msg:  fmt.Sprintf("rate is %d; it can be from %d to %d characters a second", n, minRate, maxRate),
+				}
+			}
+			a.Rate = int(n)
+		case "mute":
+			a.Mute, _, err = t.Bool(key)
+		default:
+			warnings = append(warnings, warning(t.KeyLine(key), "unknown key "+strconv.Quote(clip(key))+" in [avatar]"))
+		}
+		if err != nil {
+			return Avatar{}, nil, err //nolint:wrapcheck // the caller adds the file's path
+		}
+	}
+	return a, warnings, nil
 }
 
 // glyphs reads the [glyph] table. Every value must be a string. An empty

@@ -530,8 +530,8 @@ func TestLen(t *testing.T) {
 	if got, want := commands.NewRegistry(nil).Len(), 0; got != want {
 		t.Errorf("empty registry: Len() = %d, want %d", got, want)
 	}
-	// The mock's count: 19 core commands and four from mods.
-	if got, want := mock().Len(), 23; got != want {
+	// The mock's count: 20 core commands and four from mods.
+	if got, want := mock().Len(), 24; got != want {
 		t.Errorf("Len() = %d, want %d", got, want)
 	}
 }

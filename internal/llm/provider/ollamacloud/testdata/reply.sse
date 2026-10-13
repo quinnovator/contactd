@@ -4,7 +4,7 @@ data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000
 
 data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":"stop"}]}
 
-data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[],"usage":{"prompt_tokens":2312,"completion_tokens":9,"total_tokens":2321}}
+data: {"id":"chatcmpl-101","object":"chat.completion.chunk","created":1760000000,"model":"deepseek-v4.1-flash","system_fingerprint":"fp_ollama","choices":[],"usage":{"prompt_tokens":2312,"completion_tokens":9,"total_tokens":2321,"prompt_tokens_details":{"cached_tokens":0}}}
 
 data: [DONE]
 

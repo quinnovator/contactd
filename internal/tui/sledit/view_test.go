@@ -639,7 +639,7 @@ func TestNoColourPreviewIsASCII(t *testing.T) {
 func busy(th *theme.Theme) map[string]statusline.Value {
 	vals := statusline.CoreValues(statusline.Snapshot{
 		Conn: statusline.ConnLive, Contact: "grace", Provider: "x", Model: "big-one",
-		HasCall: true, Input: 1000, Cached: 100, Output: 5, MS: 900,
+		HasCall: true, CacheReported: true, Input: 1000, Cached: 100, Output: 5, MS: 900,
 		Replying: true, Running: "bash", Clock: "09:31",
 	}, statusline.Marks{Dot: th.G.Dot, Newer: th.G.Newer})
 	vals["mod:git/branch"] = statusline.ModValue("⎇ trunk", "", "")

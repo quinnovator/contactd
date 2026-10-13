@@ -149,6 +149,10 @@ func (c *chat) redraw(seqs []uint64) {
 		c.win.Invalidate(scrollback.Key{Kind: blockItem, ID: seq})
 		c.dirty |= dirtyBody
 	}
+	// A picture on the stage is one of them, or none is.
+	if len(seqs) > 0 && c.stage != nil {
+		c.stage.Refresh()
+	}
 }
 
 // setCaps tells the conversation's pictures what the terminal can do now.
@@ -290,6 +294,7 @@ func (m *model) resend() {
 	}
 	m.write(c.imgs.store.DeleteAll())
 	c.win.InvalidateAll()
+	c.restaged()
 	c.dirty |= dirtyTail | dirtyBody
 }
 

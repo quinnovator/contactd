@@ -86,7 +86,8 @@ type Capabilities struct {
 
 	Cache CacheMode
 	// CacheTTL is how long a written prefix is assumed to stay warm. It
-	// drives recall hysteresis and the cache prediction.
+	// drives recall hysteresis and the cache prediction. Zero makes no
+	// retention assumption; actual cache usage can still be reported.
 	CacheTTL time.Duration
 	// Affinity says whether the provider takes a per-contact key that pins a
 	// conversation to one backend.
@@ -347,11 +348,15 @@ func (s StopReason) String() string {
 // Usage is a provider's token accounting, normalized. Raw is the provider's
 // own usage object, kept for audit and never branched on.
 type Usage struct {
-	Input     int // every input token, cached or not
-	Cached    int // input tokens read from the provider's cache
-	Output    int // every output token, reasoning included
-	Reasoning int // output tokens spent on reasoning, when reported
-	Raw       json.RawMessage
+	Input  int // every input token, cached or not
+	Cached int // input tokens read from the provider's cache
+	// CacheReported distinguishes an explicit zero from an omitted cache
+	// count. A route's CacheUsage capability alone does not guarantee that
+	// every response includes this accounting.
+	CacheReported bool
+	Output        int // every output token, reasoning included
+	Reasoning     int // output tokens spent on reasoning, when reported
+	Raw           json.RawMessage
 }
 
 // ErrorClass is the provider-neutral kind of a failed call.

@@ -65,9 +65,8 @@ func provider(t *testing.T, cfg Config) *Provider {
 
 func TestConformance(t *testing.T) {
 	t.Parallel()
-	// Ollama reports no cached tokens, so none are expected. The tool reply
-	// carries reasoning; the route replays none, so the suite expects no
-	// payload to be kept.
+	// The plain reply is cold; the tool reply has a cached prefix. Reasoning
+	// is not replayed, so the suite expects no payload to be kept.
 	fx := conform.Fixture{
 		Reply: conform.Response{
 			Body: fixture(t, "reply.sse"),
@@ -75,7 +74,7 @@ func TestConformance(t *testing.T) {
 		},
 		Tool: conform.Response{
 			Body: fixture(t, "tool.sse"),
-			Text: "Let me check.", Code: "print(6 * 7)", Input: 1520, Cached: 0, Output: 41,
+			Text: "Let me check.", Code: "print(6 * 7)", Input: 1520, Cached: 1408, Output: 41,
 			Reasoning: true,
 		},
 	}
@@ -104,7 +103,7 @@ func TestRoute(t *testing.T) {
 	}
 	want := llm.Capabilities{
 		ContextWindow: 1_048_576,
-		Cache:         llm.CacheNone, Affinity: llm.AffinityNone,
+		Cache:         llm.CacheAutoPrefix, Affinity: llm.AffinityNone, CacheUsage: true,
 		Efforts: []llm.Effort{llm.EffortLow, llm.EffortHigh, llm.EffortMax}, DefaultEffort: llm.EffortHigh, ReasoningOff: true,
 		Replay: llm.ReplayNone,
 	}

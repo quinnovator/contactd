@@ -160,6 +160,7 @@ type Snapshot struct {
 	// Input, Cached and Output are its token counts and MS how long it
 	// took.
 	HasCall, CallFailed   bool
+	CacheReported         bool // the cache count was present, including zero
 	Input, Cached, Output int
 	MS                    int64
 	// Replying says a reply is in flight. Running names the tool that is
@@ -261,7 +262,7 @@ func cacheValue(s Snapshot) Value {
 		return Value{Hide: true}
 	case s.CallFailed:
 		return Value{Text: "call failed", Tone: toneBad}
-	case s.Input <= 0:
+	case s.Input <= 0 || !s.CacheReported:
 		return Value{Hide: true}
 	}
 	pct := min(max(100*int64(s.Cached)/int64(s.Input), 0), 100)

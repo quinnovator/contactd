@@ -38,7 +38,7 @@ func (c *chat) snapshot(now time.Time) statusline.Snapshot {
 		Model:        c.model,
 		Replying:     live.Typing,
 		LoadingOlder: c.loadingOlder,
-		Scrolled:     !c.win.Following(),
+		Scrolled:     c.stage == nil && !c.win.Following(),
 		Agents:       c.waiting,
 		Clock:        now.In(c.loc).Format("15:04"),
 	}
@@ -48,6 +48,7 @@ func (c *chat) snapshot(now time.Time) statusline.Snapshot {
 	if a, ok := c.tr.Attempt(); ok {
 		s.HasCall, s.CallFailed = true, a.Error != ""
 		s.Input, s.Cached, s.Output, s.MS = a.Input, a.Cached, a.Output, a.MS
+		s.CacheReported = a.HasCacheReport()
 	}
 	return s
 }
@@ -113,7 +114,7 @@ func cells(in []statusline.Cell) []theme.Cell {
 // from the provider's cache.
 func (c *chat) headerInfo() frame.HeaderInfo {
 	h := frame.HeaderInfo{Label: c.label, Provider: c.provider, Model: c.model, Range: c.dateRange()}
-	if a, ok := c.tr.Attempt(); ok && a.Error == "" && a.Input > 0 {
+	if a, ok := c.tr.Attempt(); ok && a.Error == "" && a.Input > 0 && a.HasCacheReport() {
 		h.HasCall, h.CachePct = true, 100*a.Cached/a.Input
 	}
 	return h
@@ -121,6 +122,15 @@ func (c *chat) headerInfo() frame.HeaderInfo {
 
 // dateRange names the days of the blocks the window last showed.
 func (c *chat) dateRange() string {
+	// A stage shows one turn: the day is that of the newest thing in it.
+	if c.stage != nil {
+		for _, it := range slices.Backward(c.tr.Items()) {
+			if it.TS != 0 {
+				return draw.DateRange(it.TS, it.TS, c.loc, c.th.G.Dash)
+			}
+		}
+		return ""
+	}
 	first, last, ok := c.win.Visible()
 	if !ok || last >= len(c.list.blocks) {
 		return ""

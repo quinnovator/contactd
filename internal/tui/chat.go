@@ -21,6 +21,7 @@ import (
 	"github.com/quinnovator/contactd/internal/tui/palette"
 	"github.com/quinnovator/contactd/internal/tui/safe"
 	"github.com/quinnovator/contactd/internal/tui/scrollback"
+	"github.com/quinnovator/contactd/internal/tui/stage"
 	"github.com/quinnovator/contactd/internal/tui/statusline"
 	"github.com/quinnovator/contactd/internal/tui/theme"
 )
@@ -235,6 +236,21 @@ type chat struct {
 	renders *renders
 	imgs    *images
 
+	// stage is the avatar that performs the conversation, where the
+	// terminal can draw one. With it the transcript's rows are the stage's,
+	// and there is no thread. sheet is what lies over the stage to be read,
+	// and cards the renderers of what the stage shows, by their width.
+	stage *stage.Stage
+	sheet *sheet
+	cards map[int]*draw.Renderer
+	// primed says the log has been read once: what arrives from now on is
+	// news, and is said aloud. framing says a frame of the stage is on its
+	// way.
+	primed, framing bool
+	// openedSeq is the end of the log when this conversation was opened.
+	// The stage starts idle; this history stays available to read explicitly.
+	openedSeq uint64
+
 	// toolSince is when the running tool started, and ticking says a tick
 	// is on its way to draw its time again.
 	toolSince time.Time
@@ -315,7 +331,20 @@ func (c *chat) restyle() {
 	c.drawn = o
 	c.list.rd = c.list.rd.With(o)
 	c.win.InvalidateAll()
+	c.restaged()
 	c.dirty |= dirtyTail | dirtyBody
+}
+
+// restaged has everything the stage shows drawn again: what it is drawn
+// with has changed, or what it draws.
+func (c *chat) restaged() {
+	c.cards = nil
+	if c.stage != nil {
+		c.stage.Refresh()
+	}
+	if c.sheet != nil {
+		c.sheet.drawn = false
+	}
 }
 
 // resize gives the conversation the terminal's size.
@@ -333,6 +362,9 @@ func (c *chat) resize(width, height int) {
 func (c *chat) setTheme(th *theme.Theme) {
 	c.th = th
 	c.input.SetTheme(th)
+	if c.stage != nil {
+		c.stage.SetTheme(th)
+	}
 	c.restyle()
 	c.layout()
 	c.dirty = dirtyAll
@@ -417,6 +449,11 @@ func (c *chat) print(title string, lines []wire.Line) scrollback.Key {
 // than the view holds, it is moved up so that the block's first row is the
 // first in view, where reading starts.
 func (c *chat) show(k scrollback.Key, now time.Time) {
+	// A stage has no thread to put it in: it is read on a sheet.
+	if c.stage != nil {
+		c.printed(k.ID)
+		return
+	}
 	c.sync()
 	c.win.Follow()
 	c.dirty |= dirtyBody
@@ -503,6 +540,13 @@ func (c *chat) fold(u client.Update, now time.Time) {
 			c.setNote("not sent: the connection dropped first")
 		}
 	case client.UpdateState:
+		// Remember the opening history without putting it on the stage.
+		// Reconnecting must not hide replies from this visit.
+		if u.State == client.StateLive && !c.primed {
+			c.openedSeq = c.tr.Newest()
+			c.primed = true
+			c.perform(true)
+		}
 		c.setState(u.State, u.Err, now)
 	}
 }
@@ -581,10 +625,18 @@ func (c *chat) key(msg tea.KeyPressMsg, now time.Time) (tea.Cmd, *commands.Line)
 			return nil, c.submit(text)
 		}
 	case "esc":
+		if c.closeSheet() {
+			break
+		}
 		// Only while there is a reply to stop: an interrupt with nothing in
 		// flight does nothing, and esc should not feel like it did.
 		if c.tr.Live().Typing {
 			c.sess.Interrupt()
+		}
+		// The avatar stops talking with it: what there was to say is all
+		// there to read.
+		if c.stage != nil {
+			c.stage.Skip()
 		}
 	case "ctrl+o":
 		c.unfold()
@@ -616,6 +668,12 @@ func (c *chat) key(msg tea.KeyPressMsg, now time.Time) (tea.Cmd, *commands.Line)
 
 // unfold shows all of every tool call and its output, or folds them again.
 func (c *chat) unfold() {
+	// A stage shows no tool calls to unfold. The turn is read on a sheet,
+	// with everything in it.
+	if c.stage != nil {
+		c.readTurn()
+		return
+	}
 	c.expanded = !c.expanded
 	c.restyle()
 }
@@ -623,6 +681,10 @@ func (c *chat) unfold() {
 // top goes to the oldest message that has been loaded, and asks for the
 // ones before it when there are any.
 func (c *chat) top() {
+	if c.stage != nil {
+		c.scroll(-len(c.tr.Items()) - cachedLines)
+		return
+	}
 	c.sync()
 	c.win.Top(&c.list)
 	c.dirty |= dirtyBody
@@ -645,6 +707,10 @@ func (c *chat) typing(msg tea.Msg, now time.Time) tea.Cmd {
 	cmd, changed := c.input.Update(msg)
 	if changed {
 		c.inputChanged()
+		// The avatar looks down at what is being written to it.
+		if c.stage != nil {
+			c.stage.Glance(0, 1)
+		}
 	}
 	after := c.input.Value()
 	if after == before || strings.TrimSpace(after) == "" || now.Sub(c.lastTyping) < typingEvery {
@@ -712,6 +778,11 @@ func (c *chat) send(text string) {
 		c.sess.Say(text)
 		c.clearInput()
 		c.win.Follow()
+		// The avatar stops talking and listens, as a person would.
+		if c.stage != nil {
+			c.stage.Skip()
+			c.closeSheet()
+		}
 		c.dirty |= dirtyBody
 	}
 }
@@ -720,6 +791,14 @@ func (c *chat) send(text string) {
 // the top of what has been loaded.
 func (c *chat) scroll(lines int) {
 	if lines == 0 {
+		return
+	}
+	// A stage has nothing to scroll but the sheet over it.
+	if c.stage != nil {
+		if c.sheet != nil {
+			c.sheet.top, c.sheet.follow = c.sheet.top+lines, false
+			c.dirty |= dirtyBody
+		}
 		return
 	}
 	c.sync()
@@ -857,10 +936,14 @@ func (c *chat) draw(now time.Time) tea.View {
 	// The transcript first: the header says which days are in view.
 	if dirty&(dirtyTail|dirtyBody) != 0 {
 		c.sync()
-		if dirty&dirtyTail != 0 {
-			c.win.SetTail(c.tail(now))
+		if c.stage != nil {
+			c.reg.Body = c.stageRows(now, dirty&dirtyTail != 0)
+		} else {
+			if dirty&dirtyTail != 0 {
+				c.win.SetTail(c.tail(now))
+			}
+			c.reg.Body = c.win.View(&c.list)
 		}
-		c.reg.Body = c.win.View(&c.list)
 	}
 	if info := c.headerInfo(); dirty&dirtyHeader != 0 || info != c.info {
 		c.info = info

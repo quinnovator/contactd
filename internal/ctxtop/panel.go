@@ -137,7 +137,7 @@ func (m *model) usage(s diagnostic.Snapshot, w int) string {
 	case s.Error != "":
 		cache += " · the call failed"
 	case !s.Reported:
-		cache += " · the provider reported no cache use"
+		cache += " · cache usage was not reported"
 	default:
 		reused := share(s.ReportedCached, s.ReportedInput)
 		cache = fmt.Sprintf("Cache %.0f%% reused · %.0f%% expected", reused*100, expected*100)

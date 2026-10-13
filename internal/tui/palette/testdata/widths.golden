@@ -1,6 +1,6 @@
 truecolor dark unicode, draft "/st", 100 columns
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
-│ commands matching /st                                                                    5 of 23 │$
+│ commands matching /st                                                                    5 of 24 │$
 │   /statusline       choose a preset or edit the status line                                 core │$
 │ ▸ /status           connection, route and cache for this contact                            core │$
 │   /stop             stop the reply in flight (esc)                                          core │$
@@ -11,7 +11,7 @@ truecolor dark unicode, draft "/st", 100 columns
 
 truecolor dark unicode, draft "/st", 60 columns
 ╭──────────────────────────────────────────────────────────╮$
-│ commands matching /st                            5 of 23 │$
+│ commands matching /st                            5 of 24 │$
 │   /statusline       choose a preset or…             core │$
 │ ▸ /status           connection, route …             core │$
 │   /stop             stop the reply in …             core │$
@@ -22,7 +22,7 @@ truecolor dark unicode, draft "/st", 60 columns
 
 truecolor dark unicode, draft "/st", 59 columns
 ╭─────────────────────────────────────────────────────────╮$
-│ commands matching /st                           5 of 23 │$
+│ commands matching /st                           5 of 24 │$
 │   /statusline       choose a preset or edit the status… │$
 │ ▸ /status           connection, route and cache for th… │$
 │   /stop             stop the reply in flight (esc)      │$
@@ -33,7 +33,7 @@ truecolor dark unicode, draft "/st", 59 columns
 
 truecolor dark unicode, draft "/st", 40 columns
 ╭──────────────────────────────────────╮$
-│ commands matching /st        5 of 23 │$
+│ commands matching /st        5 of 24 │$
 │   /statusline       choose a preset… │$
 │ ▸ /status           connection, rou… │$
 │   /stop             stop the reply … │$
@@ -58,7 +58,7 @@ truecolor dark unicode, draft "/st", 30 columns
 
 truecolor dark unicode, draft "/", 100 columns
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
-│ commands                                                                                23 of 23 │$
+│ commands                                                                                24 of 24 │$
 │   /statusline       choose a preset or edit the status line                                 core │$
 │ ▸ /status           connection, route and cache for this contact                            core │$
 │   /stop             stop the reply in flight (esc)                                          core │$
@@ -72,7 +72,7 @@ truecolor dark unicode, draft "/", 100 columns
 
 truecolor dark unicode, draft "/", 60 columns
 ╭──────────────────────────────────────────────────────────╮$
-│ commands                                        23 of 23 │$
+│ commands                                        24 of 24 │$
 │   /statusline       choose a preset or…             core │$
 │ ▸ /status           connection, route …             core │$
 │   /stop             stop the reply in …             core │$
@@ -86,7 +86,7 @@ truecolor dark unicode, draft "/", 60 columns
 
 truecolor dark unicode, draft "/", 59 columns
 ╭─────────────────────────────────────────────────────────╮$
-│ commands                                       23 of 23 │$
+│ commands                                       24 of 24 │$
 │   /statusline       choose a preset or edit the status… │$
 │ ▸ /status           connection, route and cache for th… │$
 │   /stop             stop the reply in flight (esc)      │$
@@ -100,7 +100,7 @@ truecolor dark unicode, draft "/", 59 columns
 
 truecolor dark unicode, draft "/", 40 columns
 ╭──────────────────────────────────────╮$
-│ commands                    23 of 23 │$
+│ commands                    24 of 24 │$
 │   /statusline       choose a preset… │$
 │ ▸ /status           connection, rou… │$
 │   /stop             stop the reply … │$
@@ -134,28 +134,28 @@ truecolor dark unicode, draft "/", 30 columns
 
 truecolor dark unicode, draft "/zzz", 100 columns
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮$
-│ commands matching /zzz                                                                   0 of 23 │$
+│ commands matching /zzz                                                                   0 of 24 │$
 │ no command matches; start with // to send it                                                     │$
 │ esc close                                                                                        │$
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯$
 
 truecolor dark unicode, draft "/zzz", 60 columns
 ╭──────────────────────────────────────────────────────────╮$
-│ commands matching /zzz                           0 of 23 │$
+│ commands matching /zzz                           0 of 24 │$
 │ no command matches; start with // to send it             │$
 │ esc close                                                │$
 ╰──────────────────────────────────────────────────────────╯$
 
 truecolor dark unicode, draft "/zzz", 59 columns
 ╭─────────────────────────────────────────────────────────╮$
-│ commands matching /zzz                          0 of 23 │$
+│ commands matching /zzz                          0 of 24 │$
 │ no command matches; start with // to send it            │$
 │ esc close                                               │$
 ╰─────────────────────────────────────────────────────────╯$
 
 truecolor dark unicode, draft "/zzz", 40 columns
 ╭──────────────────────────────────────╮$
-│ commands matching /zzz       0 of 23 │$
+│ commands matching /zzz       0 of 24 │$
 │ no command matches; start with // t… │$
 │ esc close                            │$
 ╰──────────────────────────────────────╯$
@@ -168,7 +168,7 @@ no command matches            $
 
 none ascii, draft "/st", 100 columns
 +--------------------------------------------------------------------------------------------------+$
-| commands matching /st                                                                    5 of 23 |$
+| commands matching /st                                                                    5 of 24 |$
 |   /statusline       choose a preset or edit the status line                                 core |$
 | > /status           connection, route and cache for this contact                            core |$
 |   /stop             stop the reply in flight (esc)                                          core |$
@@ -179,7 +179,7 @@ none ascii, draft "/st", 100 columns
 
 none ascii, draft "/st", 60 columns
 +----------------------------------------------------------+$
-| commands matching /st                            5 of 23 |$
+| commands matching /st                            5 of 24 |$
 |   /statusline       choose a preset ...             core |$
 | > /status           connection, rout...             core |$
 |   /stop             stop the reply i...             core |$
@@ -190,7 +190,7 @@ none ascii, draft "/st", 60 columns
 
 none ascii, draft "/st", 59 columns
 +---------------------------------------------------------+$
-| commands matching /st                           5 of 23 |$
+| commands matching /st                           5 of 24 |$
 |   /statusline       choose a preset or edit the stat... |$
 | > /status           connection, route and cache for ... |$
 |   /stop             stop the reply in flight (esc)      |$
@@ -201,7 +201,7 @@ none ascii, draft "/st", 59 columns
 
 none ascii, draft "/st", 40 columns
 +--------------------------------------+$
-| commands matching /st        5 of 23 |$
+| commands matching /st        5 of 24 |$
 |   /statusline       choose a pres... |$
 | > /status           connection, r... |$
 |   /stop             stop the repl... |$
@@ -226,7 +226,7 @@ none ascii, draft "/st", 30 columns
 
 none ascii, draft "/", 100 columns
 +--------------------------------------------------------------------------------------------------+$
-| commands                                                                                23 of 23 |$
+| commands                                                                                24 of 24 |$
 |   /statusline       choose a preset or edit the status line                                 core |$
 | > /status           connection, route and cache for this contact                            core |$
 |   /stop             stop the reply in flight (esc)                                          core |$
@@ -240,7 +240,7 @@ none ascii, draft "/", 100 columns
 
 none ascii, draft "/", 60 columns
 +----------------------------------------------------------+$
-| commands                                        23 of 23 |$
+| commands                                        24 of 24 |$
 |   /statusline       choose a preset ...             core |$
 | > /status           connection, rout...             core |$
 |   /stop             stop the reply i...             core |$
@@ -254,7 +254,7 @@ none ascii, draft "/", 60 columns
 
 none ascii, draft "/", 59 columns
 +---------------------------------------------------------+$
-| commands                                       23 of 23 |$
+| commands                                       24 of 24 |$
 |   /statusline       choose a preset or edit the stat... |$
 | > /status           connection, route and cache for ... |$
 |   /stop             stop the reply in flight (esc)      |$
@@ -268,7 +268,7 @@ none ascii, draft "/", 59 columns
 
 none ascii, draft "/", 40 columns
 +--------------------------------------+$
-| commands                    23 of 23 |$
+| commands                    24 of 24 |$
 |   /statusline       choose a pres... |$
 | > /status           connection, r... |$
 |   /stop             stop the repl... |$
@@ -302,28 +302,28 @@ none ascii, draft "/", 30 columns
 
 none ascii, draft "/zzz", 100 columns
 +--------------------------------------------------------------------------------------------------+$
-| commands matching /zzz                                                                   0 of 23 |$
+| commands matching /zzz                                                                   0 of 24 |$
 | no command matches; start with // to send it                                                     |$
 | esc close                                                                                        |$
 +--------------------------------------------------------------------------------------------------+$
 
 none ascii, draft "/zzz", 60 columns
 +----------------------------------------------------------+$
-| commands matching /zzz                           0 of 23 |$
+| commands matching /zzz                           0 of 24 |$
 | no command matches; start with // to send it             |$
 | esc close                                                |$
 +----------------------------------------------------------+$
 
 none ascii, draft "/zzz", 59 columns
 +---------------------------------------------------------+$
-| commands matching /zzz                          0 of 23 |$
+| commands matching /zzz                          0 of 24 |$
 | no command matches; start with // to send it            |$
 | esc close                                               |$
 +---------------------------------------------------------+$
 
 none ascii, draft "/zzz", 40 columns
 +--------------------------------------+$
-| commands matching /zzz       0 of 23 |$
+| commands matching /zzz       0 of 24 |$
 | no command matches; start with //... |$
 | esc close                            |$
 +--------------------------------------+$

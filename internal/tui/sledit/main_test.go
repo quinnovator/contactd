@@ -25,7 +25,7 @@ const path = "~/.config/contactd/statusline.toml"
 func idle() statusline.Snapshot {
 	return statusline.Snapshot{
 		Conn: statusline.ConnLive, Contact: "ada", Provider: "deepseek", Model: "deepseek-flash",
-		HasCall: true, Input: 3700, Cached: 3034, Output: 210, MS: 7200,
+		HasCall: true, CacheReported: true, Input: 3700, Cached: 3034, Output: 210, MS: 7200,
 		Clock: "12:04",
 	}
 }

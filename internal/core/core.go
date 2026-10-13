@@ -256,16 +256,23 @@ type AttemptBody struct {
 	// prompt, and how much of it was expected to come from the provider's
 	// cache. Input, Cached, Output and Reasoning are what the provider
 	// reported, in its own tokens.
-	Estimated int    `json:"estimated"`
-	Predicted int    `json:"predicted"`
-	Input     int    `json:"input"`
-	Cached    int    `json:"cached"`
-	Output    int    `json:"output"`
-	Reasoning int    `json:"reasoning,omitempty"`
-	Stop      string `json:"stop,omitempty"`
-	Error     string `json:"error,omitempty"` // error class when the call failed
-	MS        int64  `json:"ms"`
+	Estimated int `json:"estimated"`
+	Predicted int `json:"predicted"`
+	Input     int `json:"input"`
+	Cached    int `json:"cached"`
+	// CacheReported records an explicit cache count, including zero. Older
+	// records lack this field; a positive Cached count is still evidence of
+	// a report, but their zero counts cannot distinguish missing from cold.
+	CacheReported bool   `json:"cache_reported,omitempty"`
+	Output        int    `json:"output"`
+	Reasoning     int    `json:"reasoning,omitempty"`
+	Stop          string `json:"stop,omitempty"`
+	Error         string `json:"error,omitempty"` // error class when the call failed
+	MS            int64  `json:"ms"`
 }
+
+// HasCacheReport includes positive counts written before CacheReported existed.
+func (a AttemptBody) HasCacheReport() bool { return a.CacheReported || a.Cached > 0 }
 
 // CheckpointBody is the body of a KindCheckpoint event: a summary that
 // stands in for the tail events with From <= seq <= To.

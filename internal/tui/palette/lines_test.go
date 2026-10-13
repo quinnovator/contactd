@@ -87,8 +87,8 @@ func TestCommandsMock(t *testing.T) {
 			t.Errorf("line %d:\n got %q\nwant %q", i, got[i], want[i])
 		}
 	}
-	if count != "5 of 23" {
-		t.Errorf("the count is %q; the mock-up's registry has 23 commands", count)
+	if count != "5 of 24" {
+		t.Errorf("the count is %q; the mock-up's registry has 24 commands", count)
 	}
 
 	// How the rows are drawn: the selected row is filled, its name is the
@@ -204,7 +204,7 @@ func widthCases() []widthCase {
 		{"a word of 300 letters", mockRegistry, long, 0, true},
 		{"hostile mods", hostileRegistry, "/st", 0, false},
 		{"hostile mods, a wide row chosen", hostileRegistry, "/st", 5, false},
-		{"hostile mods, every command", hostileRegistry, "/", 22, false},
+		{"hostile mods, every command", hostileRegistry, "/", 23, false},
 		{"a word that is not ASCII", hostileRegistry, "/st👍🏽é\u200d日本\x1b[2J", 0, false},
 	}
 }
@@ -302,7 +302,7 @@ func TestColumns(t *testing.T) {
 		if !slices.Equal(got[2:7], want) {
 			t.Errorf("rows:\n%s\nwant:\n%s", strings.Join(got[2:7], "\n"), strings.Join(want, "\n"))
 		}
-		if want := boxed(th, 60, "commands matching /st", "5 of 23"); got[1] != want {
+		if want := boxed(th, 60, "commands matching /st", "5 of 24"); got[1] != want {
 			t.Errorf("title row %q, want %q", got[1], want)
 		}
 		if want := boxed(th, 60, "↑↓ choose · tab complete · enter run · esc close", ""); got[7] != want {
@@ -333,7 +333,7 @@ func TestColumns(t *testing.T) {
 		got := draw(40)
 		want := []string{
 			"╭──────────────────────────────────────╮",
-			"│ commands matching /st        5 of 23 │",
+			"│ commands matching /st        5 of 24 │",
 			"│ ▸ /statusline       choose a preset… │",
 			"│   /status           connection, rou… │",
 			"│   /stop             stop the reply … │",
@@ -428,18 +428,18 @@ func TestTitleAndCount(t *testing.T) {
 		draft        string
 		title, count string
 	}{
-		{"as typed", mockLook(), "/St", "commands matching /St", "5 of 23"},
-		{"a slash alone", mockLook(), "/", "commands", "23 of 23"},
-		{"nothing matches", mockLook(), "/zzz", "commands matching /zzz", "0 of 23"},
+		{"as typed", mockLook(), "/St", "commands matching /St", "5 of 24"},
+		{"a slash alone", mockLook(), "/", "commands", "24 of 24"},
+		{"nothing matches", mockLook(), "/zzz", "commands matching /zzz", "0 of 24"},
 		// The box is 56 cells inside: the count, two cells, and the title in
 		// what is left.
 		{
 			"a long word gives way to the count", mockLook(), "/" + strings.Repeat("x", 300),
-			"commands matching /" + strings.Repeat("x", 27) + "…", "0 of 23",
+			"commands matching /" + strings.Repeat("x", 27) + "…", "0 of 24",
 		},
-		{"not ASCII", mockLook(), "/sté日本", "commands matching /sté日本", "0 of 23"},
-		{"not ASCII, on an ASCII terminal", asciiLook(), "/sté日本", "commands matching /st???", "0 of 23"},
-		{"an escape sequence typed", mockLook(), "/st\x1b[2J\x1b]0;x\x07", "commands matching /st[2J]0;x", "0 of 23"},
+		{"not ASCII", mockLook(), "/sté日本", "commands matching /sté日本", "0 of 24"},
+		{"not ASCII, on an ASCII terminal", asciiLook(), "/sté日本", "commands matching /st???", "0 of 24"},
+		{"an escape sequence typed", mockLook(), "/st\x1b[2J\x1b]0;x\x07", "commands matching /st[2J]0;x", "0 of 24"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -460,18 +460,18 @@ func TestCountFollowsTheRegistry(t *testing.T) {
 	reg := mockRegistry()
 	m := opened(t, reg, "/st")
 	title := func() string { return ansi.Strip(m.Lines(th, 60, m.Want(60))[1]) }
-	if got, want := title(), boxed(th, 60, "commands matching /st", "5 of 23"); got != want {
+	if got, want := title(), boxed(th, 60, "commands matching /st", "5 of 24"); got != want {
 		t.Errorf("title row %q, want %q", got, want)
 	}
 	reg.SetMod("clock", []commands.Spec{{Name: "start"}, {Name: "lap"}})
 	m.Set(reg, "/st")
-	if got, want := title(), boxed(th, 60, "commands matching /st", "6 of 25"); got != want {
+	if got, want := title(), boxed(th, 60, "commands matching /st", "6 of 26"); got != want {
 		t.Errorf("after a mod was added: title row %q, want %q", got, want)
 	}
 	reg.RemoveMod("git")
 	reg.RemoveMod("cache")
 	m.Set(reg, "/st")
-	if got, want := title(), boxed(th, 60, "commands matching /st", "5 of 22"); got != want {
+	if got, want := title(), boxed(th, 60, "commands matching /st", "5 of 23"); got != want {
 		t.Errorf("after two mods were removed: title row %q, want %q", got, want)
 	}
 	// A registry of another size.
@@ -488,7 +488,7 @@ func TestNothingMatches(t *testing.T) {
 	m := opened(t, mockRegistry(), "/zzz")
 	want := []string{
 		"╭──────────────────────────────────────────────────────────╮",
-		boxed(th, 60, "commands matching /zzz", "0 of 23"),
+		boxed(th, 60, "commands matching /zzz", "0 of 24"),
 		boxed(th, 60, "no command matches; start with // to send it", ""),
 		boxed(th, 60, "esc close", ""),
 		"╰──────────────────────────────────────────────────────────╯",
@@ -513,7 +513,7 @@ func TestScroll(t *testing.T) {
 	t.Parallel()
 	reg := mockRegistry()
 	all := specNames(reg.Match(""))
-	if len(all) != 23 {
+	if len(all) != 24 {
 		t.Fatalf("the registry has %d commands", len(all))
 	}
 	// Each step moves the selection, then the palette is drawn in 12 rows:
@@ -528,8 +528,8 @@ func TestScroll(t *testing.T) {
 		{-6, 1, 1},  // the first row in view
 		{-1, 0, 0},  // one above it
 		{11, 4, 11}, // a jump
-		{100, 15, 22},
-		{-3, 15, 19},
+		{100, 16, 23},
+		{-3, 16, 20},
 		{-100, 0, 0},
 	}
 	for _, l := range []look{mockLook(), {name: "narrow"}} {
@@ -590,7 +590,7 @@ func TestScrollFollowsARegistryChange(t *testing.T) {
 	th := mockLook().theme()
 	reg := mockRegistry()
 	m := opened(t, reg, "/")
-	m.Move(22) // the last command, stats
+	m.Move(23) // the last command, stats
 	m.Lines(th, 100, 12)
 	reg.RemoveMod("git")
 	m.Set(reg, "/")
@@ -632,7 +632,7 @@ func TestFewerRowsThanWanted(t *testing.T) {
 		{"three rows short", 100, 9, 0, true, 0, 5},
 		{"three rows short, scrolled", 100, 9, 9, true, 5, 5},
 		{"room for the box and three commands", 100, 7, 9, true, 7, 3},
-		// A box of six rows would list two commands of 23, and one of five
+		// A box of six rows would list two commands of 24, and one of five
 		// rows one: the rows go to commands.
 		{"a row short of the box and three", 100, 6, 9, false, 4, 6},
 		{"room for the box and one command only", 100, 5, 9, false, 5, 5},
@@ -641,7 +641,7 @@ func TestFewerRowsThanWanted(t *testing.T) {
 		{"one row", 100, 1, 9, false, 9, 1},
 		{"narrow, all it wants", 30, 8, 9, false, 2, 8},
 		{"narrow, three rows", 30, 3, 9, false, 7, 3},
-		{"narrow, one row", 30, 1, 22, false, 22, 1},
+		{"narrow, one row", 30, 1, 23, false, 23, 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -659,7 +659,7 @@ func TestFewerRowsThanWanted(t *testing.T) {
 				t.Errorf("the pointer is on %v, want %s", got, all[tc.chosen])
 			}
 			text := strings.Join(plain(lines), "\n")
-			if boxed := strings.Contains(text, th.G.BoxTL) && strings.Contains(text, "23 of 23"); boxed != tc.boxed {
+			if boxed := strings.Contains(text, th.G.BoxTL) && strings.Contains(text, "24 of 24"); boxed != tc.boxed {
 				t.Errorf("boxed = %v:\n%s", boxed, text)
 			}
 			// Without the box at 100 columns a row is still name, summary
@@ -716,7 +716,7 @@ func TestBoxNeedsRoomForThreeCommands(t *testing.T) {
 			if boxed := strings.HasPrefix(lines[tc.blank], th.G.BoxTL) && strings.HasPrefix(lines[tc.rows-1], th.G.BoxBL); boxed != tc.boxed {
 				t.Errorf("boxed = %v:\n%s", boxed, text)
 			}
-			if title := strings.Contains(text, "commands matching") || strings.Contains(text, " of 23") || strings.Contains(text, "esc close"); title != tc.boxed {
+			if title := strings.Contains(text, "commands matching") || strings.Contains(text, " of 24") || strings.Contains(text, "esc close"); title != tc.boxed {
 				t.Errorf("title, count or keys drawn = %v:\n%s", title, text)
 			}
 			if got := len(names(lines)); got != tc.listed {

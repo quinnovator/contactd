@@ -151,7 +151,7 @@ func (m *model) diffView(s diagnostic.Snapshot, w, h int) []string {
 	case !s.Done:
 		fact("Cache", fresh+" · waiting for the provider")
 	case !s.Reported:
-		fact("Cache", fresh+" · the provider reported no cache use")
+		fact("Cache", fresh+" · cache usage was not reported")
 	default:
 		reused := share(s.ReportedCached, s.ReportedInput)
 		gap := (reused - expected) * 100

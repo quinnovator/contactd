@@ -244,6 +244,7 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 		}
 		res.Usage.Input += out.Usage.Input
 		res.Usage.Cached += out.Usage.Cached
+		res.Usage.CacheReported = out.Usage.CacheReported && (step == 0 || res.Usage.CacheReported)
 		res.Usage.Output += out.Usage.Output
 		res.Usage.Reasoning += out.Usage.Reasoning
 		res.Stop = out.Stop
@@ -373,7 +374,7 @@ func (d *Deps) account(ctx context.Context, log *slog.Logger, route *llm.Route, 
 	u := att.Usage
 	log.DebugContext(ctx, "model call finished",
 		"step", step, "tries", att.Tries, "stop", att.Stop.String(),
-		"input_tokens", u.Input, "cached_tokens", u.Cached, "output_tokens", u.Output,
+		"input_tokens", u.Input, "cached_tokens", u.Cached, "cache_reported", u.CacheReported, "output_tokens", u.Output,
 		"predicted_cached_tokens", att.Predict)
 	obs.ProviderInputTokens.Add(float64(u.Input))
 	obs.ProviderOutputTokens.Add(float64(u.Output))
@@ -383,7 +384,7 @@ func (d *Deps) account(ctx context.Context, log *slog.Logger, route *llm.Route, 
 		predicted = float64(att.Predict) / float64(att.Prompt)
 		obs.PredictedCachedTokenRatio.Observe(predicted)
 	}
-	if !route.Caps.CacheUsage || u.Input == 0 {
+	if !route.Caps.CacheUsage || !u.CacheReported || u.Input <= 0 {
 		// A route that reports no cached tokens cannot be checked, and is
 		// left out of the cached share instead of dragging it to zero.
 		return
@@ -401,21 +402,22 @@ func (d *Deps) account(ctx context.Context, log *slog.Logger, route *llm.Route, 
 
 func attemptBody(turnID uint64, step int, purpose string, a llm.Attempt) core.AttemptBody {
 	b := core.AttemptBody{
-		Turn:      turnID,
-		Step:      step,
-		Purpose:   purpose,
-		Route:     a.Route,
-		BodyHash:  a.BodyHash,
-		Bytes:     a.Bytes,
-		Effort:    a.Effort.String(),
-		Tries:     a.Tries,
-		Estimated: a.Prompt,
-		Predicted: a.Predict,
-		Input:     a.Usage.Input,
-		Cached:    a.Usage.Cached,
-		Output:    a.Usage.Output,
-		Reasoning: a.Usage.Reasoning,
-		MS:        a.Elapsed.Milliseconds(),
+		Turn:          turnID,
+		Step:          step,
+		Purpose:       purpose,
+		Route:         a.Route,
+		BodyHash:      a.BodyHash,
+		Bytes:         a.Bytes,
+		Effort:        a.Effort.String(),
+		Tries:         a.Tries,
+		Estimated:     a.Prompt,
+		Predicted:     a.Predict,
+		Input:         a.Usage.Input,
+		Cached:        a.Usage.Cached,
+		CacheReported: a.Usage.CacheReported,
+		Output:        a.Usage.Output,
+		Reasoning:     a.Usage.Reasoning,
+		MS:            a.Elapsed.Milliseconds(),
 	}
 	if a.Stop != 0 {
 		b.Stop = a.Stop.String()

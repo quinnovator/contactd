@@ -207,6 +207,7 @@ func TestCoreValues(t *testing.T) {
 		{"the cache share", idle(), uni, "core:cache", "cache 82%", "82%", ""},
 		{"a share is rounded down", call(3, 2, 0, 1), uni, "core:cache", "cache 66%", "66%", ""},
 		{"nothing cached", call(3200, 0, 0, 1), uni, "core:cache", "cache 0%", "0%", ""},
+		{"unreported cache", with(func(s *statusline.Snapshot) { s.CacheReported = false }), uni, "core:cache", "", "", ""},
 		{"everything cached", call(3200, 3200, 0, 1), uni, "core:cache", "cache 100%", "100%", ""},
 		{"more cached than sent is still 100", call(10, 50, 0, 1), uni, "core:cache", "cache 100%", "100%", ""},
 		{"a negative count is 0", call(10, -5, 0, 1), uni, "core:cache", "cache 0%", "0%", ""},

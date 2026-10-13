@@ -148,12 +148,12 @@ type usage struct {
 	PromptTokens        int `json:"prompt_tokens"` // already includes cached tokens
 	CompletionTokens    int `json:"completion_tokens"`
 	PromptTokensDetails *struct {
-		CachedTokens int `json:"cached_tokens"`
+		CachedTokens *int `json:"cached_tokens"`
 	} `json:"prompt_tokens_details"`
 	CompletionTokensDetails *struct {
 		ReasoningTokens int `json:"reasoning_tokens"`
 	} `json:"completion_tokens_details"`
-	PromptCacheHitTokens int `json:"prompt_cache_hit_tokens"`
+	PromptCacheHitTokens *int `json:"prompt_cache_hit_tokens"`
 }
 
 // pendingCall is a tool call still streaming.
@@ -301,15 +301,19 @@ func (d *decoder) readUsage(raw json.RawMessage) {
 	// The object is kept whatever it holds; counts that do not decode stay
 	// zero rather than failing a reply over its accounting.
 	var u usage
-	_ = json.Unmarshal(raw, &u)
+	err := json.Unmarshal(raw, &u)
 	d.usage = llm.Usage{
 		Input:  u.PromptTokens,
-		Cached: u.PromptCacheHitTokens,
 		Output: u.CompletionTokens,
 		Raw:    slices.Clone(raw),
 	}
-	if det := u.PromptTokensDetails; det != nil && det.CachedTokens > 0 {
-		d.usage.Cached = det.CachedTokens
+	cached := u.PromptCacheHitTokens
+	if det := u.PromptTokensDetails; det != nil && det.CachedTokens != nil {
+		cached = det.CachedTokens
+	}
+	if err == nil && cached != nil && *cached >= 0 && *cached <= u.PromptTokens {
+		d.usage.Cached = *cached
+		d.usage.CacheReported = true
 	}
 	if det := u.CompletionTokensDetails; det != nil {
 		d.usage.Reasoning = det.ReasoningTokens

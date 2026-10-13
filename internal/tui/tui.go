@@ -24,6 +24,14 @@
 // back what was last drawn until something changes, so an idle client
 // writes nothing.
 //
+// Where the terminal can draw one, the transcript's rows are a stage, and
+// an avatar says the contact's replies aloud there: the words appear under
+// it as they are said, and what a reply shows stands where the reply put it.
+// Such a conversation has no thread and nothing to scroll. The rows around
+// the stage, and everything a command does, are as they are for a thread.
+// The stage is drawn again many times a second, from a timer that runs only
+// while it is on the screen.
+//
 // A line in the input that starts with a slash is a command. It is run here
 // and never sent to the contact, and neither is the sign that someone is
 // writing. While one is being typed, the commands it could mean are listed
@@ -67,6 +75,7 @@ import (
 	"github.com/quinnovator/contactd/internal/tui/conf"
 	"github.com/quinnovator/contactd/internal/tui/inputbox"
 	"github.com/quinnovator/contactd/internal/tui/sledit"
+	"github.com/quinnovator/contactd/internal/tui/sound"
 	"github.com/quinnovator/contactd/internal/tui/statusline"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 	"github.com/quinnovator/contactd/internal/tui/theme"
@@ -142,6 +151,9 @@ type Options struct {
 	// Output is where what the client writes after the screen has gone is
 	// written. It is os.Stdout when nil.
 	Output io.Writer
+	// Avatar is how a conversation is shown: by an avatar that says the
+	// replies aloud, or as a thread. The zero value is a thread.
+	Avatar Avatar
 	// Program is added to the program's own options. Tests use it to give
 	// the program a pipe to read, a recorder to write to, and a size.
 	Program []tea.ProgramOption
@@ -304,8 +316,9 @@ type model struct {
 	// their next keypress.
 	note string
 
-	// The open conversation.
+	// The open conversation, and how the avatar that shows it is set.
 	chat *chat
+	av   avatarState
 	// raw is what is written to the terminal beside the screen: the pictures
 	// of the conversation, and the word to forget them.
 	raw rawOut
@@ -332,6 +345,10 @@ func newModel(ctx context.Context, opt Options) *model {
 	}
 	bar, _ := statusline.Preset(statusline.DefaultPreset)
 	m := &model{ctx: ctx, opt: opt, bar: bar, width: 80, height: 24, stale: true, probeWait: probeDeadline, after: after}
+	m.av = newAvatarState(opt.Avatar)
+	if opt.Avatar.Synth != nil {
+		opt.Avatar.Synth.Use(sound.Timbres()[m.av.voice])
+	}
 	m.sh = shells{
 		run: opt.Shell, safe: conf.SafeToExecuteFrom, flights: &flights{},
 		busy: map[string]bool{}, last: map[string]time.Time{}, done: map[string]shellRun{},
@@ -404,6 +421,7 @@ func (m *model) setCaps(c termcaps.Caps) tea.Cmd {
 		}
 		return nil
 	}
+	defer m.restage()
 	cmd := m.restyle()
 	if first {
 		return nil
@@ -570,6 +588,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.onImageSaved(msg)
 	case rawWrittenMsg:
 		m.onRawWritten()
+	case frameMsg:
+		m.onFrame(msg)
 	case updatesMsg:
 		cmd = m.onUpdates(msg)
 	case toolTickMsg:
@@ -594,7 +614,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// What the message changed may be something a mod's segment follows, or
 	// have brought an item into view that a mod draws or a picture that has
 	// to be read. What it left to be written to the terminal goes out last.
-	return m, tea.Batch(cmd, m.modWatch(), m.modRender(), m.imageJob(), m.flush())
+	return m, tea.Batch(cmd, m.modWatch(), m.modRender(), m.imageJob(), m.flush(), m.frames())
 }
 
 func (m *model) onUpdates(msg updatesMsg) tea.Cmd {
@@ -761,6 +781,7 @@ func (m *model) open(c client.Contact) tea.Cmd {
 	m.chat.extra = m.extra
 	m.chat.setRenderers(m.mods.kinds, false)
 	m.chat.resize(m.width, m.height)
+	m.restage()
 	return tea.Batch(listen(sess), m.shellStep())
 }
 
@@ -768,6 +789,9 @@ func (m *model) open(c client.Contact) tea.Cmd {
 // terminal is told to forget the pictures it was sent for it.
 func (m *model) closeChat() {
 	if m.chat != nil {
+		if m.chat.stage != nil {
+			m.chat.stage.Hush()
+		}
 		m.chat.sess.Close()
 		m.write(m.chat.imgs.leave())
 		m.chat = nil

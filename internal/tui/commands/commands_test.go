@@ -47,6 +47,7 @@ func TestCoreIsTheDeclaredList(t *testing.T) {
 		{"details", "", "ctrl+o"},
 		{"mods", "[on|off|install|update <x>]", ""},
 		{"image", "pixels | blocks | text | auto | save <n> [path]", ""},
+		{"avatar", "on | off | auto | look <name> | voice <name> | rate <n> | cells <kind> | mute | unmute", ""},
 		{"theme", "auto | dark | light", ""},
 		{"glyphs", "auto | unicode | ascii", ""},
 		{"color", "auto | truecolor | 256 | 16 | none", ""},

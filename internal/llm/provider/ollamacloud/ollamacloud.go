@@ -1,10 +1,9 @@
 // Package ollamacloud is the profile for Ollama Cloud, reached through its
 // OpenAI-compatible /v1 endpoint.
 //
-// Ollama documents little about that endpoint beyond the request fields it
-// accepts, so the profile declares the conservative capability wherever the
-// documentation is silent: no cache, no cached-token report, no reasoning
-// replay. What it does know comes from the service itself at start-up: the
+// Ollama reports automatic prefix-cache reads through the standard nested
+// Chat Completions usage field. Cache retention and reasoning replay remain
+// unspecified. The model table comes from the service itself at start-up: the
 // model list from /api/tags, and each model's context size and accepted
 // thinking levels from /api/show.
 package ollamacloud
@@ -167,11 +166,14 @@ func capabilities(m Model) llm.Capabilities {
 	return llm.Capabilities{
 		ContextWindow: window,
 		MaxOutput:     m.MaxOutput,
-		// No cache control, no cached-token count and no cached price are
-		// documented, so nothing is predicted or checked.
-		Cache:         llm.CacheNone,
+		// /api/chat documents prompt_eval_cached_count; /v1 maps it to
+		// usage.prompt_tokens_details.cached_tokens (ollama/ollama#17943).
+		// Repeated cloud requests confirmed prefix reuse on 2026-10-13.
+		// Retention is undocumented: leave CacheTTL zero rather than
+		// assuming a prefix will still be warm on the next turn.
+		Cache:         llm.CacheAutoPrefix,
 		Affinity:      llm.AffinityNone,
-		CacheUsage:    false,
+		CacheUsage:    true,
 		Efforts:       slices.Compact(efforts),
 		DefaultEffort: m.DefaultEffort,
 		ReasoningOff:  m.ReasoningOff,

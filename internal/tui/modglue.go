@@ -890,6 +890,7 @@ func (c *chat) setRenderers(kinds map[string]modKind, forget bool) {
 	clear(c.renders.got)
 	c.renders.asks = nil
 	c.win.InvalidateAll()
+	c.restaged()
 	c.dirty |= dirtyTail | dirtyBody
 }
 
@@ -941,6 +942,7 @@ func (m *model) onModRendered(msg modRenderedMsg) {
 	e.lines = msg.reply.Lines
 	c.list.rd.Forget(msg.key.seq)
 	c.win.Invalidate(scrollback.Key{Kind: blockItem, ID: msg.key.seq})
+	c.restaged()
 	c.dirty |= dirtyBody
 }
 

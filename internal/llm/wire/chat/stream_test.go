@@ -397,22 +397,62 @@ func TestStreamUsage(t *testing.T) {
 		{
 			"nested cached tokens and reasoning tokens",
 			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":800,"cache_write_tokens":0},"completion_tokens_details":{"reasoning_tokens":30},"cost":0.0001}`,
-			llm.Usage{Input: 900, Cached: 800, Output: 50, Reasoning: 30},
+			llm.Usage{Input: 900, Cached: 800, CacheReported: true, Output: 50, Reasoning: 30},
 		},
 		{
 			"flat cache hit tokens",
 			`{"prompt_tokens":900,"completion_tokens":50,"prompt_cache_hit_tokens":640,"prompt_cache_miss_tokens":260}`,
-			llm.Usage{Input: 900, Cached: 640, Output: 50},
+			llm.Usage{Input: 900, Cached: 640, CacheReported: true, Output: 50},
 		},
 		{
 			"both spellings agree",
 			`{"prompt_tokens":900,"completion_tokens":50,"prompt_cache_hit_tokens":640,"prompt_tokens_details":{"cached_tokens":640}}`,
-			llm.Usage{Input: 900, Cached: 640, Output: 50},
+			llm.Usage{Input: 900, Cached: 640, CacheReported: true, Output: 50},
 		},
 		{
 			"no cache report",
 			`{"prompt_tokens":812,"total_tokens":830,"completion_tokens":18,"prompt_tokens_details":null}`,
 			llm.Usage{Input: 812, Output: 18},
+		},
+		{
+			"explicit cold cache",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":0}}`,
+			llm.Usage{Input: 900, Output: 50, CacheReported: true},
+		},
+		{
+			"flat explicit cold cache",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_cache_hit_tokens":0}`,
+			llm.Usage{Input: 900, Output: 50, CacheReported: true},
+		},
+		{
+			"nested zero takes precedence",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_cache_hit_tokens":640,"prompt_tokens_details":{"cached_tokens":0}}`,
+			llm.Usage{Input: 900, Output: 50, CacheReported: true},
+		},
+		{
+			"empty details are not a report",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{}}`,
+			llm.Usage{Input: 900, Output: 50},
+		},
+		{
+			"null count is not a report",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":null},"prompt_cache_hit_tokens":null}`,
+			llm.Usage{Input: 900, Output: 50},
+		},
+		{
+			"negative count is not a report",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":-1}}`,
+			llm.Usage{Input: 900, Output: 50},
+		},
+		{
+			"count exceeds input",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":901}}`,
+			llm.Usage{Input: 900, Output: 50},
+		},
+		{
+			"malformed count does not fail the reply",
+			`{"prompt_tokens":900,"completion_tokens":50,"prompt_tokens_details":{"cached_tokens":"bad"}}`,
+			llm.Usage{Input: 900, Output: 50},
 		},
 	}
 	for _, tc := range cases {
@@ -428,7 +468,7 @@ func TestStreamUsage(t *testing.T) {
 				t.Errorf("raw usage = %s, want the provider's object", got.Raw)
 			}
 			got.Raw = nil
-			if got.Input != tc.want.Input || got.Cached != tc.want.Cached || got.Output != tc.want.Output || got.Reasoning != tc.want.Reasoning {
+			if got.Input != tc.want.Input || got.Cached != tc.want.Cached || got.Output != tc.want.Output || got.Reasoning != tc.want.Reasoning || got.CacheReported != tc.want.CacheReported {
 				t.Errorf("usage = %+v, want %+v", got, tc.want)
 			}
 		})

@@ -217,6 +217,7 @@ type decoder struct {
 	blocks []*captured
 
 	input, cacheCreation, cacheRead, output int
+	cacheReported                           bool
 	// rawUsage is the provider's usage record: what message_start reported,
 	// with the counts message_delta repeated written over it.
 	rawUsage object
@@ -376,6 +377,9 @@ func (d *decoder) count(raw json.RawMessage) {
 	set(&d.input, u.InputTokens)
 	set(&d.cacheCreation, u.CacheCreationInputTokens)
 	set(&d.cacheRead, u.CacheReadInputTokens)
+	if u.CacheReadInputTokens != nil {
+		d.cacheReported = *u.CacheReadInputTokens >= 0
+	}
 	set(&d.output, u.OutputTokens)
 
 	if o, err := parseObject(raw); err == nil {
@@ -392,9 +396,10 @@ func (d *decoder) partial() llm.Result {
 		Usage: llm.Usage{
 			// input_tokens is only the uncached remainder: tokens read from
 			// the cache and tokens written to it are counted beside it.
-			Input:  d.input + d.cacheRead + d.cacheCreation,
-			Cached: d.cacheRead,
-			Output: d.output,
+			Input:         d.input + d.cacheRead + d.cacheCreation,
+			Cached:        d.cacheRead,
+			CacheReported: d.cacheReported,
+			Output:        d.output,
 			// Reasoning stays 0: this wire reports no separate count, and
 			// reasoning tokens are already part of output_tokens.
 		},

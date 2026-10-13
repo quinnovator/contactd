@@ -53,6 +53,7 @@ func handlers() map[string]func(m *model, l commands.Line) tea.Cmd {
 		"details":    cmdDetails,
 		"mods":       cmdMods,
 		"image":      cmdImage,
+		"avatar":     cmdAvatar,
 		"theme":      cmdSetting,
 		"glyphs":     cmdSetting,
 		"color":      cmdSetting,
@@ -173,6 +174,7 @@ func (m *model) statusLines(now time.Time) []wire.Line {
 		name, rest, _ := strings.Cut(line, ": ")
 		lines = append(lines, row(name, rest, ""))
 	}
+	lines = append(lines, row("avatar", m.avatarLine(), ""))
 	return append(lines, m.modLines(row)...)
 }
 
@@ -224,7 +226,7 @@ func cmdHelp(m *model, l commands.Line) tea.Cmd {
 			lines = append(lines, helpLines(spec)...)
 		}
 		first := c.print("commands", lines)
-		c.print("keys", keyLines())
+		c.print("keys", keyLines(c.stage != nil))
 		c.show(first, now)
 	case 1:
 		name := strings.TrimPrefix(l.Args[0], "/")
@@ -260,8 +262,10 @@ func helpLines(s commands.Spec) []wire.Line {
 	return []wire.Line{append(append(head, wire.Span{T: strings.Repeat(" ", helpColumn-n)}), summary...)}
 }
 
-// keyLines is the keys of a conversation, for /help.
-func keyLines() []wire.Line {
+// keyLines is the keys of a conversation, for /help. staged says the
+// conversation is shown by the avatar, where four keys do something else:
+// there is no thread to scroll and no tool call to unfold.
+func keyLines(staged bool) []wire.Line {
 	keys := [][2]string{
 		{"enter", "send the message, or run the command"},
 		{"ctrl+j", "a new line; so are alt+enter, shift+enter, and a backslash before enter"},
@@ -275,6 +279,20 @@ func keyLines() []wire.Line {
 		{"ctrl+l", "clear the screen and draw it again"},
 		{"ctrl+c", "empty the box; leave when it is empty"},
 		{"ctrl+d", "leave, when the box is empty"},
+	}
+	if staged {
+		for i := range keys {
+			switch keys[i][0] {
+			case "up, down":
+				keys[i][1] = "choose a command; else scroll what is open to read, or move in a draft of several rows"
+			case "pgup, pgdn":
+				keys[i][1] = "scroll what is open to read by a page"
+			case "esc":
+				keys[i][1] = "close the list of commands, or what is open to read; else stop the reply and the avatar's voice"
+			case "ctrl+o":
+				keys[i][1] = "read the turn as a thread shows it, tool calls and all"
+			}
+		}
 	}
 	lines := make([]wire.Line, len(keys))
 	for i, k := range keys {
@@ -465,6 +483,9 @@ func cmdTop(m *model, _ commands.Line) tea.Cmd {
 // cmdBottom goes to the newest line and follows it again.
 func cmdBottom(m *model, _ commands.Line) tea.Cmd {
 	c := m.chat
+	if c.stage != nil && c.sheet != nil {
+		c.scroll(len(c.sheet.lines))
+	}
 	c.win.Follow()
 	c.dirty |= dirtyBody
 	return nil

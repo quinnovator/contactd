@@ -69,7 +69,7 @@ func inOrder(cmd tea.Cmd) []tea.Msg {
 }
 
 // mockMods adds the commands of the mods the Commands mock was drawn with:
-// four of them, which with the core ones make 23.
+// four of them, which with the core ones make 24.
 func mockMods(reg *commands.Registry) {
 	reg.SetMod("standup", []commands.Spec{{Name: "standup", Summary: "summarize yesterday for the team"}})
 	reg.SetMod("cache", []commands.Spec{{Name: "stats", Summary: "token use and cache share by day"}})
@@ -154,7 +154,7 @@ func TestCommandsMock(t *testing.T) {
 		{10, "    7   3154    1536  5408"},
 		{12, "  Turn 7 sent 3,154 tokens and 1,536 of them came from cache: 48%."},
 		{16, "╭" + edge + "╮"},
-		{17, boxed("commands matching /st", "5 of 23")},
+		{17, boxed("commands matching /st", "5 of 24")},
 		{18, boxed("▸ /statusline       choose a preset or edit the status line", "core")},
 		{19, boxed("  /status           connection, route and cache for this contact", "core")},
 		{20, boxed("  /stop             stop the reply in flight (esc)", "core")},

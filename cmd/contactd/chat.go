@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -22,6 +23,7 @@ import (
 	"github.com/quinnovator/contactd/internal/tui"
 	"github.com/quinnovator/contactd/internal/tui/conf"
 	"github.com/quinnovator/contactd/internal/tui/mods"
+	"github.com/quinnovator/contactd/internal/tui/sound"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
@@ -45,6 +47,10 @@ the terminal answers when asked. -color, -glyphs (or -ascii), -theme and
 -images say otherwise, for this run; chat.toml in the config directory says
 so for every run. A flag wins over its CONTACTD_ variable, which wins over
 chat.toml.
+
+Where the terminal can draw one, an avatar says the contact's replies aloud
+and the conversation is not a thread. -avatar=off gives the thread, and
+-mute an avatar that makes no sound.
 
 `
 
@@ -186,6 +192,14 @@ func chatMain(args []string) int {
 	if d.mods && ui.Mods == nil {
 		fmt.Fprintln(os.Stderr, "contactd chat: starting without mods:", ui.ModsOff)
 	}
+	if d.sounds() {
+		// The voice is a nicety: with no audio device, carry on without it.
+		synth := sound.NewSynth(sound.Timbres()[0])
+		if speaker, err := sound.Play(synth); err == nil {
+			defer speaker.Close() //nolint:errcheck // the client is leaving; a device that will not close is the system's
+			ui.Avatar.Synth = synth
+		}
+	}
 	ui.Backend, ui.Open = tui.Remote{Client: c}, open
 	// Run closes the mod host when the interface ends.
 	err = tui.Run(ctx, ui)
@@ -198,9 +212,9 @@ func chatMain(args []string) int {
 // displayFlags are the flags that say how the full-screen interface draws.
 // Each has an environment variable, read when the flag is not given.
 type displayFlags struct {
-	fs                                      *flag.FlagSet
-	color, glyphs, theme, images, configDir *string
-	ascii, probe, mods                      *bool
+	fs                                              *flag.FlagSet
+	color, glyphs, theme, images, avatar, configDir *string
+	ascii, probe, mods, mute                        *bool
 }
 
 // addDisplayFlags declares the display flags on fs.
@@ -212,6 +226,8 @@ func addDisplayFlags(fs *flag.FlagSet) *displayFlags {
 		ascii:     fs.Bool("ascii", false, "short for -glyphs=ascii"),
 		theme:     fs.String("theme", "", "the terminal's background: auto, dark or light ($CONTACTD_THEME)"),
 		images:    fs.String("images", "", "how an image in a reply is shown: auto, pixels, blocks or text ($CONTACTD_IMAGES)"),
+		avatar:    fs.String("avatar", "", "whether an avatar says the replies, in place of a thread: auto, on or off ($CONTACTD_AVATAR)"),
+		mute:      fs.Bool("mute", false, "start with the avatar's voice muted ($CONTACTD_MUTE)"),
 		probe:     fs.Bool("probe", true, "ask the terminal what it can do when starting ($CONTACTD_PROBE)"),
 		mods:      fs.Bool("mods", true, "load the installed mods ($CONTACTD_MODS)"),
 		configDir: fs.String("config-dir", "", "where chat.toml, statusline.toml and the mods are ($CONTACTD_CONFIG_DIR)"),
@@ -226,6 +242,9 @@ type display struct {
 	chat conf.Chat
 	env  termcaps.Env
 	over termcaps.Overrides
+	// avatar is how the avatar is set, but for its voice, which is opened
+	// when the interface is.
+	avatar tui.Avatar
 	// mods says whether the installed mods are loaded, and modsWhy which
 	// setting said they are not.
 	mods    bool
@@ -332,7 +351,46 @@ func (f *displayFlags) settle(getenv func(string) string, home, userCache string
 	if err != nil {
 		return display{}, fmt.Errorf("display settings: %w", err)
 	}
+	mute, err := yes("mute", f.mute, chat.Avatar.Mute)
+	if err != nil {
+		return display{}, err
+	}
+	if d.avatar, err = avatarSettings(word("avatar", f.avatar, chat.Avatar.Show), chat.Avatar, mute); err != nil {
+		return display{}, fmt.Errorf("display settings: %w", err)
+	}
 	return d, nil
+}
+
+// avatarSettings is how the avatar is set: whether it is shown, as the flag,
+// the variable or chat.toml says, and the rest as chat.toml's [avatar] table
+// has it. With nothing said it is shown where the terminal can draw it. A
+// look or a voice the client does not have is refused by name.
+func avatarSettings(show string, file conf.Avatar, mute bool) (tui.Avatar, error) {
+	a := tui.Avatar{
+		Show: strings.ToLower(strings.TrimSpace(show)), Look: file.Look, Voice: file.Voice,
+		Rate: float64(file.Rate), Cells: file.Cells, Mute: mute,
+	}
+	switch a.Show {
+	case "":
+		a.Show = "auto"
+	case "auto", "on", "off":
+	default:
+		return tui.Avatar{}, fmt.Errorf("avatar is %q; it can be auto, on or off", show)
+	}
+	if a.Look != "" && !slices.Contains(tui.Looks(), a.Look) {
+		return tui.Avatar{}, fmt.Errorf("the avatar's look is %q; it can be %s", a.Look, strings.Join(tui.Looks(), ", "))
+	}
+	if a.Voice != "" && !slices.Contains(tui.Voices(), a.Voice) {
+		return tui.Avatar{}, fmt.Errorf("the avatar's voice is %q; it can be %s", a.Voice, strings.Join(tui.Voices(), ", "))
+	}
+	return a, nil
+}
+
+// sounds reports whether the avatar's voice is opened: not for a client
+// that was told to show no avatar, and not over SSH, where the sound would
+// come out of the machine at the far end.
+func (d display) sounds() bool {
+	return d.avatar.Show != "off" && d.env.SSHConnection == "" && d.env.SSHTTY == ""
 }
 
 // options is what the full-screen interface is started with, but for the
@@ -344,7 +402,7 @@ func (d display) options(home, workDir string) tui.Options {
 	return tui.Options{
 		Env: d.env, Overrides: d.over,
 		Dirs: d.dirs, Home: home, Chat: d.chat, WorkDir: workDir,
-		Mods: host, ModsOff: modsOff,
+		Mods: host, ModsOff: modsOff, Avatar: d.avatar,
 	}
 }
 

@@ -67,7 +67,7 @@ func (o *observation) finish(call *llm.Call, err error) {
 		a := call.Attempt()
 		s.PredictedCached = a.Predict
 		s.ReportedInput, s.ReportedCached = a.Usage.Input, a.Usage.Cached
-		s.Reported = o.cacheUsage && a.Usage.Input > 0
+		s.Reported = o.cacheUsage && a.Usage.CacheReported && a.Usage.Input > 0
 		s.OutputTokens = a.Usage.Output
 	}
 	if err != nil {

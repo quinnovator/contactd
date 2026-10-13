@@ -137,10 +137,11 @@ func (m *Model) Respond(msgs []core.Message, tools []core.ToolDef, marks []plan.
 	r := m.decide(msgs, tools)
 	total, cached := m.charge(marks, now)
 	r.Usage = llm.Usage{
-		Input:     total,
-		Cached:    cached,
-		Output:    len(strings.Fields(r.Text)),
-		Reasoning: len(strings.Fields(r.Thought)),
+		Input:         total,
+		Cached:        cached,
+		CacheReported: true,
+		Output:        len(strings.Fields(r.Text)),
+		Reasoning:     len(strings.Fields(r.Thought)),
 	}
 	for i := range r.Tools {
 		r.Usage.Output += len(strings.Fields(r.Tools[i].Code)) + len(r.Tools[i].Args)/4 + 4

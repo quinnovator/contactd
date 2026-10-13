@@ -1,5 +1,5 @@
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ commands matching /st                                                                    5 of 23 │
+│ commands matching /st                                                                    5 of 24 │
 │ ▸ /statusline       choose a preset or edit the status line                                 core │
 │   /status           connection, route and cache for this contact                            core │
 │   /stop             stop the reply in flight (esc)                                          core │

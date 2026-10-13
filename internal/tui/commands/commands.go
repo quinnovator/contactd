@@ -46,6 +46,10 @@ func Core() []Spec {
 			Name: "image", Usage: "pixels | blocks | text | auto | save <n> [path]",
 			Summary: "how images are shown this session, or save one",
 		},
+		{
+			Name: "avatar", Usage: "on | off | auto | look <name> | voice <name> | rate <n> | cells <kind> | mute | unmute",
+			Summary: "the avatar that says the replies, this session",
+		},
 		{Name: "theme", Usage: "auto | dark | light", Summary: "the background this session"},
 		{Name: "glyphs", Usage: "auto | unicode | ascii", Summary: "the glyph set this session"},
 		{Name: "color", Usage: "auto | truecolor | 256 | 16 | none", Summary: "the colour profile this session"},

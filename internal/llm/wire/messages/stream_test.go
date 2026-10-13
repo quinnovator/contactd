@@ -43,7 +43,7 @@ func TestStreamText(t *testing.T) {
 	// 12 uncached + 300 written + 2000 read. The raw record is what
 	// message_start reported with message_delta's final count written in.
 	u := res.Usage
-	if u.Input != 2312 || u.Cached != 2000 || u.Output != 9 || u.Reasoning != 0 {
+	if u.Input != 2312 || u.Cached != 2000 || u.Output != 9 || u.Reasoning != 0 || !u.CacheReported {
 		t.Errorf("usage = %+v, want input 2312, cached 2000, output 9", u)
 	}
 	const raw = `{"input_tokens":12,"cache_creation_input_tokens":300,"cache_read_input_tokens":2000,"output_tokens":9}`
@@ -96,6 +96,36 @@ func TestStreamText(t *testing.T) {
 	}
 	if reqs := api.seen(); len(reqs) != 2 || !bytes.Equal(reqs[1].body, f.Body) {
 		t.Errorf("the second send did not repeat the first")
+	}
+}
+
+func TestCacheReportPresenceSurvivesOutputOnlyDelta(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, cache string
+		reported    bool
+		cached      int
+	}{
+		{"missing", "", false, 0},
+		{"null", `,"cache_read_input_tokens":null`, false, 0},
+		{"cold", `,"cache_read_input_tokens":0`, true, 0},
+		{"warm", `,"cache_read_input_tokens":128`, true, 128},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			body := "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":10" + tc.cache + "}}}\n\n" +
+				"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":5}}\n\n" +
+				"data: {\"type\":\"message_stop\"}\n\n"
+			s := open(t, newFakeAPI(t, step{data: []byte(body)}), autoRoute())
+			collect(t, s)
+			res, err := s.Result()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if u := res.Usage; u.CacheReported != tc.reported || u.Cached != tc.cached || u.Input != 10+tc.cached || u.Output != 5 {
+				t.Errorf("usage = %+v", u)
+			}
+		})
 	}
 }
 

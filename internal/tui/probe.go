@@ -7,6 +7,7 @@ import (
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/quinnovator/contactd/internal/tui/canvas"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
@@ -52,6 +53,11 @@ func (m *model) onTerminal(msg tea.Msg) tea.Cmd {
 	reply, ok := terminalReply(msg)
 	if !ok {
 		return nil
+	}
+	// The avatar is drawn against the very colour, not only its kind.
+	if bg, ok := msg.(tea.BackgroundColorMsg); ok && bg.Color != nil {
+		m.av.paper, m.av.dark, m.av.known = canvas.FromColor(bg.Color), bg.IsDark(), true
+		defer m.restage()
 	}
 	// A picture is sent in a way that asks for no answer. A terminal that
 	// answers all the same does so in the words of its answer to the question
