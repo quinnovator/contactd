@@ -960,7 +960,7 @@ Each of these is a place where following the doc to the letter would have been w
 - **A message refused on the WebSocket no longer closes it.** A refusal (too many unanswered messages, a write that failed) is an `error` frame for that message. Only shutdown ends the connection.
 - **`ready` is advisory about durability.** The event it names may be a moment from readable, so the client waits for it, for at most two seconds. If the write failed the event never appears and the client carries on without it.
 - **One-shot mode prints the first whole reply after its message** and exits. If that turn delegates, the sub-agent's settlement and the reply it prompts come later and are not waited for.
-- **Markdown is rendered once a reply is whole.** While it streams it is shown as written, because re-rendering on every fragment makes the text jump. A call stopped by the user is recorded as `canceled` and shown as `stopped`, rather than as a provider failure.
+- **Markdown is rendered once a reply is whole.** While it streams it is shown as written, because re-rendering on every fragment makes the text jump. The final rendering preserves the reply's line breaks. A call stopped by the user is recorded as `canceled` and shown as `stopped`, rather than as a provider failure.
 - **The server serves a contact's tier-0 files**, one at a time, at `/v1/contacts/{id}/files/{path...}`, so that a client can show a picture a tool saved. The files have the same trust as the rest of the API: the directory is opened as a root that a path or a link cannot leave, and anything that is not one of five image types is sent as a download, never as a page.
 
 **Not built**

@@ -398,6 +398,23 @@ func TestASCIIDrawsRepliesAsWritten(t *testing.T) {
 	}
 }
 
+func TestReplyKeepsLineBreaksWhenStreamingFinishes(t *testing.T) {
+	t.Parallel()
+	for _, l := range looks() {
+		t.Run(l.name, func(t *testing.T) {
+			t.Parallel()
+			r := l.renderer(80)
+			src := "ateb ahpla\n🚀 éfac\nりわ終"
+			live := stripped(r.Live(transcript.Live{Text: src}, 0))
+			finished := stripped(r.Item(agent(1, src)))
+			equal(t, "finished reply keeps the streamed rows", finished, live)
+			if len(finished) != 3 {
+				t.Fatalf("three source lines became %d rows: %q", len(finished), finished)
+			}
+		})
+	}
+}
+
 func TestMarkdownIsRendered(t *testing.T) {
 	t.Parallel()
 	r := trueDark().renderer(60)

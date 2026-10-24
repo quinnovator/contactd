@@ -283,6 +283,9 @@ func (r *Renderer) render(tr **glamour.TermRenderer, wrap int, src string) (out 
 		opts := []glamour.TermRendererOption{
 			glamour.WithStyles(r.style()),
 			glamour.WithWordWrap(wrap),
+			// Keep the line boundaries shown while streaming when the
+			// finished reply gains Markdown styling.
+			glamour.WithPreservedNewLines(),
 			// The renderer resolves a relative address against a base, and
 			// with an empty base "notes/a.md" comes out as "/notes/a.md". A
 			// base that cannot be parsed makes it leave the address alone.
