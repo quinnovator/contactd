@@ -12,7 +12,7 @@ func TestStateFileRoundTrip(t *testing.T) {
 	t.Parallel()
 	want := state{
 		"cache": {
-			on: true, source: "/Users/jack/src/contactd/dist/mods/cache",
+			on: true, source: "/home/ada/contactd/dist/mods/cache",
 			sha256: strings.Repeat("ab", 32),
 		},
 		"git": {on: false, sha256: strings.Repeat("0", 64)},
@@ -43,13 +43,13 @@ func TestStateFileIsWrittenAsTheDesignShows(t *testing.T) {
 	st := state{
 		"git": {},
 		"cache": {
-			on: true, source: "/Users/jack/src/contactd/dist/mods/cache", sha256: "abc",
+			on: true, source: "/home/ada/contactd/dist/mods/cache", sha256: "abc",
 			disabled: "",
 		},
 	}
 	const want = `[mod.cache]
 on = true
-source = "/Users/jack/src/contactd/dist/mods/cache"
+source = "/home/ada/contactd/dist/mods/cache"
 sha256 = "abc"
 disabled = ""
 
@@ -77,11 +77,11 @@ func TestParseState(t *testing.T) {
 			name: "the file as the design writes it",
 			src: `[mod.cache]
 on = true
-source = "/Users/jack/src/contactd/dist/mods/cache"   # where it was installed from
+source = "/home/ada/contactd/dist/mods/cache"   # where it was installed from
 sha256 = "abc"      # of the module when it was switched on
 disabled = ""       # "over budget 3 times in a row, 2026-10-12 12:04"
 `,
-			want: state{"cache": {on: true, source: "/Users/jack/src/contactd/dist/mods/cache", sha256: "abc"}},
+			want: state{"cache": {on: true, source: "/home/ada/contactd/dist/mods/cache", sha256: "abc"}},
 		},
 		{
 			name: "keys left out are off and empty",

@@ -61,7 +61,7 @@ kind = "code:mermaid"           # code:<language> | tool:<tool name>; requires "
 `
 	modsFile = `[mod.cache]
 on = true
-source = "/Users/jack/src/contactd/dist/mods/cache"   # where it was installed from
+source = "/home/ada/contactd/dist/mods/cache"   # where it was installed from
 sha256 = "..."      # of the module when it was switched on; a file that no longer matches is off until switched on again
 disabled = ""       # "over budget 3 times in a row, 2026-10-12 12:04"
 `
@@ -123,7 +123,7 @@ func TestTheClientsFiles(t *testing.T) {
 		{"mods.toml", modsFile, []table{
 			root(),
 			{Name: "mod.cache", Entries: []entry{
-				{"on", true}, {"source", "/Users/jack/src/contactd/dist/mods/cache"}, {"sha256", "..."}, {"disabled", ""},
+				{"on", true}, {"source", "/home/ada/contactd/dist/mods/cache"}, {"sha256", "..."}, {"disabled", ""},
 			}},
 		}},
 		{"chat.toml", chatFile, []table{

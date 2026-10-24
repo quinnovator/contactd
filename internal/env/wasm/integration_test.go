@@ -375,8 +375,9 @@ func TestCompileTime(t *testing.T) { //nolint:paralleltest // timing: would be s
 	}
 }
 
-// BenchmarkPythonStart is the doc's "tier-0 start time": a lease on an
-// already compiled module, up to and including the first trivial Exec.
+// BenchmarkPythonStart is the "tier-0 start time" in docs/ARCHITECTURE.md:
+// a lease on an already compiled module, up to and including the first
+// trivial Exec.
 func BenchmarkPythonStart(b *testing.B) { benchmarkStart(b, "python-3.12", "1 + 1", "2\n") }
 
 func BenchmarkQuickJSStart(b *testing.B) { benchmarkStart(b, "quickjs", "1 + 1", "2\n") }

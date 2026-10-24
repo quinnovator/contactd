@@ -232,7 +232,7 @@ A module cannot sleep: the sleep it is given returns at once.
 ```toml
 [mod.cache]
 on = true
-source = "/Users/jack/src/contactd/dist/mods/cache"
+source = "/home/ada/contactd/dist/mods/cache"
 sha256 = "9f2c..."
 disabled = ""
 ```
@@ -249,6 +249,8 @@ A module on disk that no longer matches `sha256` is off until it is switched on 
 ## Writing a mod in Go
 
 A mod is a `main` package with two exported functions and an empty `main`. Every file carries `//go:build wasip1`.
+
+`guest` and `wire` are internal packages, so for now a Go mod is built from inside this repository, as the examples are. A mod in another language needs nothing from it.
 
 ```go
 //go:build wasip1

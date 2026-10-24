@@ -107,7 +107,7 @@ type Params struct {
 	NoHysteresis bool
 }
 
-// DefaultParams returns the starting values from the design doc.
+// DefaultParams returns the default tuning; docs/ARCHITECTURE.md explains it.
 func DefaultParams() Params {
 	return Params{
 		TailBudget:      24_000,

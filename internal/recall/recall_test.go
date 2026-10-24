@@ -422,8 +422,8 @@ func mustIndex(t *testing.T, p recall.Params, rows []core.EpisodeRow) *recall.In
 	return x
 }
 
-// BenchmarkStage1 measures the doc's claim that a brute-force scan of 5,000
-// centroids stays under a millisecond.
+// BenchmarkStage1 measures the claim in docs/ARCHITECTURE.md that a
+// brute-force scan of 5,000 centroids stays under a millisecond.
 func BenchmarkStage1(b *testing.B) {
 	l, x := new(memLog), mustIndexB(b)
 	for i := range 5000 {

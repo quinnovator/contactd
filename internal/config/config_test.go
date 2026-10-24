@@ -30,7 +30,7 @@ func TestDefaultsMatchTheDesignDoc(t *testing.T) {
 		t.Errorf("gap %v, K %d, env idle %v", c.Gap, c.RecallK, c.EnvIdleTTL)
 	}
 	if c.DBPath() != "/data/contacts.db" || c.FSRoot() != "/data/fs" {
-		t.Errorf("paths %s %s, want the volume layout from the doc", c.DBPath(), c.FSRoot())
+		t.Errorf("paths %s %s, want the documented volume layout", c.DBPath(), c.FSRoot())
 	}
 	// With only an Anthropic key, Anthropic is the default provider.
 	if c.LLM != "anthropic" || c.Infer != "ort" || c.OnnxFile() != "model_int8.onnx" {

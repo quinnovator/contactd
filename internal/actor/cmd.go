@@ -260,7 +260,7 @@ type Config struct {
 	Recall      recall.Params
 }
 
-// DefaultConfig returns the starting values from the design doc.
+// DefaultConfig returns the default tuning; docs/ARCHITECTURE.md explains it.
 func DefaultConfig() Config {
 	return Config{
 		IdleTTL:       10 * time.Minute,

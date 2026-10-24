@@ -3,9 +3,8 @@
 # mise.lock (regenerate with `mise lock`).
 
 [tools]
-# 1.25, which the design doc names, is past end of support and fails the
-# vuln gate: its net/http fixes landed in 1.26.9. 1.26 has everything the doc
-# relies on.
+# 1.26.9 is the first release without the standard-library vulnerabilities
+# govulncheck reports in earlier ones (mostly net/http).
 go = "1.26.9"
 golangci-lint = "2"
 sqlc = "1"

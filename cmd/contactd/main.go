@@ -250,7 +250,7 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 		return fmt.Errorf("http server: %w", err)
 	}
 
-	// Graceful shutdown, in the order the design doc gives.
+	// Graceful shutdown, in the order docs/ARCHITECTURE.md gives.
 	// 1. Stop accepting new messages and return 503 from /healthz.
 	server.Drain()
 	// 2. Give in-flight turns a grace period; cancel them at the deadline,

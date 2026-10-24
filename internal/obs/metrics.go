@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Metric names follow the design doc's Observability section verbatim.
+// Metric names are listed in docs/ARCHITECTURE.md, under Observability.
 var (
 	// CacheBreakTier is the histogram of PromptPlan.FirstChanged: which tier
 	// breaks the cached prefix, and how often. 5 means nothing changed.

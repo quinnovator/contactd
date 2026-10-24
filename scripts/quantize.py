@@ -10,7 +10,7 @@
 Dynamic quantization stores MatMul/Gemm weights as int8 and quantizes
 activations on the fly, so it needs no calibration data. It is a candidate,
 not a default: keep model_int8.onnx only if the recall benchmark shows no
-loss against model.onnx (docs/DESIGN.md, Piece 3).
+loss against model.onnx (docs/ARCHITECTURE.md, Piece 3).
 
     uv run scripts/quantize.py models/embedder models/reranker
     uv run scripts/quantize.py path/to/model.onnx --out path/to/model_int8.onnx

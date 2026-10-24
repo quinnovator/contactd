@@ -25,7 +25,7 @@ type Params struct {
 	PassageTokens int
 }
 
-// DefaultParams returns the starting values from the design doc.
+// DefaultParams returns the default tuning; docs/ARCHITECTURE.md explains it.
 func DefaultParams() Params {
 	return Params{
 		Tau:           0.45,
