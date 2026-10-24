@@ -85,7 +85,10 @@ type Config struct {
 
 // Provider reaches the DeepSeek API. It is safe for concurrent use.
 type Provider struct {
-	codec codec
+	codec    codec
+	toolsURL string
+	toolsKey string
+	http     *http.Client
 }
 
 var _ llm.Provider = (*Provider)(nil)
@@ -99,22 +102,31 @@ func New(cfg Config) (*Provider, error) {
 	if hc == nil {
 		hc = &http.Client{}
 	}
+	base, err := baseURL(cfg.BaseURL, chatBaseURL)
+	if err != nil {
+		return nil, err
+	}
+	// Search and fetch live outside the Messages endpoint's /anthropic
+	// prefix. Preserve any deployment-specific prefix before it.
+	base = strings.TrimSuffix(strings.TrimSuffix(base, "/v1"), "/anthropic")
+	p := &Provider{toolsURL: base + "/v1/tools/", toolsKey: cfg.APIKey, http: hc}
 	switch cfg.Wire {
 	case "", WireMessages:
 		c, err := messagesCodec(cfg, hc)
 		if err != nil {
 			return nil, err
 		}
-		return &Provider{codec: c}, nil
+		p.codec = c
 	case WireChat:
 		c, err := chatCodec(cfg, hc)
 		if err != nil {
 			return nil, err
 		}
-		return &Provider{codec: c}, nil
+		p.codec = c
 	default:
 		return nil, fmt.Errorf("deepseek: wire %q: want %q or %q", cfg.Wire, WireMessages, WireChat)
 	}
+	return p, nil
 }
 
 // messagesCodec reaches DeepSeek over its Anthropic-format endpoint.

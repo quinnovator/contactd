@@ -94,16 +94,19 @@ type Sent struct {
 // Input is one turn's view of its contact. Everything in it is immutable or
 // independently synchronized.
 type Input struct {
-	recallTrace *diagnostic.Recall
-	Contact     core.ContactID
-	Name        string
-	TurnID      uint64
-	Agent       *core.AgentConfig
-	Location    *time.Location
-	Profile     string
-	Tail        []core.Event     // snapshot of the hot window, ending with the new message(s)
-	Episodes    *recall.Snapshot // immutable snapshot of the episode index
-	LastPlan    *plan.PromptPlan // plan of the last committed turn, or nil
+	recallTrace     *diagnostic.Recall
+	route           llm.Route
+	nativeTools     []core.ToolDef
+	configuredAgent *core.AgentConfig
+	Contact         core.ContactID
+	Name            string
+	TurnID          uint64
+	Agent           *core.AgentConfig
+	Location        *time.Location
+	Profile         string
+	Tail            []core.Event     // snapshot of the hot window, ending with the new message(s)
+	Episodes        *recall.Snapshot // immutable snapshot of the episode index
+	LastPlan        *plan.PromptPlan // plan of the last committed turn, or nil
 	// Sent is the contact's last request, or nil.
 	Sent *Sent
 	// Affinity is the key that pins this contact to one backend. A
@@ -188,7 +191,12 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 	}
 	pr := d.params(&route)
 	res := Result{Route: route, Params: pr}
+	in.configuredAgent = in.Agent
 	in.Agent = withDelegate(in.Agent, d.Delegate != nil)
+	in.route = route
+	if p, ok := d.Models.(llm.ToolProvider); ok {
+		in.Agent, in.nativeTools = withProviderTools(in.Agent, p.Tools(route))
+	}
 	log = log.With("route", route.ID())
 	reader := plan.Reader{Route: route.ID(), ReplaysAllTurns: route.Caps.Replay == llm.ReplayAllTurns}
 
@@ -544,6 +552,9 @@ func (d *Deps) recall(ctx context.Context, log *slog.Logger, in Input, reader pl
 // become an error result the model can read and explain; only cancellation
 // is left to the caller to notice.
 func (d *Deps) runTool(ctx context.Context, log *slog.Logger, in Input, p *plan.PromptPlan, call core.ToolCall, def *core.ToolDef) core.ToolResult {
+	if result, ok := d.providerTool(ctx, in, call, def); ok {
+		return result
+	}
 	switch {
 	case def == nil:
 		return core.ToolResult{ID: call.ID, Output: "unknown tool: " + call.Name, IsError: true}

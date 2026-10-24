@@ -127,8 +127,8 @@ type AgentConfig struct {
 	Parent ContactID `json:"parent,omitempty"`
 }
 
-// ToolDef declares a code-execution tool. Every tool takes a single "code"
-// argument and runs it in the environment described by Env.
+// ToolDef declares a tool. REPL tools take a single "code" argument and run
+// in Env; built-in and provider tools declare their arguments in Input.
 type ToolDef struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
@@ -189,7 +189,7 @@ type Reasoning struct {
 }
 
 // ToolCall is the body of a KindToolCall event and the model's request to run
-// code.
+// a tool.
 type ToolCall struct {
 	ID   string  `json:"id"`
 	Name string  `json:"name"`

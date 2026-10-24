@@ -74,7 +74,7 @@ func (d *Deps) delegate(ctx context.Context, in Input, p *plan.PromptPlan, call 
 	if err := json.Unmarshal(call.Args, &args); err != nil || args.Task == "" {
 		return fail(`the delegate tool needs {"task": "..."} and optionally "mode": "spawn" or "fork"`)
 	}
-	req := Delegation{Task: args.Task, Agent: in.Agent, Turn: in.TurnID}
+	req := Delegation{Task: args.Task, Agent: in.configuredAgent, Turn: in.TurnID}
 	switch args.Mode {
 	case "", "spawn":
 	case "fork":
