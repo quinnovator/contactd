@@ -568,16 +568,26 @@ func (b *countedBody) Read(p []byte) (int, error) {
 }
 
 // unpacking answers with a small compressed body that unpacks to 64 MiB.
-func unpacking(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Encoding", "gzip")
-	zw := gzip.NewWriter(w)
+// The body is compressed once, before any request, so the fetch's own
+// deadline covers only what File does with it: compressing 64 MiB under the
+// race detector, on a busy machine, can take longer than the deadline.
+func unpacking(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	var packed bytes.Buffer
+	zw := gzip.NewWriter(&packed)
 	chunk := make([]byte, 1<<20)
 	for range 64 {
 		if _, err := zw.Write(chunk); err != nil {
-			return
+			t.Fatal(err)
 		}
 	}
-	_ = zw.Close()
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		_, _ = w.Write(packed.Bytes())
+	}
 }
 
 // Saying "too large" is not enough: a client that read 64 MiB to find that
@@ -591,7 +601,7 @@ func TestFileReadsNoFurtherThanTheLimit(t *testing.T) {
 	}{
 		{"a body that never ends", endless},
 		// The transport unpacks it, so the limit has to be on what comes out.
-		{"a compressed body that unpacks past the limit", unpacking},
+		{"a compressed body that unpacks past the limit", unpacking(t)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
