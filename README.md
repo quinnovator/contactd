@@ -143,18 +143,21 @@ Every setting is a flag and an environment variable (`CONTACTD_` + the flag name
 
 ## How it works
 
-```text
-client ──HTTP/SSE/WebSocket──▶ api ──▶ registry ──▶ one actor per active contact
-                                                      │
-                     ┌──────────── turn ──────────────┤
-                     ▼                                ▼
-     embed + recall (local ONNX)        group-commit writer ──▶ SQLite event log
-     plan: 5 cache tiers, hashed
-     model call (provider core)
-     tool call ──▶ wazero sandbox / remote sandbox
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.svg">
+  <img src="docs/images/architecture-light.svg" alt="Clients send messages to the contactd API, which routes each one to that contact's actor. After a pause, the actor runs a turn: recall past episodes with local models, plan the prompt, call the model provider, and run code in a sandbox if asked. Every event is appended to one SQLite log, which recall reads back." width="100%">
+</picture>
 
-The event log is the only stored state. Each contact that is talking has one actor goroutine that owns it and is its only writer. A turn embeds the new message and recalls up to four past episodes. It then lays the prompt out in tiers (static, profile, recalled episodes, the tail, then the live message), hashes each tier, and streams the model's reply. It leases a sandbox only if the model runs code. The tail grows and is folded into a checkpoint in steps, never as a sliding window, so the cached prefix survives most turns. In simulation that gives 87% of input tokens cached on warm turns, against 55% for a sliding window.
+The event log is the only stored state. Each contact that is talking has one actor goroutine that owns it and is its only writer; an idle contact holds no memory. A turn starts once the person pauses, embeds the new message and recalls up to four past episodes. It then plans the prompt, streams the model's reply, and leases a sandbox only if the model runs code. Recall, the code sandbox and the log all run in-process; only the model provider, and a remote sandbox if you configure one, are outside the binary.
+
+The prompt is laid out in five tiers, from the part that changes least to the part that changes every turn:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/prompt-tiers-dark.svg">
+  <img src="docs/images/prompt-tiers-light.svg" alt="The prompt's five tiers, from least to most likely to change: static instructions and tools, the contact's profile, recalled episodes, the recent conversation, and the new message. The first four usually match last turn's bytes, so the provider serves them from its cache." width="100%">
+</picture>
+
+Providers cache prompts by matching the opening bytes exactly, so each tier is hashed and the planner predicts the cache hit before the call. The recent conversation grows and is folded into a checkpoint in steps, never as a sliding window, so the cached prefix survives most turns. In simulation that gives 87% of input tokens cached on warm turns, against 55% for a sliding window.
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains each piece, the invariants it keeps, and what was measured.
 

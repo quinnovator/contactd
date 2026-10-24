@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 176" width="900" height="176" role="img" aria-label="The prompt has five tiers, ordered from least to most likely to change: static instructions and tools, the contact's profile, recalled episodes, the recent conversation, and the new message. The first four usually match last turn's bytes, so the provider serves them from its cache.">
+<title>The prompt has five tiers, ordered from least to most likely to change: static instructions and tools, the contact's profile, recalled episodes, the recent conversation, and the new message. The first four usually match last turn's bytes, so the provider serves them from its cache.</title>
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2328; font-size: 13px; }
+  .b { font-weight: 600; }
+  .s { fill: #59636e; font-size: 11.5px; }
+  .lab { fill: #59636e; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+  .acc { fill: #c4562c; }
+  .h { font-weight: 700; font-size: 14px; }
+  .bg { fill: #ffffff; }
+  .box { fill: #ffffff; stroke: #c3c9d4; stroke-width: 1.25; }
+  .box-acc { fill: #ffffff; stroke: #c4562c; stroke-width: 1.5; }
+  .panel { fill: #fbe9e1; stroke: #c4562c; stroke-width: 1.25; }
+  .idle { fill: none; stroke: #c3c9d4; stroke-width: 1.25; stroke-dasharray: 5 4; }
+  .fence { fill: none; stroke: #59636e; stroke-width: 1; stroke-dasharray: 2 5; }
+  .wire { stroke: #59636e; stroke-width: 1.4; fill: none; }
+  .wire-acc { stroke: #c4562c; stroke-width: 1.6; fill: none; }
+  .cell { fill: #c3c9d4; }
+  .cell-new { fill: #c4562c; }
+  .tier { fill: #fbe9e1; stroke: #c4562c; stroke-width: 1.25; }
+  .tier-live { fill: #ffffff; stroke: #c3c9d4; stroke-width: 1.25; }
+  .arrowhead { fill: #59636e; }
+  .arrowhead-acc { fill: #c4562c; }
+</style>
+<rect class="bg" x="0" y="0" width="900" height="176"/>
+          <defs>
+            <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" class="arrowhead"/>
+            </marker>
+          </defs>
+
+          <path class="wire-acc" d="M20 44 V34 H770 V44"/>
+          <text class="lab acc" x="395" y="26" text-anchor="middle">usually the same bytes as last turn: read from the provider's cache</text>
+
+          <rect class="tier" x="20" y="54" width="210" height="56" rx="6"/>
+          <text class="b" x="125" y="78" text-anchor="middle">Static</text>
+          <text class="s" x="125" y="96" text-anchor="middle">instructions, tools</text>
+
+          <rect class="tier" x="236" y="54" width="120" height="56" rx="6"/>
+          <text class="b" x="296" y="78" text-anchor="middle">Profile</text>
+          <text class="s" x="296" y="96" text-anchor="middle">who you are</text>
+
+          <rect class="tier" x="362" y="54" width="170" height="56" rx="6"/>
+          <text class="b" x="447" y="78" text-anchor="middle">Recalled episodes</text>
+          <text class="s" x="447" y="96" text-anchor="middle">this topic's past</text>
+
+          <rect class="tier" x="538" y="54" width="232" height="56" rx="6"/>
+          <text class="b" x="654" y="78" text-anchor="middle">Recent conversation</text>
+          <text class="s" x="654" y="96" text-anchor="middle">grows, then folds into a summary</text>
+
+          <rect class="tier-live" x="776" y="54" width="104" height="56" rx="6"/>
+          <text class="b" x="828" y="78" text-anchor="middle">New message</text>
+          <text class="s" x="828" y="96" text-anchor="middle">and the time</text>
+
+          <line class="wire" x1="20" y1="140" x2="880" y2="140" marker-start="url(#ah2)" marker-end="url(#ah2)"/>
+          <text class="lab" x="20" y="162">changes rarely</text>
+          <text class="lab" x="880" y="162" text-anchor="end">changes every turn</text>
+        </svg>
