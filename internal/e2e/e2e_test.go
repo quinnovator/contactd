@@ -236,9 +236,10 @@ func TestConversationSurvivesRestart(t *testing.T) {
 	} {
 		d := s.say(t, id, text, deltas)
 		// Each turn logs three events: the message, the record of the
-		// model call, and the reply.
-		if d.Seq != uint64(3*i+3) || d.Text == "" {
-			t.Fatalf("turn %d: reply %+v, want seq %d", i, d, 3*i+3)
+		// model call, and the reply. The first message of the visit is
+		// preceded by its session-start notice.
+		if d.Seq != uint64(3*i+4) || d.Text == "" {
+			t.Fatalf("turn %d: reply %+v, want seq %d", i, d, 3*i+4)
 		}
 	}
 	input := testutil.ToFloat64(obs.ProviderInputTokens) - inputBefore
@@ -258,8 +259,9 @@ func TestConversationSurvivesRestart(t *testing.T) {
 	s2 := start(t, db, fakellm.Options{}, nil)
 	deltas2 := s2.stream(t, id)
 	d := s2.say(t, id, "and we are back after the restart", deltas2)
-	if d.Seq != 15 || !strings.Contains(d.Text, "and we are back") {
-		t.Fatalf("after restart: reply %+v, want seq 15 answering the new message", d)
+	// Same visit: a restart within the visit gap logs no second notice.
+	if d.Seq != 16 || !strings.Contains(d.Text, "and we are back") {
+		t.Fatalf("after restart: reply %+v, want seq 16 answering the new message", d)
 	}
 }
 
