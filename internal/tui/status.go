@@ -46,7 +46,8 @@ func (c *chat) snapshot(now time.Time) statusline.Snapshot {
 		s.Running = safe.Line(live.Running, 64, false)
 	}
 	if a, ok := c.tr.Attempt(); ok {
-		s.HasCall, s.CallFailed = true, a.Error != ""
+		s.HasCall, s.CallCanceled = true, a.Error == "canceled"
+		s.CallFailed = a.Error != "" && !s.CallCanceled
 		s.Input, s.Cached, s.Output, s.MS = a.Input, a.Cached, a.Output, a.MS
 		s.CacheReported = a.HasCacheReport()
 	}

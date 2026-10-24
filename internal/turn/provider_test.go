@@ -3,9 +3,11 @@ package turn_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
@@ -25,6 +27,36 @@ func caps(mod func(*llm.Capabilities)) *llm.Capabilities {
 	}
 	mod(&c)
 	return &c
+}
+
+func TestCanceledModelCallIsRecordedAsCanceled(t *testing.T) {
+	t.Parallel()
+	for _, streaming := range []bool{false, true} {
+		t.Run(fmt.Sprint("streaming=", streaming), func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				opt := fakellm.Options{FirstToken: time.Second, PerChunk: time.Second}
+				if streaming {
+					opt.FirstToken = 0
+				}
+				p := fakellm.New(opt)
+				s := &sink{}
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+				time.AfterFunc(100*time.Millisecond, cancel)
+				_, err := turn.Run(ctx, input(s, &leaser{}, "hello"), deps(p))
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("turn error = %v, want cancellation", err)
+				}
+				if len(s.attempts) != 1 || s.attempts[0].Error != "canceled" || p.Sends() != 1 {
+					t.Fatalf("attempts = %+v, sends = %d; want one canceled call, no retry", s.attempts, p.Sends())
+				}
+				if (s.text.Len() > 0) != streaming {
+					t.Errorf("received %q, streaming = %v", s.text.String(), streaming)
+				}
+			})
+		})
+	}
 }
 
 func TestSeveralToolCallsInOneStepRunInOrder(t *testing.T) {

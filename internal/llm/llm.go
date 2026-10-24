@@ -359,7 +359,7 @@ type Usage struct {
 	Raw           json.RawMessage
 }
 
-// ErrorClass is the provider-neutral kind of a failed call.
+// ErrorClass is the provider-neutral kind of an unsuccessful call.
 type ErrorClass uint8
 
 const (
@@ -373,6 +373,7 @@ const (
 	ErrQuota
 	ErrAuth
 	ErrBadRequest
+	ErrCanceled // the caller stopped the request
 )
 
 func (c ErrorClass) String() string {
@@ -391,6 +392,8 @@ func (c ErrorClass) String() string {
 		return "auth"
 	case ErrBadRequest:
 		return "bad_request"
+	case ErrCanceled:
+		return "canceled"
 	case ErrUnknown:
 		return "unknown"
 	default:
@@ -422,8 +425,14 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// ClassOf returns the class of err, or ErrUnknown when it is not an *Error.
+// ClassOf recognizes caller cancellation even inside a provider error, then
+// returns the provider's class, or ErrUnknown for an unclassified error.
 func ClassOf(err error) ErrorClass {
+	// Transports may wrap cancellation as a transport failure. The caller
+	// stopping the request takes precedence and must never cause a retry.
+	if errors.Is(err, context.Canceled) {
+		return ErrCanceled
+	}
 	if e, ok := errors.AsType[*Error](err); ok {
 		return e.Class
 	}

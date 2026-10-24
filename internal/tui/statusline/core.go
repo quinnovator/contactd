@@ -156,13 +156,14 @@ type Snapshot struct {
 	Conn, ConnErr string
 	// Contact is the contact's label. Provider and Model are its route.
 	Contact, Provider, Model string
-	// HasCall says there is a last model call; CallFailed that it failed.
+	// HasCall says there is a last model call; CallFailed that it failed,
+	// and CallCanceled that the caller stopped it.
 	// Input, Cached and Output are its token counts and MS how long it
 	// took.
-	HasCall, CallFailed   bool
-	CacheReported         bool // the cache count was present, including zero
-	Input, Cached, Output int
-	MS                    int64
+	HasCall, CallFailed, CallCanceled bool
+	CacheReported                     bool // the cache count was present, including zero
+	Input, Cached, Output             int
+	MS                                int64
 	// Replying says a reply is in flight. Running names the tool that is
 	// executing.
 	Replying bool
@@ -260,6 +261,8 @@ func cacheValue(s Snapshot) Value {
 	switch {
 	case !s.HasCall:
 		return Value{Hide: true}
+	case s.CallCanceled:
+		return Value{Text: "stopped", Tone: toneDim}
 	case s.CallFailed:
 		return Value{Text: "call failed", Tone: toneBad}
 	case s.Input <= 0 || !s.CacheReported:

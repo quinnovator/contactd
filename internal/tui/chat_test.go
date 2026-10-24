@@ -582,6 +582,17 @@ func TestTheHeaderNamesTheDaysInView(t *testing.T) {
 	h.wantOnScreen("call failed")
 }
 
+func TestCanceledCallIsShownAsStopped(t *testing.T) {
+	t.Parallel()
+	h := newHarness(t, trueDark())
+	sess := h.openChat()
+	h.from(sess, client.Update{Kind: client.UpdateEvents, Events: []core.Event{
+		logged(t, 1, fixedNow(), core.KindAttempt, core.AttemptBody{Error: "canceled", MS: 420}),
+	}})
+	h.wantOnScreen("stopped")
+	h.wantNotOnScreen("call failed")
+}
+
 // The list the window sees: which blocks there are, what each is known by,
 // and where the blank rows go.
 func TestBlockKeys(t *testing.T) {

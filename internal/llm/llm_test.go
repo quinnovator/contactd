@@ -387,6 +387,23 @@ func TestARouteLimitWinsOverItsProviders(t *testing.T) {
 	})
 }
 
+func TestCancellationIsNotAProviderFailure(t *testing.T) {
+	t.Parallel()
+	for _, err := range []error{
+		context.Canceled,
+		errors.Join(errors.New("request stopped"), context.Canceled),
+		&llm.Error{Class: llm.ErrTransport, Err: context.Canceled},
+	} {
+		class := llm.ClassOf(err)
+		if class.String() != "canceled" || class.Retryable() {
+			t.Errorf("cancellation classified as %q (retryable %v)", class, class.Retryable())
+		}
+	}
+	if llm.ClassOf(context.DeadlineExceeded).String() == "canceled" {
+		t.Error("a timeout must not be presented as a user cancellation")
+	}
+}
+
 func TestErrorClasses(t *testing.T) {
 	t.Parallel()
 	for class, retry := range map[llm.ErrorClass]bool{
