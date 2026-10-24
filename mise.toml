@@ -9,6 +9,9 @@ go = "1.26.10"
 golangci-lint = "2"
 sqlc = "1"
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
+# sqlfluff is installed with this interpreter, so a machine without Python can
+# still run `mise install`.
+python = "3.13"
 "pypi:sqlfluff" = "3"
 uv = "latest"          # runs scripts/*.py (ONNX export, quantization)
 
