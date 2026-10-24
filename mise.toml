@@ -3,9 +3,9 @@
 # mise.lock (regenerate with `mise lock`).
 
 [tools]
-# 1.26.9 is the first release without the standard-library vulnerabilities
-# govulncheck reports in earlier ones (mostly net/http).
-go = "1.26.9"
+# 1.26.10 is the first release without the standard-library vulnerabilities
+# govulncheck reports in earlier ones (net/http, crypto/x509).
+go = "1.26.10"
 golangci-lint = "2"
 sqlc = "1"
 "go:golang.org/x/vuln/cmd/govulncheck" = "latest"
