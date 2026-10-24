@@ -1,5 +1,9 @@
 # contactd
 
+<p align="center">
+  <img src="docs/images/demo.gif" alt="The contactd terminal client: an animated avatar answers a question aloud, with the code it suggests shown beside it" width="800">
+</p>
+
 One Go binary, backed by SQLite and two small local ONNX models, that lets a client talk to an AI contact the way it would talk to a person. There is one continuous relationship per contact. A client sends messages to a contact ID; it never creates, picks or names a thread.
 
 Threads, prompt-cache layout and the REPL environment are not stored objects. Each turn derives them just in time from one append-only event log:
@@ -14,39 +18,58 @@ It also behaves like a person on the other end: it waits for you to finish a bur
 
 ## Quick start
 
-You need [mise](https://mise.jdx.dev) and a C compiler (for SQLite).
+You need [mise](https://mise.jdx.dev) and a C compiler for SQLite (on macOS, `xcode-select --install`; on Debian or Ubuntu, `build-essential`).
+
+**1. Get the code and its tools.**
 
 ```sh
 git clone https://github.com/quinnovator/contactd && cd contactd
-mise install            # Go, golangci-lint, sqlc, sqlfluff, uv at pinned versions
-
-# A scripted model and lexical recall: no API key, no ONNX Runtime.
-go run ./cmd/contactd -llm=fake -infer=fake -data-dir=./data -wasm-dir=
+mise install    # Go and the other tools, at pinned versions
 ```
 
-In another terminal, talk to it from the terminal client:
+**2. Give it a model.** Export a key for any [supported provider](#model-providers):
 
 ```sh
-go run ./cmd/contactd chat -data-dir=./data -new ada -system "You are Ada, a thoughtful colleague."
+export DEEPSEEK_API_KEY=sk-...    # or ANTHROPIC_API_KEY, OPENROUTER_API_KEY, ...
 ```
 
-Or over HTTP:
+Skip this step and the replies are scripted: enough to see everything work, though Ada mostly says your message back to you.
+
+**3. Say hi.**
+
+```sh
+mise run try
+```
+
+This builds contactd, starts a server in the background and opens a chat with Ada. Type a message and press `enter`.
+
+<p align="center">
+  <img src="docs/images/avatar.png" alt="Ada's avatar, idle, above an empty message box" width="700">
+</p>
+
+Ada says each reply aloud, the words appearing as they're spoken, and a small synthesised voice babbles along (`mise run try -- -mute` silences it). Code and pictures in a reply are shown beside the avatar. `ctrl+c` quits and stops the server. The conversation is kept in `./data`, so running `mise run try` again picks up where you left off.
+
+No avatar, just a plain thread? Type `/avatar` in the chat to see why. In tmux before 3.4, mosh or screen the client can't tell your background colour; `mise run try -- -theme=dark` (or `light`) tells it.
+
+### Over HTTP
+
+While `mise run try` is open, the same server answers on `localhost:8080`:
 
 ```sh
 curl -s -XPOST localhost:8080/v1/contacts \
-  -d '{"agent":{"system":"You are Ada, a thoughtful colleague."},"profile":"Prefers short answers."}'
-# {"id":1}
+  -d '{"agent":{"system":"You are Bo, a terse code reviewer."},"name":"bo"}'
+# {"id":2}   <- Ada is 1
 
-curl -sN localhost:8080/v1/contacts/1/stream &          # SSE: typing, text deltas, tool activity, the committed reply
-curl -s -XPOST localhost:8080/v1/contacts/1/messages -d '{"text":"hey, are you around?"}'
+curl -sN localhost:8080/v1/contacts/2/stream &          # SSE: typing, text deltas, tool activity, the committed reply
+curl -s -XPOST localhost:8080/v1/contacts/2/messages -d '{"text":"hey, are you around?"}'
 # {"seq":2}   <- 202 once the message is durable; seq 1 is the visit's session-start notice
 ```
 
-To use a real model, set a provider's key and drop `-llm=fake`, for example `DEEPSEEK_API_KEY=... go run ./cmd/contactd -infer=fake -data-dir=./data -wasm-dir=`.
+[docs/API.md](docs/API.md) has the rest.
 
 ## Running it for real
 
-Real recall needs ONNX Runtime and the two models, and code-running tools need the WASM runtimes. Each is fetched at a pinned version and verified by checksum:
+`mise run try` is a server with lexical recall and no code-running tools. Real recall needs ONNX Runtime and the two models, and code-running tools need the WASM runtimes. Each is fetched at a pinned version and verified by checksum:
 
 ```sh
 mise run deps:native    # libonnxruntime + libtokenizers.a into third_party/lib
@@ -71,6 +94,10 @@ docker run -p 8080:8080 -v contactd-data:/data -e DEEPSEEK_API_KEY -e GOMEMLIMIT
 ## The terminal client
 
 `contactd chat` is a terminal client in the same binary. It finds a local server through the Unix socket in the data directory.
+
+<p align="center">
+  <img src="docs/images/reply.png" alt="Ada answering with prose under the avatar and a Python one-liner shown beside it" width="700">
+</p>
 
 ```sh
 contactd chat                  # pick a contact from the list

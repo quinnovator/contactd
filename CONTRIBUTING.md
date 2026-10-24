@@ -76,6 +76,10 @@ Some precision still depends on runtime instrumentation: in-turn tool entries ca
 
 Diagnostics are off outside the dev task. They expose full prompts over the API; see [docs/API.md](docs/API.md#diagnostics-endpoints) before turning them on anywhere else.
 
+### The README's captures
+
+`docs/images` holds the README's recordings of the terminal client, made with [vhs](https://github.com/charmbracelet/vhs) from `scripts/demo.tape`. The tape runs `mise run try` in a fresh data directory, so it needs a model provider key; the reply is the model's own and differs on each run. The header of the tape gives the commands, including the `gifsicle` step that keeps the animation near 3 MB.
+
 ## Tests
 
 | Tier | Command | Needs |

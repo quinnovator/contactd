@@ -31,6 +31,13 @@ raw = true
 raw_args = true
 run = 'bash scripts/dev.sh'
 
+[tasks.try]
+description = "Start a local server and chat with Ada; the server stops when the chat closes"
+depends = ["dev:build"]
+raw = true
+raw_args = true
+run = 'bash scripts/try.sh'
+
 [tasks."dev:build"]
 description = "Build the dev server and context viewer"
 run = ["go build -o bin/contactd-dev ./cmd/contactd", "go build -o bin/ctxtop ./cmd/ctxtop"]
