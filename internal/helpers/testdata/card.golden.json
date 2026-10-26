@@ -1,0 +1,82 @@
+{
+  "supportedInterfaces": [
+    {
+      "url": "http://127.0.0.1:8080/a2a/helpers",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    },
+    {
+      "url": "http://127.0.0.1:8080/a2a/helpers/rest",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "extensions": [
+      {
+        "description": "Schedule a helper's checks and read its progress. Optional: without it a task checks every 15m for 24h.",
+        "params": {
+          "maxChecks": 500,
+          "maxDuration": "168h",
+          "maxEvery": "24h",
+          "minEvery": "1m0s"
+        },
+        "uri": "https://github.com/quinnovator/contactd/blob/main/docs/A2A.md#helper-extension-v1"
+      }
+    ],
+    "pushNotifications": true,
+    "streaming": true
+  },
+  "defaultInputModes": [
+    "text/plain",
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "text/plain"
+  ],
+  "description": "Standing helpers. Each task is one helper with its own memory that checks something on a schedule and reports only what changed. Tasks run for hours or days: send with returnImmediately and a push notification config, or stream.",
+  "documentationUrl": "https://github.com/quinnovator/contactd/blob/main/docs/A2A.md",
+  "name": "contactd helpers",
+  "provider": {
+    "organization": "contactd",
+    "url": "https://github.com/quinnovator/contactd"
+  },
+  "securityRequirements": [
+    {
+      "schemes": {
+        "bearer": {}
+      }
+    }
+  ],
+  "securitySchemes": {
+    "bearer": {
+      "httpAuthSecurityScheme": {
+        "description": "The token in a2a.token in the server's data directory.",
+        "scheme": "Bearer"
+      }
+    }
+  },
+  "skills": [
+    {
+      "description": "Check a web page or endpoint on a schedule and report meaningful changes. Stays silent when nothing changed. Asks with TASK_STATE_INPUT_REQUIRED when the brief is ambiguous.",
+      "examples": [
+        "Check https://example.com/status every 5 minutes for the next 2 hours and tell me when it stops saying operational."
+      ],
+      "id": "watch",
+      "inputModes": [
+        "text/plain",
+        "application/json"
+      ],
+      "name": "Watch and report",
+      "outputModes": [
+        "text/plain"
+      ],
+      "tags": [
+        "monitoring",
+        "schedule",
+        "web"
+      ]
+    }
+  ],
+  "version": "0.1.0"
+}

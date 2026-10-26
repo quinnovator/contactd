@@ -25,6 +25,7 @@ func helperError(op string, err error) error {
 
 func helperTaskFromRow(r sqlcgen.HelperTask) core.HelperTask {
 	return core.HelperTask{
+		TerminalSeq:   u64(r.TerminalSeq),
 		ID:            r.ID,
 		ContextID:     r.ContextID,
 		Contact:       core.ContactID(u64(r.Contact)),
@@ -50,6 +51,7 @@ func helperTaskFromRow(r sqlcgen.HelperTask) core.HelperTask {
 // InsertHelperTask persists a HelperTask row.
 func (s *Store) InsertHelperTask(ctx context.Context, v core.HelperTask) error {
 	err := sqlcgen.New(s.wdb).InsertHelperTask(ctx, sqlcgen.InsertHelperTaskParams{
+		TerminalSeq:   i64(v.TerminalSeq),
 		ID:            v.ID,
 		ContextID:     v.ContextID,
 		Contact:       i64(uint64(v.Contact)),
@@ -76,6 +78,7 @@ func (s *Store) InsertHelperTask(ctx context.Context, v core.HelperTask) error {
 // UpdateHelperTask persists a HelperTask row.
 func (s *Store) UpdateHelperTask(ctx context.Context, v core.HelperTask) error {
 	err := sqlcgen.New(s.wdb).UpdateHelperTask(ctx, sqlcgen.UpdateHelperTaskParams{
+		TerminalSeq:   i64(v.TerminalSeq),
 		ID:            v.ID,
 		Title:         v.Title,
 		State:         v.State,

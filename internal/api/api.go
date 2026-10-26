@@ -66,6 +66,7 @@ type Routes interface {
 
 // Server holds the handlers' dependencies.
 type Server struct {
+	a2a      http.Handler
 	store    Store
 	contacts Contacts
 	routes   Routes
@@ -97,6 +98,10 @@ func (s *Server) Drain() { s.draining.Store(true) }
 // Handler returns the routed handler.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	if s.a2a != nil {
+		mux.Handle("GET /.well-known/agent-card.json", s.a2a)
+		mux.Handle("/a2a/", s.a2a)
+	}
 	mux.HandleFunc("POST /v1/contacts", s.createContact)
 	mux.HandleFunc("GET /v1/contacts", s.listContacts)
 	mux.HandleFunc("GET /v1/contacts/{id}", s.getContact)
@@ -586,3 +591,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	// A write error means the client left; there is no one to tell.
 	_ = json.NewEncoder(w).Encode(v)
 }
+
+// WithA2A mounts the helper protocol routes; call before serving.
+func (s *Server) WithA2A(h http.Handler) *Server { s.a2a = h; return s }

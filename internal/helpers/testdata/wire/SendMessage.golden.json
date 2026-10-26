@@ -1,0 +1,59 @@
+{
+  "request": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "method": "SendMessage",
+    "params": {
+      "configuration": {
+        "returnImmediately": true
+      },
+      "message": {
+        "messageId": "\u003cmessage\u003e",
+        "parts": [
+          {
+            "text": "watch page"
+          }
+        ],
+        "role": "ROLE_USER"
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+      "task": {
+        "contextId": "\u003ccontext\u003e",
+        "history": [
+          {
+            "contextId": "\u003ccontext\u003e",
+            "messageId": "\u003cmessage\u003e",
+            "parts": [
+              {
+                "text": "watch page"
+              }
+            ],
+            "role": "ROLE_USER",
+            "taskId": "\u003ctask\u003e"
+          }
+        ],
+        "id": "\u003ctask\u003e",
+        "metadata": {
+          "https://github.com/quinnovator/contactd/blob/main/docs/A2A.md#helper-extension-v1": {
+            "checks": 1,
+            "every": "15m0s",
+            "helperContact": 1,
+            "maxChecks": 97,
+            "nextCheck": "\u003ctime\u003e",
+            "title": "watch page",
+            "until": "\u003ctime\u003e"
+          }
+        },
+        "status": {
+          "state": "TASK_STATE_WORKING",
+          "timestamp": "\u003ctime\u003e"
+        }
+      }
+    }
+  }
+}

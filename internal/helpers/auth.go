@@ -1,0 +1,60 @@
+package helpers
+
+import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+)
+
+// LoadToken loads or exclusively creates a private token file. Explicit tokens take precedence.
+func LoadToken(path, explicit string) (string, error) {
+	if explicit != "" {
+		return explicit, nil
+	}
+	raw, err := os.ReadFile(path) //nolint:gosec // path is the operator-configured token file
+	if err == nil {
+		token := strings.TrimSpace(string(raw))
+		if token == "" {
+			return "", errors.New("empty A2A token file")
+		}
+		return token, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("read A2A token: %w", err)
+	}
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return "", fmt.Errorf("generate A2A token: %w", err)
+	}
+	token := base64.RawURLEncoding.EncodeToString(secret)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) //nolint:gosec // operator-configured path, created exclusively with private permissions
+	if errors.Is(err, os.ErrExist) {
+		return LoadToken(path, "")
+	}
+	if err != nil {
+		return "", fmt.Errorf("create A2A token: %w", err)
+	}
+	_, writeErr := f.WriteString(token + "\n")
+	closeErr := f.Close()
+	if err := errors.Join(writeErr, closeErr); err != nil {
+		return "", fmt.Errorf("write A2A token: %w", err)
+	}
+	return token, nil
+}
+
+func authorize(next http.Handler, cfg Config) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cfg.Auth != "off" && (cfg.Token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+cfg.Token)) != 1) {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="contactd helpers"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		next.ServeHTTP(w, r)
+	})
+}

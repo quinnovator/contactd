@@ -18,7 +18,8 @@ INSERT INTO helper_tasks (
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 )
 VALUES (
     @id,
@@ -39,7 +40,8 @@ VALUES (
     @first_seq,
     @pushed_seq,
     @pushed_state,
-    @created_at
+    @created_at,
+    @terminal_seq
 );
 
 -- name: UpdateHelperTask :exec
@@ -59,6 +61,7 @@ SET
     last_outcome = @last_outcome,
     first_seq = @first_seq,
     pushed_seq = @pushed_seq,
+    terminal_seq = @terminal_seq,
     pushed_state = @pushed_state
 WHERE id = @id;
 
@@ -82,7 +85,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE id = ?;
 
@@ -106,7 +110,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE contact = ? AND contact != 0;
 
@@ -130,7 +135,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     (state = 'TASK_STATE_WORKING' AND next_due > 0 AND (next_due <= @now OR until_ts <= @now))
@@ -166,7 +172,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED')
@@ -193,7 +200,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     (@context_id = '' OR context_id = @context_id)

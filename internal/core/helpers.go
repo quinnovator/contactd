@@ -2,6 +2,7 @@ package core
 
 // HelperTask is a durable helper_tasks row.
 type HelperTask struct {
+	TerminalSeq   uint64
 	ID            string
 	ContextID     string
 	Contact       ContactID

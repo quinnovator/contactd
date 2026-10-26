@@ -1,0 +1,10 @@
+{
+  "statusUpdate": {
+    "contextId": "context",
+    "status": {
+      "state": "TASK_STATE_WORKING",
+      "timestamp": "2026-10-26T14:00:00.000Z"
+    },
+    "taskId": "task"
+  }
+}

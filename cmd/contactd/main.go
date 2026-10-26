@@ -190,6 +190,11 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 
 	server := api.New(store, registry, client, log)
 	server.WithPlans(turnDeps.Diagnostics)
+	stopHelpers, err := wireHelpers(base, cfg, store, registry, turnDeps, server, log)
+	if err != nil {
+		return fmt.Errorf("configure helpers: %w", err)
+	}
+	cleanups = append(cleanups, stopHelpers)
 	// The API serves the files tools leave in tier-0 working directories.
 	// It runs without them: every file is then not found.
 	if dirs, derr := workdirs(cfg.FSRoot()); derr != nil {
@@ -259,6 +264,7 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	graceCtx, cancelGrace := context.WithTimeout(base, cfg.ShutdownGrace)
 	registry.Shutdown(graceCtx)
 	cancelGrace()
+	stopHelpers()
 	if turnDeps.Diagnostics != nil {
 		turnDeps.Diagnostics.Close()
 	}
