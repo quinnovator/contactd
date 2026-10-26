@@ -108,6 +108,36 @@ git diff | contactd chat ada - # the same, with the message read from stdin
 
 `enter` sends, `ctrl+j` starts a new line, `esc` stops the reply, `/help` lists the commands. Where the terminal can draw one, an animated avatar speaks the replies (`-avatar=off` for a plain thread). The client shows pictures a tool saved, has a configurable status line, and can be extended with sandboxed WebAssembly [mods](docs/MODS.md). [docs/CLIENT.md](docs/CLIENT.md) covers all of it.
 
+## Helpers over A2A
+
+A contact can hand a standing job to a helper: watch this page every 30 seconds for the next half hour, and speak up only when something changes. Give the contact `agent.helpers: true` and it can start, message, stop and list helpers. Each helper is a contact of its own behind one [A2A 1.0](https://a2a-protocol.org) task, and the two talk over real HTTP, even within one process: the brief goes out as `SendMessage` and reports come back as push notifications. A report becomes a notice in the requester's log. It waits for a reply in progress, never interrupts one, and a check that finds nothing new says nothing.
+
+With a provider key in the environment:
+
+```sh
+mise run demo:a2a
+```
+
+This starts a small status page on `localhost:9090` and a server with helpers turned on, and opens a chat with Ada. Ask her to watch `http://127.0.0.1:9090` every 30 seconds, then break something from another terminal:
+
+```sh
+curl -XPOST 'localhost:9090/set?component=API&state=degraded'
+```
+
+The helper's next check finds it, and Ada tells you:
+
+<p align="center">
+  <img src="docs/images/a2a.gif" alt="Ada starts a helper to watch a status page. The helper appears in its own card beside her, with an arrow as each A2A message crosses, and a countdown to its next check. Its first report comes back as a table of four operational components; on the next check the API has turned degraded, and Ada passes the change on as a table of what moved." width="800">
+</p>
+
+Each helper gets a card beside the avatar, with its state, a countdown to its next check, and an arrow whenever a message crosses the wire. `/a2a` lists the exchanges themselves, and `enter` opens one as JSON, credentials redacted. `/helper N` follows a helper's own log, read-only.
+
+<p align="center">
+  <img src="docs/images/a2a-exchanges.png" alt="The /a2a view: the helper's report as an A2A artifactUpdate, with its text, the helper extension's check number and log position, and the task and context IDs" width="700">
+</p>
+
+[docs/A2A.md](docs/A2A.md) covers authentication, the helper extension, the task lifecycle, push delivery and what survives a restart.
+
 ## Model providers
 
 DeepSeek, Anthropic, OpenRouter, OpenCode Go, Ollama Cloud, and any OpenAI-compatible server (vLLM, SGLang, …). Every provider whose key is in the environment is available; `-llm` picks the default and each contact can name its own route. Each route declares how its cache works, which reasoning efforts it takes and whether reasoning is sent back, and `contactd probe` checks those claims against the live endpoint. See [docs/PROVIDERS.md](docs/PROVIDERS.md).
@@ -169,6 +199,7 @@ Providers cache prompts by matching the opening bytes exactly, so each tier is h
 | [docs/API.md](docs/API.md) | Endpoints, the stream protocol, agent configs, tools and sub-agents |
 | [docs/PROVIDERS.md](docs/PROVIDERS.md) | Model providers, their capabilities, and probing them |
 | [docs/CLIENT.md](docs/CLIENT.md) | The terminal client |
+| [docs/A2A.md](docs/A2A.md) | Helpers: the A2A protocol surface, delivery and restarts |
 | [docs/MODS.md](docs/MODS.md) | Writing a mod for the terminal client |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development setup, the diagnostics viewer, tests and code patterns |
 
@@ -208,9 +239,3 @@ The fetch scripts and the container image include third-party components under t
 | [QuickJS-ng](https://github.com/quickjs-ng/quickjs) 0.17.0 | Tier-0 JavaScript | MIT |
 
 Go dependencies are listed in `go.mod`, each under its own license.
-
-## Helpers (A2A)
-
-Give a contact `agent.helpers: true` to let it start scheduled helpers that watch pages and report changes. Helpers communicate through A2A 1.0 over real HTTP, with a live status strip, `/a2a` traffic view, and `/helper N` read-only log.
-
-Run `mise run demo:a2a` with a provider key to try a local status-page watch. See [A2A helpers](docs/A2A.md) for authentication, configuration, protocol examples, and restart guarantees.

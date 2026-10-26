@@ -42,7 +42,7 @@ contacts=$(curl -fsS "$url/v1/contacts?name=ada")
 id=$(python3 -c 'import json,sys; cs=json.load(sys.stdin)["contacts"]; print(cs[0]["id"] if cs else "")' <<<"$contacts")
 if [[ -z "$id" ]]; then
   curl -fsS -X POST "$url/v1/contacts" -H 'Content-Type: application/json' \
-    -d '{"name":"ada","agent":{"system":"You are Ada, a thoughtful colleague. Use standing helpers to watch pages. Report changes and stay quiet for routine updates.","helpers":true}}' >/dev/null
+    -d '{"name":"ada","agent":{"system":"You are Ada, a thoughtful colleague. Use standing helpers to watch pages. Do not fetch a watched page yourself; leave the checking to the helper. Report changes and stay quiet for routine updates.","helpers":true}}' >/dev/null
 fi
 cat <<RUNBOOK
 A2A helper demo. Logs: $data_dir/server.log and $data_dir/site.log
