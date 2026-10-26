@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/a2aproject/a2a-go/v2/a2a"
@@ -56,13 +57,139 @@ func (s *Service) events(ctx context.Context, t core.HelperTask) ([]core.Event, 
 	}
 }
 
+// logIndex is what snapshots need from a helper's log, kept current by
+// reading only what is new: the position (last seq read, the trigger and
+// check number there) and the newest history messages and reports. It is
+// read and updated under the task's lock.
+type (
+	logIndex struct {
+		after   uint64
+		trigger string
+		check   int
+		history []indexed
+		reports []indexed
+	}
+	indexed struct {
+		seq uint64
+		ts  int64
+		msg *a2a.Message
+		art *a2a.Artifact
+	}
+)
+
+const (
+	maxHistory = 100
+	maxReports = 50
+	// indexSlack keeps a few entries beyond the caps, for those a terminal
+	// boundary hides.
+	indexSlack = 8
+	// maxIndexes bounds the cache; a task whose index was evicted rebuilds
+	// it from its log on its next snapshot.
+	maxIndexes = 64
+)
+
+func (s *Service) logIndex(ctx context.Context, t core.HelperTask) (*logIndex, error) {
+	s.mu.Lock()
+	ix := s.indexes[t.ID]
+	if ix == nil {
+		if len(s.indexes) >= maxIndexes {
+			for id := range s.indexes {
+				delete(s.indexes, id)
+				break
+			}
+		}
+		ix = &logIndex{trigger: "brief", check: 1}
+		s.indexes[t.ID] = ix
+	}
+	s.mu.Unlock()
+	if t.Contact == 0 {
+		return ix, nil
+	}
+	kinds := core.KindSet(0).With(core.KindUserMsg).With(core.KindAgentMsg).With(core.KindNotice)
+	for {
+		rows, err := s.deps.Events.EventsAfterOfKinds(ctx, t.Contact, ix.after, 200, kinds)
+		if err != nil {
+			return nil, fmt.Errorf("read helper events: %w", err)
+		}
+		for _, ev := range rows {
+			if err := ix.read(t, ev); err != nil {
+				return nil, err
+			}
+		}
+		if len(rows) < 200 {
+			return ix, nil
+		}
+	}
+}
+
+func (ix *logIndex) read(t core.HelperTask, ev core.Event) error {
+	ix.after = ev.Seq
+	switch ev.Kind {
+	case core.KindUserMsg:
+		var b core.MsgBody
+		if err := json.Unmarshal(ev.Body, &b); err != nil {
+			return fmt.Errorf("decode helper message: %w", err)
+		}
+		ix.trigger = "message"
+		if ev.Seq == t.FirstSeq {
+			ix.trigger = "brief"
+		}
+		text := b.Raw
+		if text == "" {
+			text = b.Text
+		}
+		msg := &a2a.Message{ID: b.MessageID, TaskID: a2a.TaskID(t.ID), ContextID: t.ContextID, Role: a2a.MessageRoleUser, Parts: a2a.ContentParts{a2a.NewTextPart(text)}}
+		ix.history = keep(append(ix.history, indexed{seq: ev.Seq, ts: ev.TS, msg: msg}), maxHistory+indexSlack)
+	case core.KindNotice:
+		var b core.NoticeBody
+		if err := json.Unmarshal(ev.Body, &b); err != nil {
+			return fmt.Errorf("decode helper notice: %w", err)
+		}
+		if b.Source == "helper-check" {
+			ix.trigger = "check"
+			ix.check++
+		}
+	case core.KindAgentMsg:
+		var b core.MsgBody
+		if err := json.Unmarshal(ev.Body, &b); err != nil {
+			return fmt.Errorf("decode helper report: %w", err)
+		}
+		if !b.Interrupted {
+			ix.reports = keep(append(ix.reports, indexed{seq: ev.Seq, ts: ev.TS, art: report(ev, b.Text, ix.trigger, ix.check)}), maxReports+indexSlack)
+		}
+	case core.KindToolCall, core.KindToolResult, core.KindSummary, core.KindEnvSnapshot, core.KindAttempt, core.KindCheckpoint:
+	}
+	return nil
+}
+
+func keep(xs []indexed, n int) []indexed {
+	if len(xs) <= n {
+		return xs
+	}
+	return append(xs[:0:0], xs[len(xs)-n:]...)
+}
+
+// last returns copies of the newest n entries the task's terminal boundary
+// admits, oldest first.
+func last[T any](xs []indexed, t core.HelperTask, n int, get func(indexed) *T) []*T {
+	var out []*T
+	for i := len(xs) - 1; i >= 0 && len(out) < n; i-- {
+		if beforeEnd(t, xs[i].seq, xs[i].ts) {
+			v := *get(xs[i])
+			out = append(out, &v)
+		}
+	}
+	slices.Reverse(out)
+	return out
+}
+
 func (s *Service) snapshot(ctx context.Context, t core.HelperTask, length *int, artifacts bool) (*a2a.Task, error) {
-	limit := 100
+	limit := maxHistory
 	if length != nil {
 		if *length < 0 {
 			return nil, a2a.ErrInvalidParams
 		}
-		limit = min(*length, 100)
+		limit = min(*length, maxHistory)
 	}
 	st, err := status(t)
 	if err != nil {
@@ -72,58 +199,15 @@ func (s *Service) snapshot(ctx context.Context, t core.HelperTask, length *int, 
 	if limit == 0 && !artifacts {
 		return task, nil
 	}
-	events, err := s.events(ctx, t)
+	ix, err := s.logIndex(ctx, t)
 	if err != nil {
 		return nil, err
 	}
-	trigger := "brief"
-	check := 1
-	for _, ev := range events {
-		if st.State.Terminal() && ev.Seq > t.TerminalSeq {
-			continue
-		}
-		switch ev.Kind {
-		case core.KindUserMsg:
-			var b core.MsgBody
-			if err := json.Unmarshal(ev.Body, &b); err != nil {
-				return nil, fmt.Errorf("decode helper message: %w", err)
-			}
-			trigger = "message"
-			if ev.Seq == t.FirstSeq {
-				trigger = "brief"
-			}
-			text := b.Raw
-			if text == "" {
-				text = b.Text
-			}
-			if limit > 0 {
-				task.History = append(task.History, &a2a.Message{ID: b.MessageID, TaskID: task.ID, ContextID: t.ContextID, Role: a2a.MessageRoleUser, Parts: a2a.ContentParts{a2a.NewTextPart(text)}})
-			}
-		case core.KindNotice:
-			var b core.NoticeBody
-			if err := json.Unmarshal(ev.Body, &b); err != nil {
-				return nil, fmt.Errorf("decode helper notice: %w", err)
-			}
-			if b.Source == "helper-check" {
-				trigger = "check"
-				check++
-			}
-		case core.KindAgentMsg:
-			var b core.MsgBody
-			if err := json.Unmarshal(ev.Body, &b); err != nil {
-				return nil, fmt.Errorf("decode helper report: %w", err)
-			}
-			if artifacts && !b.Interrupted {
-				task.Artifacts = append(task.Artifacts, report(ev, b.Text, trigger, check))
-			}
-		case core.KindToolCall, core.KindToolResult, core.KindSummary, core.KindEnvSnapshot, core.KindAttempt, core.KindCheckpoint:
-		}
+	if limit > 0 {
+		task.History = last(ix.history, t, limit, func(e indexed) *a2a.Message { return e.msg })
 	}
-	if len(task.History) > limit {
-		task.History = task.History[len(task.History)-limit:]
-	}
-	if len(task.Artifacts) > 50 {
-		task.Artifacts = task.Artifacts[len(task.Artifacts)-50:]
+	if artifacts {
+		task.Artifacts = last(ix.reports, t, maxReports, func(e indexed) *a2a.Artifact { return e.art })
 	}
 	return task, nil
 }

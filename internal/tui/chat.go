@@ -73,8 +73,10 @@ const (
 	dirtyBar
 	dirtyInput
 	dirtyHint
+	// dirtyHelpers is the helper strip.
+	dirtyHelpers
 
-	dirtyAll = dirtyHeader | dirtyTail | dirtyBody | dirtyPalette | dirtyBar | dirtyInput | dirtyHint
+	dirtyAll = dirtyHeader | dirtyTail | dirtyBody | dirtyPalette | dirtyBar | dirtyInput | dirtyHint | dirtyHelpers
 )
 
 // block is one entry of the transcript's list: an item, a message still on
@@ -185,9 +187,14 @@ type chat struct {
 	wireOpen, wireExpanded bool
 	wireSelected           int
 	peek                   *helperPeek
-	contact                client.Contact
-	sess                   Session
-	tr                     transcript.Transcript
+	// helperShown is the helpers the strip showed at the last layout.
+	helperShown int
+	// raw is what the terminal must be sent beside the screen, left for
+	// the model to write: the forgetting of a closed peek's pictures.
+	raw     string
+	contact client.Contact
+	sess    Session
+	tr      transcript.Transcript
 
 	th  *theme.Theme
 	loc *time.Location
@@ -382,7 +389,8 @@ func (c *chat) setTheme(th *theme.Theme) {
 func (c *chat) layout() {
 	most := frame.Layout(c.width, c.height, 8, 0, c.th.BarFilled).InputText
 	c.input.SetSize(c.width, most, frame.BoxedAt(c.width, c.height))
-	rows := frame.Layout(c.width, c.height, c.input.TextRows(), c.pal.Want(c.width), c.th.BarFilled, c.helperWant())
+	c.helperShown = c.helperCount()
+	rows := frame.Layout(c.width, c.height, c.input.TextRows(), c.pal.Want(c.width), c.th.BarFilled, frame.HelpersWant(c.helperShown))
 	// The window hears of every size, also a width that leaves the rows as
 	// they were. It does nothing when told the size it has.
 	c.win.Resize(max(c.width, 1), rows.Body)
@@ -951,9 +959,7 @@ func (c *chat) tail(now time.Time) []string {
 // and when none is, the view is the one returned last time.
 func (c *chat) draw(now time.Time) tea.View {
 	c.board.Tick(now.UnixMilli())
-	if c.helperTick() {
-		c.layout()
-	}
+	c.helpersMoved()
 	if c.dirty == 0 {
 		return c.view
 	}
@@ -971,10 +977,12 @@ func (c *chat) draw(now time.Time) tea.View {
 			c.reg.Body = c.win.View(&c.list)
 		}
 	}
-	if c.peek != nil || c.wireOpen {
+	if (c.peek != nil || c.wireOpen) && dirty&(dirtyTail|dirtyBody) != 0 {
 		c.reg.Body = c.helperOverlayRows(now)
 	}
-	c.reg.Helpers = c.helperRows(now)
+	if dirty&(dirtyHelpers|dirtyTail|dirtyBody) != 0 {
+		c.reg.Helpers = c.helperRows(now)
+	}
 	if info := c.headerInfo(); dirty&dirtyHeader != 0 || info != c.info {
 		c.info = info
 		c.reg.Header = frame.Header(c.th, info, c.width)

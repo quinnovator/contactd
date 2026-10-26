@@ -28,7 +28,8 @@ type Store interface {
 	InsertHelperTask(ctx context.Context, t core.HelperTask) error
 	HelperTask(ctx context.Context, id string) (core.HelperTask, error) // core.ErrTaskNotFound
 	HelperTaskByContact(ctx context.Context, contact core.ContactID) (core.HelperTask, error)
-	UpdateHelperTask(ctx context.Context, t core.HelperTask) error // writes every mutable column
+	HelperTaskByMessageID(ctx context.Context, messageID string) (core.HelperTask, error) // the brief's; core.ErrTaskNotFound
+	UpdateHelperTask(ctx context.Context, t core.HelperTask) error                        // writes every mutable column
 	DueHelperTasks(ctx context.Context, now int64, limit int) ([]core.HelperTask, error)
 	NextHelperDue(ctx context.Context) (int64, error)                  // 0 when none
 	PendingHelperTasks(ctx context.Context) ([]core.HelperTask, error) // not terminal, or pushed_state != state

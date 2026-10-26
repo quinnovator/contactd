@@ -611,10 +611,25 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.screen == screenStatusLine {
 		m.followBar()
 	}
+	if m.chat != nil && m.chat.raw != "" {
+		m.write(m.chat.raw)
+		m.chat.raw = ""
+	}
 	// What the message changed may be something a mod's segment follows, or
 	// have brought an item into view that a mod draws or a picture that has
 	// to be read. What it left to be written to the terminal goes out last.
-	return m, tea.Batch(cmd, m.modWatch(), m.modRender(), m.imageJob(), m.flush(), m.frames())
+	return m, tea.Batch(cmd, m.helperTicks(), m.modWatch(), m.modRender(), m.imageJob(), m.flush(), m.frames())
+}
+
+// helperTicks starts the tick when the strip has come to show a countdown
+// with no tick running: after a resize, or after /helpers shows it again.
+func (m *model) helperTicks() tea.Cmd {
+	c := m.chat
+	if c == nil || c.ticking || !c.helperTick() {
+		return nil
+	}
+	c.ticking = true
+	return tea.Tick(time.Second, func(time.Time) tea.Msg { return toolTickMsg{sess: c.sess} })
 }
 
 func (m *model) onUpdates(msg updatesMsg) tea.Cmd {
@@ -659,10 +674,12 @@ func (m *model) onToolTick(msg toolTickMsg) tea.Cmd {
 		c.ticking = false
 		return nil
 	}
-	c.dirty |= dirtyTail | dirtyBody
 	if c.tr.Live().Running == "" {
+		// Only the strip's countdown is ticking.
+		c.dirty |= dirtyHelpers
 		return tea.Tick(time.Second, func(time.Time) tea.Msg { return toolTickMsg{sess: c.sess} })
 	}
+	c.dirty |= dirtyTail | dirtyBody
 	return toolTick(c.sess)
 }
 
@@ -815,6 +832,7 @@ func (m *model) closeChat() {
 			m.chat.stage.Hush()
 		}
 		m.chat.closeHelperOverlay()
+		m.write(m.chat.raw)
 		m.chat.sess.Close()
 		m.write(m.chat.imgs.leave())
 		m.chat = nil

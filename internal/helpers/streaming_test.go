@@ -79,7 +79,7 @@ func TestSDKStreamsAndBlockingSend(t *testing.T) {
 			if _, err := s.Cancel(t.Context(), id); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.deliver(t.Context(), string(id), &delivery{}); err != nil {
+			if err := s.deliver(t.Context(), string(id), &delivery{}, true); err != nil {
 				t.Fatal(err)
 			}
 		} else {

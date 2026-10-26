@@ -166,16 +166,36 @@ func TestRemoteHelperStorage(t *testing.T) {
 	if rows, err := s.ListRemoteHelpers(ctx, 8, 20); err != nil || len(rows) != 0 {
 		t.Fatalf("foreign parent: %v %v", rows, err)
 	}
-	if yes, err := s.SeenArtifact(ctx, handle, "report-1"); err != nil || yes {
-		t.Fatalf("unseen: %v %v", yes, err)
+	row.Reports = 4
+	if ok, err := s.AcceptPush(ctx, row, "report-1", "first"); err != nil || !ok {
+		t.Fatalf("accept: %v %v", ok, err)
 	}
-	for range 2 {
-		if err := s.MarkArtifactSeen(ctx, handle, "report-1"); err != nil {
+	stale := row
+	stale.Reports = 9
+	if ok, err := s.AcceptPush(ctx, stale, "report-1", "again"); err != nil || ok {
+		t.Fatalf("duplicate accepted: %v %v", ok, err)
+	}
+	row.NotifiedState = "TASK_STATE_COMPLETED"
+	if ok, err := s.AcceptPush(ctx, row, "", "stopped"); err != nil || !ok {
+		t.Fatalf("status: %v %v", ok, err)
+	}
+	if got, err := s.RemoteHelper(ctx, handle); err != nil || got != row {
+		t.Fatalf("accepted row: %+v %v", got, err)
+	}
+	if parents, err := s.HelperInboxParents(ctx); err != nil || !reflect.DeepEqual(parents, []core.ContactID{7}) {
+		t.Fatalf("inbox parents: %v %v", parents, err)
+	}
+	inbox, err := s.HelperInbox(ctx, 7, 10)
+	if err != nil || len(inbox) != 2 || inbox[0].Text != "first" || inbox[1].Text != "stopped" || inbox[0].Handle != handle {
+		t.Fatalf("inbox: %+v %v", inbox, err)
+	}
+	for _, it := range inbox {
+		if err := s.DeleteHelperInbox(ctx, it.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if yes, err := s.SeenArtifact(ctx, handle, "report-1"); err != nil || !yes {
-		t.Fatalf("seen: %v %v", yes, err)
+	if parents, err := s.HelperInboxParents(ctx); err != nil || len(parents) != 0 {
+		t.Fatalf("drained inbox: %v %v", parents, err)
 	}
 	for range 2 {
 		if err := s.DeleteRemoteHelper(ctx, handle); err != nil {

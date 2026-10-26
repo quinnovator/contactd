@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,17 +20,28 @@ import (
 	"github.com/quinnovator/contactd/internal/core"
 )
 
-// pusher pins allowed DNS addresses at validation, then checks them again at
-// dial time. Redirects and proxy environment variables cannot bypass this pin.
-type pusher struct {
-	client *http.Client
-	allow  []string
-	mu     sync.Mutex
-	pins   map[string][]netip.Addr
-}
+// pusher resolves an allowed host at validation and dials exactly the
+// addresses it found, so a name cannot be rebound between the check and the
+// connection. A pin is refreshed after pinTTL, so a host whose addresses
+// rotate keeps working. Redirects and proxy environment variables cannot
+// bypass it.
+type (
+	pusher struct {
+		client *http.Client
+		allow  []string
+		mu     sync.Mutex
+		pins   map[string]pin
+	}
+	pin struct {
+		ips []netip.Addr
+		at  time.Time
+	}
+)
+
+const pinTTL = 5 * time.Minute
 
 func newPusher(allow []string) *pusher {
-	p := &pusher{allow: slices.Clone(allow), pins: make(map[string][]netip.Addr)}
+	p := &pusher{allow: slices.Clone(allow), pins: make(map[string]pin)}
 	p.client = &http.Client{Timeout: 15 * time.Second, Transport: &http.Transport{DialContext: p.dial, IdleConnTimeout: time.Minute}, CheckRedirect: func(*http.Request, []*http.Request) error { return errors.New("push redirects are not allowed") }}
 	return p
 }
@@ -50,14 +62,14 @@ func (p *pusher) validate(ctx context.Context, c core.PushConfig) error {
 	if err != nil || u.Hostname() == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") || !slices.Contains(p.allow, urlAddress(u)) {
 		return fmt.Errorf("%w: push URL not allowed", a2a.ErrInvalidParams)
 	}
-	if c.AuthScheme != "" && c.AuthScheme != "Bearer" && c.AuthScheme != "Basic" {
+	if c.AuthScheme != "" && authScheme(c.AuthScheme) == "" {
 		return fmt.Errorf("%w: push authentication scheme not allowed", a2a.ErrInvalidParams)
 	}
 	addr := urlAddress(u)
 	p.mu.Lock()
-	_, pinned := p.pins[addr]
+	cur, pinned := p.pins[addr]
 	p.mu.Unlock()
-	if pinned {
+	if pinned && time.Since(cur.at) < pinTTL {
 		return nil
 	}
 	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", u.Hostname())
@@ -68,32 +80,36 @@ func (p *pusher) validate(ctx context.Context, c core.PushConfig) error {
 		return fmt.Errorf("%w: push target has no addresses", a2a.ErrInvalidParams)
 	}
 	p.mu.Lock()
-	if _, ok := p.pins[addr]; !ok {
-		p.pins[addr] = ips
-	}
+	p.pins[addr] = pin{ips: ips, at: time.Now()}
 	p.mu.Unlock()
 	return nil
+}
+
+// authScheme canonicalizes a push authentication scheme, which is case
+// insensitive (RFC 9110), and returns "" for one that is not supported.
+func authScheme(s string) string {
+	switch {
+	case strings.EqualFold(s, "Bearer"):
+		return "Bearer"
+	case strings.EqualFold(s, "Basic"):
+		return "Basic"
+	}
+	return ""
 }
 
 func (p *pusher) dial(ctx context.Context, network, address string) (net.Conn, error) {
 	if !slices.Contains(p.allow, address) {
 		return nil, errors.New("push URL not allowed")
 	}
-	host, port, err := net.SplitHostPort(address)
+	_, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, fmt.Errorf("push dial address: %w", err)
 	}
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return nil, fmt.Errorf("resolve push target: %w", err)
-	}
 	p.mu.Lock()
-	pins := slices.Clone(p.pins[address])
+	ips := slices.Clone(p.pins[address].ips)
 	p.mu.Unlock()
-	for _, ip := range ips {
-		if !slices.Contains(pins, ip) {
-			return nil, errors.New("push DNS address changed")
-		}
+	if len(ips) == 0 {
+		return nil, errors.New("push target was not validated")
 	}
 	var last error
 	for _, ip := range ips {
@@ -148,6 +164,9 @@ func pushRow(c *a2a.PushConfig) core.PushConfig {
 	}
 	if c.Auth != nil {
 		r.AuthScheme = c.Auth.Scheme
+		if canonical := authScheme(c.Auth.Scheme); canonical != "" {
+			r.AuthScheme = canonical
+		}
 		r.AuthCredentials = c.Auth.Credentials
 	}
 	return r

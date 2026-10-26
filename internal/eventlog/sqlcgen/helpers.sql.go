@@ -78,7 +78,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE
     (state = 'TASK_STATE_WORKING' AND next_due > 0 AND (next_due <= ?1 OR until_ts <= ?1))
@@ -121,6 +123,8 @@ func (q *Queries) DueHelperTasks(ctx context.Context, arg DueHelperTasksParams) 
 			&i.PushedState,
 			&i.CreatedAt,
 			&i.TerminalSeq,
+			&i.PushedStatusTs,
+			&i.MessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -156,7 +160,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE id = ?
 `
@@ -185,6 +191,8 @@ func (q *Queries) GetHelperTask(ctx context.Context, id string) (HelperTask, err
 		&i.PushedState,
 		&i.CreatedAt,
 		&i.TerminalSeq,
+		&i.PushedStatusTs,
+		&i.MessageID,
 	)
 	return i, err
 }
@@ -210,7 +218,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE contact = ? AND contact != 0
 `
@@ -239,6 +249,68 @@ func (q *Queries) GetHelperTaskByContact(ctx context.Context, contact int64) (He
 		&i.PushedState,
 		&i.CreatedAt,
 		&i.TerminalSeq,
+		&i.PushedStatusTs,
+		&i.MessageID,
+	)
+	return i, err
+}
+
+const getHelperTaskByMessageID = `-- name: GetHelperTaskByMessageID :one
+SELECT
+    id,
+    context_id,
+    contact,
+    title,
+    state,
+    status_message,
+    status_ts,
+    every_ms,
+    until_ts,
+    max_checks,
+    next_due,
+    checks,
+    failures,
+    last_check_at,
+    last_outcome,
+    first_seq,
+    pushed_seq,
+    pushed_state,
+    created_at,
+    terminal_seq,
+    pushed_status_ts,
+    message_id
+FROM helper_tasks
+WHERE message_id = ? AND message_id != ''
+ORDER BY created_at
+LIMIT 1
+`
+
+func (q *Queries) GetHelperTaskByMessageID(ctx context.Context, messageID string) (HelperTask, error) {
+	row := q.db.QueryRowContext(ctx, getHelperTaskByMessageID, messageID)
+	var i HelperTask
+	err := row.Scan(
+		&i.ID,
+		&i.ContextID,
+		&i.Contact,
+		&i.Title,
+		&i.State,
+		&i.StatusMessage,
+		&i.StatusTs,
+		&i.EveryMs,
+		&i.UntilTs,
+		&i.MaxChecks,
+		&i.NextDue,
+		&i.Checks,
+		&i.Failures,
+		&i.LastCheckAt,
+		&i.LastOutcome,
+		&i.FirstSeq,
+		&i.PushedSeq,
+		&i.PushedState,
+		&i.CreatedAt,
+		&i.TerminalSeq,
+		&i.PushedStatusTs,
+		&i.MessageID,
 	)
 	return i, err
 }
@@ -297,7 +369,9 @@ INSERT INTO helper_tasks (
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 )
 VALUES (
     ?1,
@@ -319,31 +393,35 @@ VALUES (
     ?17,
     ?18,
     ?19,
-    ?20
+    ?20,
+    ?21,
+    ?22
 )
 `
 
 type InsertHelperTaskParams struct {
-	ID            string
-	ContextID     string
-	Contact       int64
-	Title         string
-	State         string
-	StatusMessage string
-	StatusTs      int64
-	EveryMs       int64
-	UntilTs       int64
-	MaxChecks     int64
-	NextDue       int64
-	Checks        int64
-	Failures      int64
-	LastCheckAt   int64
-	LastOutcome   string
-	FirstSeq      int64
-	PushedSeq     int64
-	PushedState   string
-	CreatedAt     int64
-	TerminalSeq   int64
+	ID             string
+	ContextID      string
+	Contact        int64
+	Title          string
+	State          string
+	StatusMessage  string
+	StatusTs       int64
+	EveryMs        int64
+	UntilTs        int64
+	MaxChecks      int64
+	NextDue        int64
+	Checks         int64
+	Failures       int64
+	LastCheckAt    int64
+	LastOutcome    string
+	FirstSeq       int64
+	PushedSeq      int64
+	PushedState    string
+	CreatedAt      int64
+	TerminalSeq    int64
+	PushedStatusTs int64
+	MessageID      string
 }
 
 func (q *Queries) InsertHelperTask(ctx context.Context, arg InsertHelperTaskParams) error {
@@ -368,6 +446,8 @@ func (q *Queries) InsertHelperTask(ctx context.Context, arg InsertHelperTaskPara
 		arg.PushedState,
 		arg.CreatedAt,
 		arg.TerminalSeq,
+		arg.PushedStatusTs,
+		arg.MessageID,
 	)
 	return err
 }
@@ -393,7 +473,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE
     (?1 = '' OR context_id = ?1)
@@ -451,6 +533,8 @@ func (q *Queries) ListHelperTasks(ctx context.Context, arg ListHelperTasksParams
 			&i.PushedState,
 			&i.CreatedAt,
 			&i.TerminalSeq,
+			&i.PushedStatusTs,
+			&i.MessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -548,14 +632,30 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE
-    state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED')
-    OR pushed_state != state
+    id IN (
+        SELECT active.id
+        FROM helper_tasks AS active
+        WHERE
+            active.state IN (
+                'TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED'
+            )
+        UNION
+        SELECT unpushed.id
+        FROM helper_tasks AS unpushed
+        WHERE
+            unpushed.pushed_state != unpushed.state
+            OR unpushed.pushed_status_ts != unpushed.status_ts
+    )
 ORDER BY created_at, id
 `
 
+// A union, so each half reads its own index: by state, and the partial
+// index of rows with something left to push.
 func (q *Queries) PendingHelperTasks(ctx context.Context) ([]HelperTask, error) {
 	rows, err := q.db.QueryContext(ctx, pendingHelperTasks)
 	if err != nil {
@@ -586,6 +686,8 @@ func (q *Queries) PendingHelperTasks(ctx context.Context) ([]HelperTask, error) 
 			&i.PushedState,
 			&i.CreatedAt,
 			&i.TerminalSeq,
+			&i.PushedStatusTs,
+			&i.MessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -667,28 +769,30 @@ SET
     first_seq = ?13,
     pushed_seq = ?14,
     terminal_seq = ?15,
-    pushed_state = ?16
-WHERE id = ?17
+    pushed_status_ts = ?16,
+    pushed_state = ?17
+WHERE id = ?18
 `
 
 type UpdateHelperTaskParams struct {
-	Title         string
-	State         string
-	StatusMessage string
-	StatusTs      int64
-	EveryMs       int64
-	UntilTs       int64
-	MaxChecks     int64
-	NextDue       int64
-	Checks        int64
-	Failures      int64
-	LastCheckAt   int64
-	LastOutcome   string
-	FirstSeq      int64
-	PushedSeq     int64
-	TerminalSeq   int64
-	PushedState   string
-	ID            string
+	Title          string
+	State          string
+	StatusMessage  string
+	StatusTs       int64
+	EveryMs        int64
+	UntilTs        int64
+	MaxChecks      int64
+	NextDue        int64
+	Checks         int64
+	Failures       int64
+	LastCheckAt    int64
+	LastOutcome    string
+	FirstSeq       int64
+	PushedSeq      int64
+	TerminalSeq    int64
+	PushedStatusTs int64
+	PushedState    string
+	ID             string
 }
 
 func (q *Queries) UpdateHelperTask(ctx context.Context, arg UpdateHelperTaskParams) error {
@@ -708,6 +812,7 @@ func (q *Queries) UpdateHelperTask(ctx context.Context, arg UpdateHelperTaskPara
 		arg.FirstSeq,
 		arg.PushedSeq,
 		arg.TerminalSeq,
+		arg.PushedStatusTs,
 		arg.PushedState,
 		arg.ID,
 	)

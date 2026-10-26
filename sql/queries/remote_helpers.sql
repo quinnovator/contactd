@@ -183,7 +183,40 @@ SELECT
     updated_at
 FROM remote_helpers
 WHERE parent = ?
-ORDER BY created_at DESC, handle DESC LIMIT ?;
+ORDER BY
+    state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED') DESC,
+    created_at DESC,
+    handle DESC
+LIMIT ?;
+
+-- name: StrandedRemoteHelpers :many
+SELECT
+    handle,
+    parent,
+    agent_url,
+    task_id,
+    context_id,
+    title,
+    state,
+    status_message,
+    helper_contact,
+    every_ms,
+    until_ts,
+    next_check,
+    checks,
+    reports,
+    last_check_at,
+    last_report_at,
+    last_outcome,
+    push_token,
+    push_secret,
+    cancel_requested,
+    notified_state,
+    created_at,
+    updated_at
+FROM remote_helpers
+WHERE state = 'TASK_STATE_SUBMITTED' AND task_id = ''
+ORDER BY handle;
 
 -- name: DeleteRemoteHelper :exec
 DELETE FROM remote_helpers
@@ -196,12 +229,36 @@ WHERE
     parent = ?
     AND state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED');
 
--- name: MarkArtifactSeen :exec
+-- name: MarkArtifactSeen :execrows
 INSERT OR IGNORE INTO remote_helper_artifacts (handle, artifact_id) VALUES (
     ?,
     ?
 );
 
--- name: ArtifactSeen :one
-SELECT count(*) FROM remote_helper_artifacts
-WHERE handle = ? AND artifact_id = ?;
+-- name: InsertHelperInbox :exec
+INSERT INTO remote_helper_inbox (handle, parent, notice, created_at) VALUES (
+    ?,
+    ?,
+    ?,
+    ?
+);
+
+-- name: HelperInboxParents :many
+SELECT DISTINCT parent FROM remote_helper_inbox
+ORDER BY parent;
+
+-- name: HelperInbox :many
+SELECT
+    id,
+    handle,
+    parent,
+    notice,
+    created_at
+FROM remote_helper_inbox
+WHERE parent = ?
+ORDER BY id
+LIMIT ?;
+
+-- name: DeleteHelperInbox :exec
+DELETE FROM remote_helper_inbox
+WHERE id = ?;

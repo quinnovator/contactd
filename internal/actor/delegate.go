@@ -261,7 +261,7 @@ func (a *actor) flushNotices(ctx context.Context) {
 	}
 	for _, n := range a.notices {
 		ev := a.append(ctx, core.KindNotice, n.body, n.ack)
-		d := core.Delta{Type: core.DeltaNotice, Text: n.body.Text, Seq: ev.Seq}
+		d := core.Delta{Type: core.DeltaNotice, Text: n.body.Text, Seq: ev.Seq, Source: n.body.Source}
 		if n.body.Helper != 0 {
 			d.Helper = &core.HelperDelta{Handle: n.body.Helper, Event: "notice"}
 		}

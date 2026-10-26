@@ -97,7 +97,42 @@ func (f *Fetcher) dial(ctx context.Context, network, address string) (net.Conn, 
 
 func public(ip netip.Addr) bool {
 	ip = ip.Unmap()
-	return ip.IsValid() && ip.IsGlobalUnicast() && !ip.IsPrivate() && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified() && !ip.IsMulticast()
+	if !ip.IsValid() || !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast() {
+		return false
+	}
+	for _, p := range reserved() {
+		if netip.MustParsePrefix(p).Contains(ip) {
+			return false
+		}
+	}
+	return true
+}
+
+// reserved lists special-purpose ranges that IsGlobalUnicast accepts but that
+// are not the public internet. Shared address space is where carrier NAT and
+// Tailscale live; the IPv6 translation and tunnel prefixes embed IPv4
+// addresses, private ones included.
+func reserved() []string {
+	return []string{
+		"0.0.0.0/8",       // this network
+		"100.64.0.0/10",   // shared address space (CGNAT, Tailscale)
+		"192.0.0.0/24",    // IETF protocol assignments
+		"192.0.2.0/24",    // documentation
+		"192.88.99.0/24",  // 6to4 relay anycast
+		"198.18.0.0/15",   // benchmarking
+		"198.51.100.0/24", // documentation
+		"203.0.113.0/24",  // documentation
+		"240.0.0.0/4",     // reserved, and broadcast
+		"::/96",           // IPv4-compatible
+		"64:ff9b::/96",    // NAT64
+		"64:ff9b:1::/48",  // local NAT64
+		"100::/64",        // discard
+		"2001::/32",       // Teredo
+		"2001:2::/48",     // benchmarking
+		"2001:db8::/32",   // documentation
+		"2002::/16",       // 6to4
+		"fec0::/10",       // site-local
+	}
 }
 
 // Fetch reads at most MaxBytes and reduces HTML to visible text.

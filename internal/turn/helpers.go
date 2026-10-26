@@ -138,6 +138,11 @@ func (d *Deps) helperTool(ctx context.Context, in Input, call core.ToolCall) cor
 		return fail("this tool is not available to this agent")
 	}
 	requester := in.Agent.Helpers && !in.Agent.Helper && d.Helpers != nil
+	// A sub-agent is shown its parent's requester tools, so its static tier
+	// stays byte for byte its parent's; like delegate, its calls are refused.
+	if requester && in.Agent.Unattended() {
+		return fail("a sub-agent cannot use helpers; its parent owns them")
+	}
 	switch call.Name {
 	case StartHelperTool, MessageHelperTool, StopHelperTool, ListHelpersTool:
 		if !requester {

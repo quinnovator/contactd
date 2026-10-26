@@ -16,7 +16,7 @@ The requester uses real HTTP, including when both sides run in the same process.
 
 The card advertises streaming, push notifications, both interfaces at protocol version `1.0`, and the optional schedule extension. SDK serialization omits `required: false`; its default is false. Inputs are text and JSON data parts; file and URL parts are rejected. `fetch_url` is a helper tool, separate from protocol URL parts.
 
-Both bindings support SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask, SubscribeToTask, and push-configuration CRUD. GetExtendedAgentCard returns the standard not-configured error. `A2A-Version: 1.0` is required: the SDK interprets an absent version as 0.3 and returns version-not-supported. SDK error mapping and ProtoJSON enum names are used throughout.
+Both bindings support SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask, SubscribeToTask, and push-configuration CRUD. GetExtendedAgentCard returns the standard not-configured error. `A2A-Version: 1.0` is required: the SDK interprets an absent version as 0.3 and returns version-not-supported. SDK error mapping and ProtoJSON enum names are used throughout. Protocol errors keep their messages; any other failure is logged and reported as a plain internal error, so storage and resolver details never reach a client.
 
 ## Authentication
 
@@ -45,17 +45,19 @@ Task metadata under the same URI includes `title`, `every`, `until`, `maxChecks`
 
 ## Task lifecycle
 
-A new message creates a server-generated task and context, unless it supplies a context ID. A client task ID must already exist, and its context must agree. Global capacity exhaustion creates a `TASK_STATE_REJECTED` task without a helper contact.
+A new message creates a server-generated task and context, unless it supplies a context ID. A brief retried with the same `messageId` is answered with the task it created, in whatever state that task is now, and is not delivered again. A client task ID must already exist, and its context must agree. Global capacity exhaustion creates a `TASK_STATE_REJECTED` task without a helper contact.
 
 Tasks move from SUBMITTED to WORKING after the brief is durable. `ask_requester` moves to INPUT_REQUIRED and pauses checks; a subsequent message resumes WORKING. `finish`, elapsed duration, and the check limit complete the task. Three consecutive failed turns fail it. A successful outcome resets the failure count. CancelTask moves to CANCELED. Waiting for an answer does not extend the expiry time.
 
-Terminal tasks are immutable. Sending to one is unsupported; canceling one is not-cancelable. Cancellation allows an already-running model turn to finish but suppresses its later reports. A durable terminal log-sequence boundary, added in migration 0005, also suppresses reports written in the same millisecond as cancellation. A busy helper skips that scheduled check and advances its deadline; downtime causes one overdue check rather than replaying every missed interval.
+Terminal tasks are immutable. Sending to one is unsupported; canceling one is not-cancelable. Cancellation allows an already-running model turn to finish but suppresses its later reports. A durable terminal boundary, the log position and time of the transition, decides which replies belong to the task: one written before it is kept, even if it was still being committed, and one written after it is dropped, even in the same millisecond. A busy helper skips that scheduled check and advances its deadline; downtime causes one overdue check rather than replaying every missed interval. A check still running is never dispatched twice.
 
-Requester tools are `start_helper`, `message_helper`, `stop_helper`, `list_helpers`, and `stay_quiet`. Helpers receive `fetch_url`, `ask_requester`, `finish`, and `stay_quiet`, plus optional Python. Even a configuration with both role flags remains helper-only. The HTTP API rejects attempts to set the runtime `agent.helper` flag.
+A repeated `messageId` among a helper's last 50 user messages is not delivered again. Once a message is durable, the transition it causes is committed even if the caller disconnects, and a retried answer whose transition was lost resumes the task.
+
+Requester tools are `start_helper`, `message_helper`, `stop_helper`, `list_helpers`, and `stay_quiet`. A requester's sub-agents are shown the same tools, so their prompt prefix matches the parent's, but their calls are refused: only the contact the person talks to owns helpers. Helpers receive `fetch_url`, `ask_requester`, `finish`, and `stay_quiet`, plus optional Python. Even a configuration with both role flags remains helper-only. The HTTP API rejects attempts to set the runtime `agent.helper` flag.
 
 ## History, artifacts and streams
 
-User messages are history, preserving the original brief rather than its runtime wrapper. Helper replies are complete text artifacts, with IDs `report-<log-seq>`, `lastChunk: true`, and no append flag. Interrupted replies are excluded. Snapshots contain at most 100 history messages and 50 artifacts; `historyLength: 0` omits history. The outbox scans the full log, so this snapshot bound does not drop pending reports.
+User messages are history, preserving the original brief rather than its runtime wrapper. Helper replies are complete text artifacts, with IDs `report-<log-seq>`, `lastChunk: true`, and no append flag. Interrupted replies are excluded. Snapshots contain at most 100 history messages and 50 artifacts; `historyLength: 0` omits history. Snapshots and the outbox read each log incrementally, keeping their position in memory, so neither rereads a long log; the snapshot bound never drops a pending report. ListTasks describes each task as the row its filter matched.
 
 Blocking SendMessage waits for a terminal or interrupted state; `configuration.returnImmediately: true` returns promptly. SubscribeToTask and SendStreamingMessage send a Task snapshot first, followed by ordered updates. Streams close on terminal, INPUT_REQUIRED, or AUTH_REQUIRED. SubscribeToTask rejects terminal tasks. Slow subscribers are disconnected after their bounded queue fills. Multiple subscribers receive the same events.
 
@@ -63,27 +65,27 @@ ListTasks supports context, state, inclusive `statusTimestampAfter` (`>=`, match
 
 ## Push delivery and webhook
 
-Push URLs must be HTTP(S), without userinfo, and match an explicitly allowed host:port. The sender pins DNS resolutions during validation, rechecks at dial time, disables proxy environment settings, and refuses redirects. Authentication schemes are empty, Bearer, or Basic. Configurations can be supplied in SendMessage or managed through the protocol CRUD methods; delete is idempotent.
+Push URLs must be HTTP(S), without userinfo, and match an explicitly allowed host:port. The sender resolves the host at validation and dials only those addresses, refreshing them after five minutes; it disables proxy environment settings and refuses redirects. Authentication schemes are empty, Bearer, or Basic, matched case-insensitively. Configurations can be supplied in SendMessage or managed through the protocol CRUD methods; delete is idempotent.
 
-Each push body is the SDK StreamResponse envelope. Headers are `Content-Type: application/a2a+json`, `A2A-Version: 1.0`, optional `A2A-Notification-Token`, and configured Authorization. Every config is attempted. A report cursor advances only after all configs succeed. Failures retry from one second with exponential backoff capped at five minutes, abandoning a continuously failing delivery after 24 hours of process uptime. Restart resets that in-memory retry budget. Quiet-check heartbeats are best effort and do not change the durable state cursor.
+Live streams and blocking sends are fed independently of push delivery: a failing or slow callback delays only its own pushes, never a subscriber's events. Each push body is the SDK StreamResponse envelope. Headers are `Content-Type: application/a2a+json`, `A2A-Version: 1.0`, optional `A2A-Notification-Token`, and configured Authorization. Every config is attempted. A report cursor advances only after all configs succeed. Failures retry from one second with exponential backoff capped at five minutes, abandoning a continuously failing delivery after 24 hours of process uptime. Restart resets that in-memory retry budget. Status changes are tracked by their timestamp, so a return to the state last pushed, such as a second question after an answer, is a durable status push. Quiet-check heartbeats are best effort and do not change the durable state cursor.
 
-The callback accepts `application/a2a+json` or `application/json`, limits bodies to 1 MiB, looks up the notification token (or task ID), and checks the bearer secret in constant time. Unknown/mismatched tasks return 404, bad auth 401, invalid content 400/415, and failed durable acknowledgement 503. A first push can adopt the task ID before SendMessage returns.
+The callback accepts `application/a2a+json` or `application/json`, limits bodies to 1 MiB, looks up the notification token (or task ID), and checks the bearer secret in constant time. Unknown/mismatched tasks return 404, bad auth 401, invalid content 400/415, and a storage failure 503. A first push can adopt the task ID before SendMessage returns.
 
-Artifact IDs are deduplicated in SQLite. Notices wait up to ten seconds for the actor's durable acknowledgement before the callback accepts them. Questions and stopped states notify separately from state refreshes. A cancellation requested through `stop_helper` does not create a redundant notice. WORKING heartbeats never wake the requester.
+Artifact deduplication, the row update and the resulting notice commit in one SQLite transaction, and the callback answers 204 as soon as it commits. It never waits for the requesting contact: a notice that arrives during a reply is queued in `remote_helper_inbox` and delivered by a separate loop once the reply ends, in arrival order per contact. A redelivered push therefore adds nothing, however long the reply takes. Questions and stopped states notify separately from state refreshes. A cancellation requested through `stop_helper` does not create a redundant notice. WORKING heartbeats never wake the requester.
 
 Wire diagnostics recursively redact `token` and `credentials` before UTF-8-safe clipping to 2 KiB. Snapshots omit secrets; wire deltas are ephemeral and never hydrate or wake a contact.
 
 ## Restarts and limits
 
-Schedules, tasks, push configurations, report cursors, remote helper rows, accepted artifact IDs, and conversation logs survive restarts. Resume with the same base URL so existing callback URLs remain reachable. Active helper restart and callback replay are covered by the repeated race-detector loop tests.
+Schedules, tasks, push configurations, report cursors, remote helper rows, accepted artifact IDs, undelivered helper notices, and conversation logs survive restarts. Resume with the same base URL so existing callback URLs remain reachable. Active helper restart and callback replay are covered by the repeated race-detector loop tests.
 
 There are remaining crash windows:
 
 - If a requester notice commits before its follow-up turn starts and the process dies, the next message or notice triggers the response.
-- Notice insertion, artifact deduplication, and counter updates are separate commits. A crash between them can duplicate a notice or leave its counter behind. Delivery is at least once, not transactional exactly once.
+- An accepted notice leaves the inbox only after it is in the contact's log. A crash between those two commits delivers it again after the restart. Delivery is at least once, not exactly once.
 - An abrupt exit during initial task creation can leave a SUBMITTED row without a confirmed runnable brief. Startup marks it FAILED with an explanation; start a new helper. The brief is never replayed blindly.
 
-Failed starts retain a failed requester row rather than deleting it, so helper handles and callback identities cannot be reused. A timeout that already received a callback retains the adopted task. These choices and the terminal sequence boundary are intentional refinements of the design document.
+Failed starts retain a failed requester row rather than deleting it, so helper handles and callback identities cannot be reused. A timeout that already received a callback for a running task counts as a successful start. On startup, requester rows still waiting for their first answer are marked failed, freeing their slot; if such a task appears later, its pushes are acknowledged without notices and it is canceled. A failed stop clears its cancellation intent, and an answered question re-arms notification for the next one.
 
 ## Configuration
 
@@ -105,7 +107,7 @@ All flags also accept `CONTACTD_` plus the uppercase, underscore-separated name.
 | `-helpers-concurrency` | `4` simultaneous check dispatches |
 | `-fetch-allow` | no private-address exceptions |
 
-Fetches time out after 15 seconds, follow at most five redirects, and read at most 2 MiB. Loopback, private, link-local, unspecified, and multicast addresses are refused at dial time unless explicitly allowed. HTML is reduced to text; scripts and styles are discarded. These limits apply to every redirect.
+Fetches time out after 15 seconds, follow at most five redirects, and read at most 2 MiB. Loopback, private, link-local, unspecified, and multicast addresses are refused at dial time unless explicitly allowed, as are special-purpose ranges that count as global unicast: shared address space `100.64.0.0/10` (carrier NAT and Tailscale), benchmarking, documentation and reserved IPv4 ranges, and IPv6 prefixes that embed or tunnel IPv4 (NAT64, 6to4, Teredo, IPv4-compatible) plus site-local. HTML is reduced to text; scripts and styles are discarded. These limits apply to every redirect.
 
 Credentials are stored in plaintext in the private data directory, like the existing affinity key. Fetched pages are untrusted data; the helper prompt says so, and helpers have no world-changing tools by default. This reduces prompt-injection risk but does not eliminate it. All server text is sanitized before terminal display.
 
@@ -154,7 +156,7 @@ The following exceptions remain with a2a-go v2.7.0 and this TCK revision. Paths 
 | `core_operations/test_requirements.py::test_must_requirement[STREAM-SUB-004-both]` | SDK delivers the missing-task error inside an HTTP 200 SSE stream. TCK checks the initial HTTP response and treats it as success before reading the error. |
 | `jsonrpc/test_sse_streaming.py::TestSseSubscribeToTask::test_subscribe_nonexistent_task_returns_error` | Same initial-response versus SSE-error mismatch. |
 | `core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_rejects_terminal_task[both]` | SDK emits the correct unsupported-operation error as an SSE item; the TCK counts any item, including an error envelope, as a successful task event. The Go SDK client receives the expected sentinel. |
-| `core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_terminates_at_terminal_state[both]` | The fixture starts at INPUT_REQUIRED. Per design section 1 and the SDK convention, our stream closes at interruption; the test expects it to remain open until a later terminal transition. |
+| `core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_terminates_at_terminal_state[both]` | The fixture starts at INPUT_REQUIRED. Like the SDK, our stream closes at interruption (the spec is ambiguous between §3.1.2 and §11.7); the test expects it to remain open until a later terminal transition. |
 
 Other skips cover unconfigured gRPC, unadvertised extended cards/required extensions, and negative tests whose unsupported capability cannot be exercised because streaming and push are enabled. Two content-type negative probes also skip because the SDK accepts their HTTP content type. These are not evidence of conformance. No complete TCK-conformance claim is made.
 
@@ -162,7 +164,7 @@ Inspector check: upstream `a2a-inspector` commit `8aa064639af106ff771d60428ef6d4
 
 ### Standards evidence
 
-The design's section 18 checklist is covered as follows, subject to the explicit interoperability and crash-window exceptions above:
+Each protocol requirement, and the test that covers it, subject to the interoperability and crash-window exceptions above:
 
 - [x] Card location, caching, required fields, both interfaces, auth declaration and extension: `TestVersionAndCardHTTP`, `TestAgentCardGoldens`.
 - [x] Version enforcement, all methods, task/context identity and standard errors: `TestSDKTransports`, `TestCapabilityErrorViaSDK`, `TestLifecycleAndSnapshots`.

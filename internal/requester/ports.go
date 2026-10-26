@@ -18,8 +18,11 @@ type Store interface {
 	UpdateRemoteHelper(context.Context, core.RemoteHelper) error
 	DeleteRemoteHelper(context.Context, uint64) error
 	CountActiveRemoteHelpers(context.Context, core.ContactID) (int, error)
-	SeenArtifact(context.Context, uint64, string) (bool, error)
-	MarkArtifactSeen(context.Context, uint64, string) error
+	StrandedRemoteHelpers(context.Context) ([]core.RemoteHelper, error)
+	AcceptPush(ctx context.Context, row core.RemoteHelper, artifactID, notice string) (bool, error)
+	HelperInboxParents(context.Context) ([]core.ContactID, error)
+	HelperInbox(context.Context, core.ContactID, int) ([]core.HelperInboxItem, error)
+	DeleteHelperInbox(context.Context, uint64) error
 }
 
 // Registry delivers notices and ephemeral diagnostics. *actor.Registry implements it.

@@ -70,6 +70,10 @@ func (s *Service) schedule(ctx context.Context) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	slots := make(chan struct{}, s.cfg.Concurrency)
+	// A row stays due while its check runs, so it is dispatched once and
+	// skipped until that check ends; the end wakes the loop.
+	var mu sync.Mutex
+	inflight := make(map[string]bool)
 	for {
 		if ctx.Err() != nil {
 			return
@@ -82,13 +86,29 @@ func (s *Service) schedule(ctx context.Context) {
 			}
 		} else {
 			for _, row := range rows {
+				mu.Lock()
+				busy := inflight[row.ID]
+				inflight[row.ID] = true
+				mu.Unlock()
+				if busy {
+					continue
+				}
 				select {
 				case slots <- struct{}{}:
 				case <-ctx.Done():
 					return
 				}
 				wg.Go(func() {
-					defer func() { <-slots }()
+					defer func() {
+						<-slots
+						mu.Lock()
+						delete(inflight, row.ID)
+						mu.Unlock()
+						select {
+						case s.wake <- struct{}{}:
+						default:
+						}
+					}()
 					if err := s.check(ctx, row.ID); err != nil && ctx.Err() == nil {
 						s.log.WarnContext(ctx, "schedule helper check", "task_id", row.ID, "error", err)
 					}
@@ -102,7 +122,13 @@ func (s *Service) schedule(ctx context.Context) {
 				s.log.ErrorContext(ctx, "read helper deadline", "error", err)
 			}
 		} else if due > 0 {
+			// A deadline already past belongs to a check in flight, or to one
+			// that failed before it could advance; wait for a wake, or retry
+			// in a second, rather than spin.
 			wait = min(wait, max(time.Millisecond, time.Until(time.UnixMilli(due))))
+			if due <= time.Now().UnixMilli() {
+				wait = time.Second
+			}
 		}
 		timer := time.NewTimer(wait)
 		select {

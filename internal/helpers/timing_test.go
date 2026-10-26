@@ -20,6 +20,7 @@ type timerStore struct {
 	rows     map[string]core.HelperTask
 	attempts []time.Time
 	fail     bool
+	dueCalls int
 }
 
 func (s *timerStore) HelperTask(_ context.Context, id string) (core.HelperTask, error) {
@@ -46,6 +47,7 @@ func (s *timerStore) PendingHelperTasks(context.Context) ([]core.HelperTask, err
 func (s *timerStore) DueHelperTasks(_ context.Context, now int64, _ int) ([]core.HelperTask, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.dueCalls++
 	var out []core.HelperTask
 	for _, r := range s.rows {
 		if !a2a.TaskState(r.State).Terminal() && (r.UntilTS <= now || r.NextDue > 0 && r.NextDue <= now) {
@@ -202,6 +204,40 @@ func TestSchedulerConcurrencyCap(t *testing.T) {
 		synctest.Wait()
 		if contacts.calls != 4 || contacts.peak != 2 {
 			t.Fatalf("dispatch did not finish bounded batch: %+v", contacts)
+		}
+		cancel()
+		synctest.Wait()
+	})
+}
+
+// A check in flight keeps its row due. The scheduler must neither dispatch it
+// again nor poll the store in a tight loop while it runs.
+func TestSchedulerWaitsForCheckInFlight(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		now := time.Now().UnixMilli()
+		store := &timerStore{rows: map[string]core.HelperTask{"slow": {ID: "slow", State: string(a2a.TaskStateWorking), NextDue: now, EveryMS: 60000, UntilTS: now + 3600000, MaxChecks: 20}}}
+		contacts := &timerContacts{release: make(chan struct{})}
+		s := New(Deps{Store: store, Contacts: contacts}, DefaultConfig(), obs.Discard())
+		go s.schedule(ctx)
+		time.Sleep(5 * time.Second)
+		synctest.Wait()
+		store.mu.Lock()
+		polls := store.dueCalls
+		store.mu.Unlock()
+		contacts.mu.Lock()
+		calls := contacts.calls
+		contacts.mu.Unlock()
+		if calls != 1 || polls > 10 {
+			t.Fatalf("in-flight check: %d dispatches, %d polls in 5s", calls, polls)
+		}
+		close(contacts.release)
+		synctest.Wait()
+		row, _ := store.HelperTask(ctx, "slow")
+		if row.Checks != 1 || row.NextDue <= now {
+			t.Fatalf("check did not advance: %+v", row)
 		}
 		cancel()
 		synctest.Wait()

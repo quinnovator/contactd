@@ -377,7 +377,7 @@ const (
 	DeltaMessage     DeltaType = "message"     // the committed reply; Text and Seq are set
 	DeltaInterrupted DeltaType = "interrupted" // the reply in flight was cut off
 	DeltaError       DeltaType = "error"       // the turn failed; Text is a short reason
-	DeltaNotice      DeltaType = "notice"      // the runtime told the agent something; Text and Seq are set
+	DeltaNotice      DeltaType = "notice"      // the runtime told the agent something; Text, Seq and Source are set
 	DeltaUser        DeltaType = "user"        // a message to the contact was accepted; Text and Seq are set
 	// DeltaReady is the first delta on every stream. Seq is the last sequence
 	// number assigned before the stream began, or zero when the contact was
@@ -396,6 +396,9 @@ type Delta struct {
 	Seq    uint64       `json:"seq,omitempty"`
 	Typing bool         `json:"typing,omitempty"`
 	Helper *HelperDelta `json:"helper,omitempty"`
+	// Source is a notice's NoticeBody.Source, so a live view can treat it as
+	// it treats the same notice read from the log.
+	Source string `json:"source,omitempty"`
 }
 
 // Sentinel errors, checked with errors.Is.

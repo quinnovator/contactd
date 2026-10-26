@@ -52,7 +52,7 @@ func TestOutboxRetryRestartAndPushHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.deliver(t.Context(), row.ID, &delivery{}); err == nil {
+	if err := s.deliver(t.Context(), row.ID, &delivery{}, true); err == nil {
 		t.Fatal("failed push acknowledged")
 	}
 	row, err = s.deps.Store.HelperTask(t.Context(), row.ID)
@@ -63,7 +63,7 @@ func TestOutboxRetryRestartAndPushHeaders(t *testing.T) {
 	fail = false
 	mu.Unlock()
 	restarted := New(s.deps, s.cfg, s.log)
-	if err := restarted.deliver(t.Context(), row.ID, &delivery{}); err != nil {
+	if err := restarted.deliver(t.Context(), row.ID, &delivery{}, true); err != nil {
 		t.Fatal(err)
 	}
 	row, err = s.deps.Store.HelperTask(t.Context(), row.ID)
@@ -79,7 +79,7 @@ func TestOutboxRetryRestartAndPushHeaders(t *testing.T) {
 		t.Error("retry artifact ID changed")
 	}
 	mu.Unlock()
-	if err := New(s.deps, s.cfg, s.log).deliver(t.Context(), row.ID, &delivery{}); err != nil {
+	if err := New(s.deps, s.cfg, s.log).deliver(t.Context(), row.ID, &delivery{}, true); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
@@ -143,5 +143,52 @@ func TestDueChecksBusyAndMissedPeriods(t *testing.T) {
 	done, err := s.deps.Store.HelperTask(t.Context(), row.ID)
 	if err != nil || done.Checks != row.Checks+1 {
 		t.Fatalf("missed checks replayed: %+v %v", done, err)
+	}
+}
+
+func TestFailingWebhookDoesNotStallStreams(t *testing.T) {
+	t.Parallel()
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
+	defer target.Close()
+	s, c := testService(t, func(cfg *Config) { cfg.PushAllow = []string{strings.TrimPrefix(target.URL, "http://")} })
+	task := startTask(t, s)
+	if _, err := s.CreatePush(t.Context(), &a2a.PushConfig{TaskID: task.ID, URL: target.URL}); err != nil {
+		t.Fatal(err)
+	}
+	row, err := s.deps.Store.HelperTask(t.Context(), string(task.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, done := s.broker.subscribe(task.ID)
+	defer done()
+	if _, err := c.append(t.Context(), row.Contact, core.KindAgentMsg, core.MsgBody{Text: "baseline"}); err != nil {
+		t.Fatal(err)
+	}
+	d := &delivery{}
+	if err := s.deliver(t.Context(), row.ID, d, true); err == nil {
+		t.Fatal("failed push acknowledged")
+	}
+	if _, err := s.Cancel(t.Context(), task.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Backing off: pushes wait, streams do not.
+	if err := s.deliver(t.Context(), row.ID, d, false); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for ev := range sub.events {
+		switch e := ev.(type) {
+		case *a2a.TaskArtifactUpdateEvent:
+			got = append(got, "artifact")
+		case *a2a.TaskStatusUpdateEvent:
+			got = append(got, string(e.Status.State))
+		}
+	}
+	if strings.Join(got, ",") != "artifact,TASK_STATE_WORKING,TASK_STATE_CANCELED" {
+		t.Fatalf("stream saw %v", got)
+	}
+	row, err = s.deps.Store.HelperTask(t.Context(), row.ID)
+	if err != nil || row.PushedSeq != 0 || row.PushedState == row.State {
+		t.Fatalf("stream phase moved the push cursor: %+v %v", row, err)
 	}
 }

@@ -138,6 +138,8 @@ const (
 	// durableWait bounds the wait for an event the stream has announced to
 	// appear in the log.
 	durableWait = 2 * time.Second
+	// helpersWait bounds the read of the helper snapshot on connecting.
+	helpersWait = 5 * time.Second
 )
 
 // Follow starts a session for a contact. It runs until ctx is done or Close
@@ -325,14 +327,26 @@ func (s *Session) serve(ctx context.Context, live *Live) (synced bool, err error
 	case <-ctx.Done():
 		return false, nil
 	}
-	helperCtx, helperCancel := context.WithTimeout(ctx, 5*time.Second)
-	if hs, err := s.c.Helpers(helperCtx, s.id); err == nil {
-		s.emit(ctx, Update{Kind: UpdateHelpers, Helpers: hs})
-	}
-	helperCancel()
+	// The helper snapshot is read beside the log, not before it: a slow or
+	// failing helper list must not hold up the conversation. It is in before
+	// the stream's deltas are, so that none of them is undone by it.
+	helpers := make(chan struct{})
+	readers.Go(func() {
+		defer close(helpers)
+		helperCtx, helperCancel := context.WithTimeout(ctx, helpersWait)
+		defer helperCancel()
+		if hs, err := s.c.Helpers(helperCtx, s.id); err == nil {
+			s.emit(ctx, Update{Kind: UpdateHelpers, Helpers: hs})
+		}
+	})
 	s.seen = max(s.seen, ready.Seq)
 	if err := s.readLog(ctx); err != nil {
 		return false, err
+	}
+	select {
+	case <-helpers:
+	case <-ctx.Done():
+		return false, nil
 	}
 	if !s.first {
 		s.outstanding = nil

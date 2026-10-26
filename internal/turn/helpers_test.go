@@ -69,6 +69,10 @@ func TestHelperToolDefinitions(t *testing.T) {
 			}
 		})
 	}
+	sub := core.AgentConfig{Helpers: true, Parent: 1}
+	if parent, child := turn.HelperTools(&core.AgentConfig{Helpers: true}, &turn.Deps{Helpers: helperFake{}}), turn.HelperTools(&sub, &turn.Deps{Helpers: helperFake{}}); len(parent.Tools) != len(child.Tools) {
+		t.Fatal("a sub-agent's tool list must match its parent's")
+	}
 	a := &core.AgentConfig{System: "existing"}
 	if turn.HelperTools(a, &turn.Deps{}) != a {
 		t.Fatal("ordinary contact changed")
@@ -87,6 +91,9 @@ func TestHelperToolValidation(t *testing.T) {
 		{turn.StartHelperTool, `{"title":"watch"}`, core.AgentConfig{Helpers: true}, true},
 		{turn.StartHelperTool, `{"title":"watch","brief":"a page"}`, core.AgentConfig{Helper: true, Helpers: true}, true},
 		{turn.StartHelperTool, `{"title":"watch","brief":"a page"}`, core.AgentConfig{Helpers: true}, false},
+		{turn.StartHelperTool, `{"title":"watch","brief":"a page"}`, core.AgentConfig{Helpers: true, Parent: 1}, true},
+		{turn.ListHelpersTool, `{}`, core.AgentConfig{Helpers: true, Parent: 1}, true},
+		{turn.StayQuietTool, `{}`, core.AgentConfig{Helpers: true, Parent: 1}, true},
 		{turn.FetchURLTool, `{"url":"https://example.com"}`, core.AgentConfig{}, true},
 		{turn.FetchURLTool, `{"url":"https://example.com"}`, core.AgentConfig{Helper: true}, false},
 		{turn.AskRequesterTool, `{"question":"which?"}`, core.AgentConfig{}, true},

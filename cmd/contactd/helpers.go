@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/quinnovator/contactd/internal/actor"
@@ -84,7 +85,13 @@ func wireHelpers(ctx context.Context, cfg *config.Config, store *eventlog.Store,
 	server.WithA2A(mux).WithHelpers(req)
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
-	go func() { svc.Run(runCtx); close(done) }()
+	go func() {
+		var wg sync.WaitGroup
+		wg.Go(func() { svc.Run(runCtx) })
+		wg.Go(func() { req.Run(runCtx) })
+		wg.Wait()
+		close(done)
+	}()
 	log.InfoContext(ctx, "a2a helper agent", "card", hc.BaseURL+"/.well-known/agent-card.json", "auth", hc.Auth)
 	return func() {
 		cancel()
