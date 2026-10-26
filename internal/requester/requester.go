@@ -33,11 +33,14 @@ type Requester struct {
 	cfg      Config
 	log      *slog.Logger
 	mu       sync.Mutex
-	locks    map[uint64]*sync.Mutex
+	locks    map[uint64]*handleLock
 	starts   sync.Mutex // serialize cap checks and row insertion, never network I/O
 	cacheMu  sync.Mutex
 	client   *a2aclient.Client
 	expires  time.Time
+	kick     chan struct{}
+	inboxMu  sync.Mutex
+	draining map[core.ContactID]bool
 }
 
 // New constructs a requester; discovery is lazy and cached for five minutes.
@@ -45,19 +48,40 @@ func New(store Store, registry Registry, cfg Config, log *slog.Logger) *Requeste
 	if cfg.PerContact <= 0 {
 		cfg.PerContact = 4
 	}
-	return &Requester{store: store, registry: registry, cfg: cfg, log: log, locks: make(map[uint64]*sync.Mutex)}
+	return &Requester{store: store, registry: registry, cfg: cfg, log: log, locks: make(map[uint64]*handleLock), kick: make(chan struct{}, 1), draining: make(map[core.ContactID]bool)}
+}
+
+// local reports whether the helper agent is this server, whose helper
+// contacts the requester may name.
+func (r *Requester) local() bool {
+	return strings.TrimRight(r.cfg.AgentURL, "/") == strings.TrimRight(r.cfg.BaseURL, "/")
+}
+
+// handleLock serializes one helper; refs counts holders and waiters so the
+// entry is dropped once nobody needs it.
+type handleLock struct {
+	sync.Mutex
+	refs int
 }
 
 func (r *Requester) lock(handle uint64) func() {
 	r.mu.Lock()
 	m := r.locks[handle]
 	if m == nil {
-		m = &sync.Mutex{}
+		m = &handleLock{}
 		r.locks[handle] = m
 	}
+	m.refs++
 	r.mu.Unlock()
 	m.Lock()
-	return m.Unlock
+	return func() {
+		m.Unlock()
+		r.mu.Lock()
+		if m.refs--; m.refs == 0 {
+			delete(r.locks, handle)
+		}
+		r.mu.Unlock()
+	}
 }
 
 func (r *Requester) connect(ctx context.Context) (*a2aclient.Client, error) {
@@ -126,15 +150,69 @@ func (r *Requester) Start(ctx context.Context, parent core.ContactID, req turn.H
 		unlock := r.lock(row.Handle)
 		defer unlock()
 		saved, loadErr := r.store.RemoteHelper(ctx, row.Handle)
-		if loadErr == nil && saved.TaskID == "" {
-			saved.State = string(a2a.TaskStateFailed)
-			saved.StatusMessage = err.Error()
+		switch {
+		case loadErr != nil:
+		case saved.TaskID != "" && !a2a.TaskState(saved.State).Terminal():
+			// A push adopted the task while the reply was lost: it started.
+			return info(saved), nil
+		case saved.TaskID == "":
+			abandon(&saved, err.Error())
 			if e := r.store.UpdateRemoteHelper(ctx, saved); e != nil {
 				r.log.WarnContext(ctx, "persist failed helper", "error", e)
 			}
 		}
 	}
 	return got, err
+}
+
+// abandon marks a helper whose start was never confirmed as failed and
+// unwanted. If its task turns up after all, its pushes are acknowledged
+// silently and the task is canceled (see the webhook).
+func abandon(row *core.RemoteHelper, why string) {
+	row.State = string(a2a.TaskStateFailed)
+	row.StatusMessage = why
+	row.CancelRequested = true
+	row.NotifiedState = row.State // the requester was told, or never asked
+	row.UpdatedAt = time.Now().UnixMilli()
+}
+
+// recoverStarts resolves starts a restart cut off before the agent
+// answered. They would otherwise hold a per-contact slot for good.
+func (r *Requester) recoverStarts(ctx context.Context) {
+	rows, err := r.store.StrandedRemoteHelpers(ctx)
+	if err != nil {
+		if ctx.Err() == nil {
+			r.log.ErrorContext(ctx, "load interrupted helper starts", "error", err)
+		}
+		return
+	}
+	for _, row := range rows {
+		unlock := r.lock(row.Handle)
+		saved, err := r.store.RemoteHelper(ctx, row.Handle)
+		if err == nil && saved.TaskID == "" && saved.State == string(a2a.TaskStateSubmitted) {
+			abandon(&saved, "The server restarted before the helper agent confirmed this helper. Start a new one.")
+			err = r.store.UpdateRemoteHelper(ctx, saved)
+		}
+		unlock()
+		if err != nil {
+			r.log.ErrorContext(ctx, "recover interrupted helper start", "handle", row.Handle, "error", err)
+		}
+	}
+}
+
+// cancelUnwanted cancels a task that surfaced for an abandoned helper.
+func (r *Requester) cancelUnwanted(ctx context.Context, row core.RemoteHelper) {
+	go func() {
+		call, cancel := callContext(context.WithoutCancel(ctx))
+		defer cancel()
+		c, err := r.connect(call)
+		if err == nil {
+			_, err = c.CancelTask(call, &a2a.CancelTaskRequest{ID: a2a.TaskID(row.TaskID)})
+		}
+		if err != nil && !errors.Is(err, a2a.ErrTaskNotCancelable) {
+			r.log.WarnContext(call, "cancel unwanted helper task", "handle", row.Handle, "task_id", row.TaskID, "error", err)
+		}
+	}()
 }
 
 func (r *Requester) owned(ctx context.Context, parent core.ContactID, handle uint64) (core.RemoteHelper, error) {
@@ -215,6 +293,16 @@ func (r *Requester) Stop(ctx context.Context, parent core.ContactID, handle uint
 	}
 	if err != nil {
 		r.observe(ctx, row, "error", "CancelTask", "in", nil, err.Error())
+		// Not canceled after all: a later stop the requester did not ask
+		// for must still be told.
+		unlock := r.lock(handle)
+		if saved, e := r.store.RemoteHelper(ctx, handle); e == nil && !a2a.TaskState(saved.State).Terminal() {
+			saved.CancelRequested = false
+			if e := r.store.UpdateRemoteHelper(ctx, saved); e != nil {
+				r.log.WarnContext(ctx, "clear helper cancellation", "handle", handle, "error", e)
+			}
+		}
+		unlock()
 		return info(row), fmt.Errorf("stop helper: %w", err)
 	}
 	row, err = r.saveTask(ctx, handle, task)
@@ -232,7 +320,12 @@ func (r *Requester) saveTask(ctx context.Context, handle uint64, task *a2a.Task)
 	if row.TaskID != "" && row.TaskID != string(task.ID) {
 		return row, errors.New("helper agent changed task ID")
 	}
-	applyTask(&row, task, r.cfg.AgentURL == r.cfg.BaseURL)
+	applyTask(&row, task, r.local())
+	if row.NotifiedState == string(a2a.TaskStateInputRequired) && row.State == string(a2a.TaskStateWorking) {
+		// Answered: a later question must notify even if its push is the
+		// first to arrive after this one.
+		row.NotifiedState = row.State
+	}
 	if err := r.store.UpdateRemoteHelper(ctx, row); err != nil {
 		return row, fmt.Errorf("save helper result: %w", err)
 	}

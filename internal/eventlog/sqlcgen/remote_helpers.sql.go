@@ -9,23 +9,6 @@ import (
 	"context"
 )
 
-const artifactSeen = `-- name: ArtifactSeen :one
-SELECT count(*) FROM remote_helper_artifacts
-WHERE handle = ? AND artifact_id = ?
-`
-
-type ArtifactSeenParams struct {
-	Handle     int64
-	ArtifactID string
-}
-
-func (q *Queries) ArtifactSeen(ctx context.Context, arg ArtifactSeenParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, artifactSeen, arg.Handle, arg.ArtifactID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countActiveRemoteHelpers = `-- name: CountActiveRemoteHelpers :one
 SELECT count(*)
 FROM remote_helpers
@@ -39,6 +22,16 @@ func (q *Queries) CountActiveRemoteHelpers(ctx context.Context, parent int64) (i
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const deleteHelperInbox = `-- name: DeleteHelperInbox :exec
+DELETE FROM remote_helper_inbox
+WHERE id = ?
+`
+
+func (q *Queries) DeleteHelperInbox(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteHelperInbox, id)
+	return err
 }
 
 const deleteRemoteHelper = `-- name: DeleteRemoteHelper :exec
@@ -231,6 +224,107 @@ func (q *Queries) GetRemoteHelperByToken(ctx context.Context, pushToken string) 
 	return i, err
 }
 
+const helperInbox = `-- name: HelperInbox :many
+SELECT
+    id,
+    handle,
+    parent,
+    notice,
+    created_at
+FROM remote_helper_inbox
+WHERE parent = ?
+ORDER BY id
+LIMIT ?
+`
+
+type HelperInboxParams struct {
+	Parent int64
+	Limit  int64
+}
+
+func (q *Queries) HelperInbox(ctx context.Context, arg HelperInboxParams) ([]RemoteHelperInbox, error) {
+	rows, err := q.db.QueryContext(ctx, helperInbox, arg.Parent, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RemoteHelperInbox{}
+	for rows.Next() {
+		var i RemoteHelperInbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.Handle,
+			&i.Parent,
+			&i.Notice,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const helperInboxParents = `-- name: HelperInboxParents :many
+SELECT DISTINCT parent FROM remote_helper_inbox
+ORDER BY parent
+`
+
+func (q *Queries) HelperInboxParents(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, helperInboxParents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var parent int64
+		if err := rows.Scan(&parent); err != nil {
+			return nil, err
+		}
+		items = append(items, parent)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertHelperInbox = `-- name: InsertHelperInbox :exec
+INSERT INTO remote_helper_inbox (handle, parent, notice, created_at) VALUES (
+    ?,
+    ?,
+    ?,
+    ?
+)
+`
+
+type InsertHelperInboxParams struct {
+	Handle    int64
+	Parent    int64
+	Notice    string
+	CreatedAt int64
+}
+
+func (q *Queries) InsertHelperInbox(ctx context.Context, arg InsertHelperInboxParams) error {
+	_, err := q.db.ExecContext(ctx, insertHelperInbox,
+		arg.Handle,
+		arg.Parent,
+		arg.Notice,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const insertRemoteHelper = `-- name: InsertRemoteHelper :one
 INSERT INTO remote_helpers (
     parent,
@@ -366,7 +460,11 @@ SELECT
     updated_at
 FROM remote_helpers
 WHERE parent = ?
-ORDER BY created_at DESC, handle DESC LIMIT ?
+ORDER BY
+    state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED') DESC,
+    created_at DESC,
+    handle DESC
+LIMIT ?
 `
 
 type ListRemoteHelpersParams struct {
@@ -421,7 +519,7 @@ func (q *Queries) ListRemoteHelpers(ctx context.Context, arg ListRemoteHelpersPa
 	return items, nil
 }
 
-const markArtifactSeen = `-- name: MarkArtifactSeen :exec
+const markArtifactSeen = `-- name: MarkArtifactSeen :execrows
 INSERT OR IGNORE INTO remote_helper_artifacts (handle, artifact_id) VALUES (
     ?,
     ?
@@ -433,9 +531,89 @@ type MarkArtifactSeenParams struct {
 	ArtifactID string
 }
 
-func (q *Queries) MarkArtifactSeen(ctx context.Context, arg MarkArtifactSeenParams) error {
-	_, err := q.db.ExecContext(ctx, markArtifactSeen, arg.Handle, arg.ArtifactID)
-	return err
+func (q *Queries) MarkArtifactSeen(ctx context.Context, arg MarkArtifactSeenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, markArtifactSeen, arg.Handle, arg.ArtifactID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const strandedRemoteHelpers = `-- name: StrandedRemoteHelpers :many
+SELECT
+    handle,
+    parent,
+    agent_url,
+    task_id,
+    context_id,
+    title,
+    state,
+    status_message,
+    helper_contact,
+    every_ms,
+    until_ts,
+    next_check,
+    checks,
+    reports,
+    last_check_at,
+    last_report_at,
+    last_outcome,
+    push_token,
+    push_secret,
+    cancel_requested,
+    notified_state,
+    created_at,
+    updated_at
+FROM remote_helpers
+WHERE state = 'TASK_STATE_SUBMITTED' AND task_id = ''
+ORDER BY handle
+`
+
+func (q *Queries) StrandedRemoteHelpers(ctx context.Context) ([]RemoteHelper, error) {
+	rows, err := q.db.QueryContext(ctx, strandedRemoteHelpers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RemoteHelper{}
+	for rows.Next() {
+		var i RemoteHelper
+		if err := rows.Scan(
+			&i.Handle,
+			&i.Parent,
+			&i.AgentUrl,
+			&i.TaskID,
+			&i.ContextID,
+			&i.Title,
+			&i.State,
+			&i.StatusMessage,
+			&i.HelperContact,
+			&i.EveryMs,
+			&i.UntilTs,
+			&i.NextCheck,
+			&i.Checks,
+			&i.Reports,
+			&i.LastCheckAt,
+			&i.LastReportAt,
+			&i.LastOutcome,
+			&i.PushToken,
+			&i.PushSecret,
+			&i.CancelRequested,
+			&i.NotifiedState,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateRemoteHelper = `-- name: UpdateRemoteHelper :exec

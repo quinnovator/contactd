@@ -181,7 +181,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		}
 		a.touch()
 		ev := a.append(ctx, core.KindNotice, core.NoticeBody{Source: "helper-check", Text: c.Text}, c.Ack)
-		a.broadcast(core.Delta{Type: core.DeltaNotice, Text: c.Text, Seq: ev.Seq})
+		a.broadcast(core.Delta{Type: core.DeltaNotice, Text: c.Text, Seq: ev.Seq, Source: "helper-check"})
 		a.wantTurn = true
 		a.startTurn(ctx)
 	case HelperNotice:

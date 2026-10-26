@@ -42,6 +42,13 @@ func (b *broker) subscribe(id a2a.TaskID) (*subscription, func()) {
 	}
 }
 
+// watched reports whether any stream is open on the task.
+func (b *broker) watched(id a2a.TaskID) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return len(b.subs[id]) > 0
+}
+
 func interrupted(state a2a.TaskState) bool {
 	return state.Terminal() || state == a2a.TaskStateInputRequired || state == a2a.TaskStateAuthRequired
 }

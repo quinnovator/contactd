@@ -33,7 +33,7 @@ func (r *Requester) List(ctx context.Context, parent core.ContactID) ([]turn.Hel
 	defer cancel()
 	var wg sync.WaitGroup
 	for i := range rows {
-		if a2a.TaskState(rows[i].State).Terminal() {
+		if a2a.TaskState(rows[i].State).Terminal() || rows[i].TaskID == "" {
 			continue
 		}
 		wg.Go(func() {

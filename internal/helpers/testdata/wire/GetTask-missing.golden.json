@@ -20,7 +20,7 @@
           "reason": "TASK_NOT_FOUND"
         }
       ],
-      "message": "helper backend: task not found: HelperTask: task not found"
+      "message": "task not found"
     },
     "id": 1,
     "jsonrpc": "2.0"

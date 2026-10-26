@@ -21,7 +21,12 @@ type HelperTask struct {
 	FirstSeq      uint64
 	PushedSeq     uint64
 	PushedState   string
-	CreatedAt     int64
+	// PushedStatusTS is the StatusTS last pushed: a change back to the
+	// state last pushed still counts as a change.
+	PushedStatusTS int64
+	// MessageID is the messageId of the brief that created the task.
+	MessageID string
+	CreatedAt int64
 }
 
 // PushConfig is a durable helper_push_configs row.
@@ -60,6 +65,14 @@ type RemoteHelper struct {
 	NotifiedState   string
 	CreatedAt       int64
 	UpdatedAt       int64
+}
+
+// HelperInboxItem is a helper notice a push has accepted and the
+// requesting contact has not yet logged.
+type HelperInboxItem struct {
+	ID, Handle uint64
+	Parent     ContactID
+	Text       string
 }
 
 // HelperTaskFilter selects task snapshots in descending creation order.

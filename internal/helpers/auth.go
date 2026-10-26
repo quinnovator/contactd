@@ -56,7 +56,7 @@ func LoadToken(path, explicit string) (string, error) {
 
 func authorize(next http.Handler, cfg Config) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cfg.Auth != "off" && (cfg.Token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+cfg.Token)) != 1) {
+		if cfg.Auth != "off" && (cfg.Token == "" || !Bearer(r.Header.Get("Authorization"), cfg.Token)) {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="contactd helpers"`)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -64,4 +64,12 @@ func authorize(next http.Handler, cfg Config) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Bearer reports, in constant time for the credential, whether an
+// Authorization header carries this bearer token. The scheme is case
+// insensitive (RFC 9110).
+func Bearer(header, token string) bool {
+	scheme, credential, ok := strings.Cut(header, " ")
+	return ok && token != "" && strings.EqualFold(scheme, "Bearer") && subtle.ConstantTimeCompare([]byte(credential), []byte(token)) == 1
 }

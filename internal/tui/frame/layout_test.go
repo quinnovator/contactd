@@ -449,3 +449,41 @@ func TestHelperStripKeepsBody(t *testing.T) {
 		}
 	}
 }
+
+// When the plan cuts the strip short, the helpers listed give way and the
+// row that counts the rest stays, counting the helpers it now leaves out.
+func TestHelperStripKeepsOverflowRow(t *testing.T) {
+	t.Parallel()
+	r := frame.Layout(100, 16, 1, 0, false, frame.HelpersWant(5))
+	if r.Helpers != 3 {
+		t.Fatalf("a 16-row terminal should give the strip 3 rows: %+v", r)
+	}
+	if shown, more := frame.StripRows(r.Helpers, 5); shown != 2 || more != 3 {
+		t.Errorf("StripRows(%d, 5) = %d, %d; want 2 helpers and +3 more", r.Helpers, shown, more)
+	}
+	tests := []struct{ rows, active, shown, more int }{
+		{0, 0, 0, 0},
+		{0, 3, 0, 0},
+		{1, 1, 1, 0},
+		{3, 3, 3, 0},
+		{4, 4, 3, 1},
+		{4, 9, 3, 6},
+		{1, 2, 0, 2},
+		{2, 4, 1, 3},
+		{3, 4, 2, 2},
+	}
+	for _, tt := range tests {
+		shown, more := frame.StripRows(tt.rows, tt.active)
+		if shown != tt.shown || more != tt.more {
+			t.Errorf("StripRows(%d, %d) = %d, %d; want %d, %d", tt.rows, tt.active, shown, more, tt.shown, tt.more)
+		}
+		if used := shown + min(more, 1); used > tt.rows {
+			t.Errorf("StripRows(%d, %d) uses %d rows", tt.rows, tt.active, used)
+		}
+	}
+	for active := range 8 {
+		if want := frame.HelpersWant(active); want > 4 || (active <= 3 && want != active) {
+			t.Errorf("HelpersWant(%d) = %d", active, want)
+		}
+	}
+}

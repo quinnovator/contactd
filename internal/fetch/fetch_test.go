@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -54,6 +55,22 @@ func TestFetchRedirectAndLimit(t *testing.T) {
 	for _, u := range []string{"file:///tmp/a", "http://user:password@example.com", "/relative"} {
 		if _, err := f.Fetch(t.Context(), u); err == nil {
 			t.Fatalf("bad URL accepted: %s", u)
+		}
+	}
+}
+
+func TestPublicAddresses(t *testing.T) {
+	t.Parallel()
+	for addr, want := range map[string]bool{
+		"93.184.215.14": true, "2606:4700::6810:84e5": true, "8.8.8.8": true,
+		"127.0.0.1": false, "10.0.0.1": false, "172.16.0.1": false, "192.168.1.1": false, "169.254.169.254": false,
+		"100.64.0.1": false, "100.100.100.100": false, "100.127.255.254": false, "198.18.0.1": false, "192.0.0.8": false,
+		"240.0.0.1": false, "255.255.255.255": false, "0.1.2.3": false,
+		"::1": false, "fd7a:115c:a1e0::1": false, "fe80::1": false, "fec0::1": false, "::7f00:1": false, "::ffff:10.0.0.1": false,
+		"64:ff9b::a00:1": false, "2002:a00:1::": false, "2001:0:a00:1::": false, "2001:db8::1": false,
+	} {
+		if got := fetch.Public(netip.MustParseAddr(addr)); got != want {
+			t.Errorf("%s: public %v, want %v", addr, got, want)
 		}
 	}
 }

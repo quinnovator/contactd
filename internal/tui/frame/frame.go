@@ -44,6 +44,17 @@ const (
 	bodyKeep = 3
 )
 
+// How the helper strip shares the screen with the transcript.
+const (
+	// helpersFrom is the height from which the helper strip is shown.
+	helpersFrom = 16
+	// helperRows is the most helpers the strip lists; one row more says
+	// how many it left out.
+	helperRows = 3
+	// helpersKeep is the transcript rows the strip never takes.
+	helpersKeep = 5
+)
+
 // The image box: the most cells a picture in a reply may take.
 const (
 	// imageCols and imageRows are the box on a roomy terminal.
@@ -140,11 +151,38 @@ func Layout(width, height, inputLines, paletteWant int, barFilled bool, helpersW
 	rest := max(height-r.Height(), 0)
 	r.Palette = min(max(paletteWant, 0), max(rest-bodyKeep, 0))
 	r.Body = rest - r.Palette
-	if height >= 16 && len(helpersWant) > 0 {
-		r.Helpers = min(max(helpersWant[0], 0), 4, max(r.Body-5, 0))
+	if height >= helpersFrom && len(helpersWant) > 0 {
+		r.Helpers = min(max(helpersWant[0], 0), helperRows+1, max(r.Body-helpersKeep, 0))
 		r.Body -= r.Helpers
 	}
 	return r
+}
+
+// HelpersWant is the rows the helper strip asks Layout for when active
+// helpers are shown: one for each up to three, and one more that says how
+// many are left out.
+func HelpersWant(active int) int {
+	if active > helperRows {
+		return helperRows + 1
+	}
+	return max(active, 0)
+}
+
+// StripRows splits the rows the plan gives the helper strip between the
+// helpers it lists and the row that counts the rest: shown helpers are
+// listed, and more is the number left out, which takes the last row when it
+// is above zero. When the plan gives fewer rows than were asked for, helpers
+// are left out and the overflow row stays.
+func StripRows(rows, active int) (shown, more int) {
+	rows, active = max(rows, 0), max(active, 0)
+	if active <= rows && active <= helperRows {
+		return active, 0
+	}
+	if rows == 0 {
+		return 0, 0
+	}
+	shown = min(rows-1, helperRows)
+	return shown, active - shown
 }
 
 // BoxedAt reports whether the input is drawn in a box on a terminal of width

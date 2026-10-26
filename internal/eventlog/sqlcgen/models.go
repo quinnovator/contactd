@@ -48,26 +48,28 @@ type HelperPushConfig struct {
 }
 
 type HelperTask struct {
-	ID            string
-	ContextID     string
-	Contact       int64
-	Title         string
-	State         string
-	StatusMessage string
-	StatusTs      int64
-	EveryMs       int64
-	UntilTs       int64
-	MaxChecks     int64
-	NextDue       int64
-	Checks        int64
-	Failures      int64
-	LastCheckAt   int64
-	LastOutcome   string
-	FirstSeq      int64
-	PushedSeq     int64
-	PushedState   string
-	CreatedAt     int64
-	TerminalSeq   int64
+	ID             string
+	ContextID      string
+	Contact        int64
+	Title          string
+	State          string
+	StatusMessage  string
+	StatusTs       int64
+	EveryMs        int64
+	UntilTs        int64
+	MaxChecks      int64
+	NextDue        int64
+	Checks         int64
+	Failures       int64
+	LastCheckAt    int64
+	LastOutcome    string
+	FirstSeq       int64
+	PushedSeq      int64
+	PushedState    string
+	CreatedAt      int64
+	TerminalSeq    int64
+	PushedStatusTs int64
+	MessageID      string
 }
 
 type RemoteHelper struct {
@@ -99,6 +101,14 @@ type RemoteHelper struct {
 type RemoteHelperArtifact struct {
 	Handle     int64
 	ArtifactID string
+}
+
+type RemoteHelperInbox struct {
+	ID        int64
+	Handle    int64
+	Parent    int64
+	Notice    string
+	CreatedAt int64
 }
 
 type Session struct {

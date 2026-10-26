@@ -46,16 +46,18 @@ type (
 // Service owns task transitions, schedule dispatch, and push delivery.
 // Row locks are separate from per-task gates; the former never span contact or network calls.
 type Service struct {
-	deps   Deps
-	cfg    Config
-	log    *slog.Logger
-	mu     sync.Mutex
-	gates  map[string]chan struct{}
-	create chan struct{}
-	broker broker
-	push   *pusher
-	wake   chan struct{}
-	kick   chan struct{}
+	deps  Deps
+	cfg   Config
+	log   *slog.Logger
+	mu    sync.Mutex
+	gates map[string]*gate
+	// indexes caches what snapshots read from each task's log (snapshot.go).
+	indexes map[string]*logIndex
+	create  chan struct{}
+	broker  broker
+	push    *pusher
+	wake    chan struct{}
+	kick    chan struct{}
 }
 
 // New builds the durable helper service; Run starts background work.
@@ -69,21 +71,38 @@ func New(deps Deps, cfg Config, log *slog.Logger) *Service {
 	if cfg.Concurrency <= 0 {
 		cfg.Concurrency = 4
 	}
-	return &Service{deps: deps, cfg: cfg, log: log, gates: make(map[string]chan struct{}), create: make(chan struct{}, 1), push: newPusher(cfg.PushAllow), wake: make(chan struct{}, 1), kick: make(chan struct{}, 1)}
+	return &Service{deps: deps, cfg: cfg, log: log, gates: make(map[string]*gate), indexes: make(map[string]*logIndex), create: make(chan struct{}, 1), push: newPusher(cfg.PushAllow), wake: make(chan struct{}, 1), kick: make(chan struct{}, 1)}
+}
+
+// gate serializes one task. refs counts holders and waiters, so the entry is
+// dropped once nobody needs it: callers name task IDs, and an unbounded set
+// of them must not grow the map.
+type gate struct {
+	ch   chan struct{}
+	refs int
 }
 
 func (s *Service) lock(ctx context.Context, id string) (func(), error) {
 	s.mu.Lock()
-	gate := s.gates[id]
-	if gate == nil {
-		gate = make(chan struct{}, 1)
-		s.gates[id] = gate
+	g := s.gates[id]
+	if g == nil {
+		g = &gate{ch: make(chan struct{}, 1)}
+		s.gates[id] = g
 	}
+	g.refs++
 	s.mu.Unlock()
+	release := func() {
+		s.mu.Lock()
+		if g.refs--; g.refs == 0 {
+			delete(s.gates, id)
+		}
+		s.mu.Unlock()
+	}
 	select {
-	case gate <- struct{}{}:
-		return func() { <-gate }, nil
+	case g.ch <- struct{}{}:
+		return func() { <-g.ch; release() }, nil
 	case <-ctx.Done():
+		release()
 		return nil, fmt.Errorf("wait for helper task: %w", ctx.Err())
 	}
 }
@@ -101,7 +120,7 @@ func (s *Service) notify() {
 
 func protocolError(err error) error {
 	if errors.Is(err, core.ErrTaskNotFound) {
-		return fmt.Errorf("%w: %w", a2a.ErrTaskNotFound, err)
+		return a2a.ErrTaskNotFound
 	}
 	return err
 }
@@ -115,13 +134,13 @@ func (s *Service) transition(ctx context.Context, t *core.HelperTask, state a2a.
 	if a2a.TaskState(t.State).Terminal() {
 		return fmt.Errorf("%w: task is terminal", a2a.ErrUnsupportedOperation)
 	}
-	if state.Terminal() {
-		events, err := s.events(ctx, *t)
+	if state.Terminal() && t.Contact != 0 {
+		last, err := s.deps.Events.EventsBefore(ctx, t.Contact, 0, 1, core.AllKinds)
 		if err != nil {
-			return err
+			return fmt.Errorf("read helper log head: %w", err)
 		}
-		if len(events) > 0 {
-			t.TerminalSeq = events[len(events)-1].Seq
+		if len(last) > 0 {
+			t.TerminalSeq = last[0].Seq
 		}
 	}
 	t.State = string(state)
@@ -168,14 +187,35 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 		}
 	}
 	id := string(req.Message.TaskID)
-	fresh := id == ""
+	fresh, retried := id == "", false
 	var p schedule
+	release := func() {}
 	if fresh {
 		p, err = parseSchedule(req.Message.Metadata, text, time.Now(), s.cfg.MinEvery)
 		if err != nil {
 			return nil, err
 		}
-		id = string(a2a.NewTaskID())
+		// Creation is serialized, and a brief whose messageId already
+		// created a task is a retry, answered with that task. Holding the
+		// creation token while taking a brand-new task's gate cannot
+		// deadlock: nobody else can know that ID yet.
+		select {
+		case s.create <- struct{}{}:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("create helper: %w", ctx.Err())
+		}
+		release = sync.OnceFunc(func() { <-s.create })
+		defer release()
+		prior, err := s.deps.Store.HelperTaskByMessageID(ctx, req.Message.ID)
+		switch {
+		case err == nil:
+			release()
+			id, fresh, retried = prior.ID, false, true
+		case errors.Is(err, core.ErrTaskNotFound):
+			id = string(a2a.NewTaskID())
+		default:
+			return nil, fmt.Errorf("check duplicate brief: %w", err)
+		}
 	}
 	unlock, err := s.lock(ctx, id)
 	if err != nil {
@@ -196,20 +236,15 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 	}()
 	var t core.HelperTask
 	if fresh {
-		select {
-		case s.create <- struct{}{}:
-		case <-ctx.Done():
-			return nil, fmt.Errorf("create helper: %w", ctx.Err())
-		}
-		t, err = s.createTask(ctx, id, req.Message.ContextID, p)
-		<-s.create
+		t, err = s.createTask(ctx, id, req.Message.ID, req.Message.ContextID, p)
+		release()
 	} else {
 		t, err = s.deps.Store.HelperTask(ctx, id)
 	}
 	if err != nil {
 		return nil, protocolError(err)
 	}
-	if !fresh && a2a.TaskState(t.State).Terminal() {
+	if !fresh && !retried && a2a.TaskState(t.State).Terminal() {
 		return nil, a2a.ErrUnsupportedOperation
 	}
 	if req.Message.ContextID != "" && req.Message.ContextID != t.ContextID {
@@ -222,27 +257,28 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 			return nil, fmt.Errorf("save push config: %w", err)
 		}
 	}
-	if !a2a.TaskState(t.State).Terminal() {
-		duplicate := false
+	if !retried && !a2a.TaskState(t.State).Terminal() {
+		// A delivered message commits the transition that follows it even if
+		// the caller has gone: otherwise the answer is in the log and the
+		// task is stuck in the state the answer was meant to end.
+		saveCtx, cancelSave := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancelSave()
+		var duplicate *core.Event
 		if !fresh {
-			events, err := s.deps.Events.EventsBefore(ctx, t.Contact, 0, 50, core.AllKinds)
+			duplicate, err = s.delivered(ctx, t.Contact, req.Message.ID)
 			if err != nil {
-				return nil, fmt.Errorf("check duplicate message: %w", err)
-			}
-			for _, ev := range events {
-				if ev.Kind == core.KindUserMsg {
-					var b core.MsgBody
-					if err := json.Unmarshal(ev.Body, &b); err != nil {
-						return nil, fmt.Errorf("decode message: %w", err)
-					}
-					if b.MessageID == req.Message.ID {
-						duplicate = true
-						break
-					}
-				}
+				return nil, err
 			}
 		}
-		if !duplicate {
+		if duplicate != nil {
+			// A retry of an answer whose transition was lost resumes the task now.
+			if t.State == string(a2a.TaskStateInputRequired) && duplicate.TS >= t.StatusTS {
+				t.NextDue = time.Now().UnixMilli() + t.EveryMS
+				if err := s.transition(saveCtx, &t, a2a.TaskStateWorking, ""); err != nil {
+					return nil, err
+				}
+			}
+		} else {
 			rendered := text
 			if fresh {
 				rendered = renderBrief(t.Title, p.every.String(), p.until, text)
@@ -250,9 +286,7 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 			seq, sendErr := s.deps.Contacts.MessageFrom(ctx, t.Contact, rendered, text, req.Message.ID)
 			if sendErr != nil {
 				if fresh {
-					saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 					err = s.transition(saveCtx, &t, a2a.TaskStateFailed, "could not start the helper")
-					cancel()
 					if err != nil {
 						return nil, err
 					}
@@ -265,7 +299,7 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 					t.Checks = 1
 				}
 				t.NextDue = time.Now().UnixMilli() + t.EveryMS
-				if err := s.transition(ctx, &t, a2a.TaskStateWorking, ""); err != nil {
+				if err := s.transition(saveCtx, &t, a2a.TaskStateWorking, ""); err != nil {
 					return nil, err
 				}
 			}
@@ -280,13 +314,36 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 	return w, nil
 }
 
-func (s *Service) createTask(ctx context.Context, id, contextID string, p schedule) (core.HelperTask, error) {
+// delivered finds the user message with this A2A message ID among the
+// contact's recent ones, for messageId deduplication.
+func (s *Service) delivered(ctx context.Context, contact core.ContactID, id string) (*core.Event, error) {
+	events, err := s.deps.Events.EventsBefore(ctx, contact, 0, 50, core.KindSet(0).With(core.KindUserMsg))
+	if err != nil {
+		return nil, fmt.Errorf("check duplicate message: %w", err)
+	}
+	for i := range events {
+		var b core.MsgBody
+		if err := json.Unmarshal(events[i].Body, &b); err != nil {
+			return nil, fmt.Errorf("decode message: %w", err)
+		}
+		if b.MessageID == id {
+			return &events[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *Service) createTask(ctx context.Context, id, messageID, contextID string, p schedule) (core.HelperTask, error) {
+	// The contact and its task row are created together or not at all; a
+	// caller that hangs up between them must not leave an orphan contact.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
 	defer s.countActive(ctx)
 	if contextID == "" {
 		contextID = a2a.NewContextID()
 	}
 	now := time.Now().UnixMilli()
-	t := core.HelperTask{ID: id, ContextID: contextID, Title: p.title, State: string(a2a.TaskStateSubmitted), StatusTS: now, EveryMS: p.every.Milliseconds(), UntilTS: p.until.UnixMilli(), MaxChecks: p.maxChecks, NextDue: now + p.every.Milliseconds(), PushedState: string(a2a.TaskStateSubmitted), CreatedAt: now}
+	t := core.HelperTask{ID: id, ContextID: contextID, Title: p.title, State: string(a2a.TaskStateSubmitted), StatusTS: now, EveryMS: p.every.Milliseconds(), UntilTS: p.until.UnixMilli(), MaxChecks: p.maxChecks, NextDue: now + p.every.Milliseconds(), PushedState: string(a2a.TaskStateSubmitted), PushedStatusTS: now, MessageID: messageID, CreatedAt: now}
 	n, err := s.deps.Store.CountActiveHelperTasks(ctx)
 	if err != nil {
 		return t, fmt.Errorf("count helper tasks: %w", err)
@@ -401,7 +458,14 @@ func (s *Service) List(ctx context.Context, req *a2a.ListTasksRequest) (*a2a.Lis
 		length = &n
 	}
 	for _, r := range rows {
-		task, err := s.Snapshot(ctx, r.ID, length, req.IncludeArtifacts)
+		// The row that matched the filter is the one described: reading it
+		// again could show a state the filter excluded.
+		unlock, err := s.lock(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		task, err := s.snapshot(ctx, r, length, req.IncludeArtifacts)
+		unlock()
 		if err != nil {
 			return nil, err
 		}

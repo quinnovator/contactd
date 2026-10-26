@@ -321,3 +321,27 @@ func TestJoiningMidReply(t *testing.T) {
 	}
 	want(t, &tr, `1 user "go on"`, `3 agent "So far, so good."`)
 }
+
+// A live check notice is hidden or shown by the rule the log uses.
+func TestLiveCheckNoticesFollowShowChecks(t *testing.T) {
+	t.Parallel()
+	check := core.Delta{Type: core.DeltaNotice, Text: "Scheduled check 2 of 61.", Seq: 4, Source: "helper-check"}
+	report := core.Delta{Type: core.DeltaNotice, Text: "Helper 1 reports: API degraded", Seq: 5, Source: "helper-update", Helper: &core.HelperDelta{Handle: 1, Event: "notice"}}
+	for _, show := range []bool{false, true} {
+		var tr transcript.Transcript
+		tr.ShowChecks = show
+		tr.Delta(check, 1)
+		tr.Delta(report, 1)
+		got := make([]string, 0, len(tr.Items()))
+		for _, it := range tr.Items() {
+			got = append(got, it.Source)
+		}
+		want := "helper-update"
+		if show {
+			want = "helper-check,helper-update"
+		}
+		if strings.Join(got, ",") != want {
+			t.Fatalf("show checks %v: %v", show, got)
+		}
+	}
+}

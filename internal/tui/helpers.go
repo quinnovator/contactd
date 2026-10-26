@@ -13,6 +13,7 @@ import (
 	"github.com/quinnovator/contactd/internal/client"
 	"github.com/quinnovator/contactd/internal/tui/commands"
 	"github.com/quinnovator/contactd/internal/tui/conf"
+	"github.com/quinnovator/contactd/internal/tui/frame"
 	"github.com/quinnovator/contactd/internal/tui/safe"
 )
 
@@ -71,10 +72,14 @@ func cmdHelper(m *model, l commands.Line) tea.Cmd {
 	return listen(sess)
 }
 
+// closeHelperOverlay closes /a2a or /helper. Closing a peek ends its session
+// and lets go of its pictures; what the terminal must be told to forget them
+// is left in c.raw for the model to write.
 func (c *chat) closeHelperOverlay() bool {
 	had := c.peek != nil || c.wireOpen
 	if c.peek != nil {
 		c.peek.chat.sess.Close()
+		c.raw += c.peek.chat.imgs.leave()
 		c.peek = nil
 	}
 	c.wireOpen = false
@@ -113,15 +118,20 @@ func (c *chat) helperKey(msg tea.KeyPressMsg) bool {
 	return true
 }
 
+// helperRows draws the strip in the rows the plan gives it. A plan cut short
+// lists fewer helpers and keeps the row that counts the rest.
 func (c *chat) helperRows(now time.Time) []string {
+	if c.rows.Helpers == 0 {
+		return nil
+	}
 	hs := c.board.Active()
-	n := min(len(hs), 3)
+	n, more := frame.StripRows(c.rows.Helpers, len(hs))
 	rows := make([]string, 0, n+1)
 	for _, h := range hs[:n] {
 		rows = append(rows, c.list.rd.HelperRow(h, now.UnixMilli(), c.width))
 	}
-	if len(hs) > n {
-		rows = append(rows, c.th.Truncate(fmt.Sprintf("+%d more %s /helpers", len(hs)-n, c.th.G.Mid), c.width))
+	if more > 0 {
+		rows = append(rows, c.th.Truncate(fmt.Sprintf("+%d more %s /helpers", more, c.th.G.Mid), c.width))
 	}
 	return rows
 }
@@ -130,9 +140,12 @@ func (c *chat) helperOverlayRows(now time.Time) []string {
 	height := max(0, c.rows.Body-1)
 	if c.peek != nil {
 		p := c.peek.chat
-		p.th = c.th
-		p.width = c.width
-		p.restyle()
+		// The peek is drawn with what the conversation is drawn with; its
+		// blocks are drawn again only when that changes.
+		if p.th != c.th || p.width != c.width || p.height != c.height {
+			p.th, p.width, p.height = c.th, c.width, c.height
+			p.restyle()
+		}
 		p.win.Resize(max(1, c.width), height)
 		p.sync()
 		p.win.SetTail(p.tail(now))
@@ -176,13 +189,40 @@ func (c *chat) helperOverlayRows(now time.Time) []string {
 	return rows
 }
 
-func (c *chat) helperWant() int {
+// helperCount is the helpers the strip would show: none while it is hidden.
+func (c *chat) helperCount() int {
 	if c.hideHelpers {
 		return 0
 	}
-	return min(4, len(c.board.Active()))
+	return len(c.board.Active())
 }
-func (c *chat) helperTick() bool { return !c.hideHelpers && len(c.board.Active()) > 0 }
+
+// helperTick reports whether the strip shows a countdown, which is drawn
+// again every second.
+func (c *chat) helperTick() bool {
+	if c.rows.Helpers == 0 {
+		return false
+	}
+	hs := c.board.Active()
+	n, _ := frame.StripRows(c.rows.Helpers, len(hs))
+	for _, h := range hs[:n] {
+		if h.NextCheck > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// helpersMoved lays the screen out again when the number of helpers the
+// strip shows has changed since the last layout: a finished helper drops out
+// of it with nothing else happening.
+func (c *chat) helpersMoved() {
+	if c.helperCount() == c.helperShown {
+		return
+	}
+	c.layout()
+	c.dirty |= dirtyHelpers
+}
 
 // Preserve the person's draft while either overlay owns the input region.
 func (c *chat) helperInput() string {

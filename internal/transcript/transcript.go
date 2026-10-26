@@ -344,6 +344,11 @@ func (t *Transcript) Delta(d core.Delta, now int64) {
 		t.put(it)
 		t.live.Text = ""
 	case core.DeltaNotice:
+		// Live notices are shown and hidden by the same rule as logged ones.
+		if d.Source == "session-start" || (d.Source == "helper-check" && !t.ShowChecks) {
+			return
+		}
+		it.Source = d.Source
 		if d.Helper != nil {
 			it.Helper = d.Helper.Handle
 			it.Source = "helper-update"

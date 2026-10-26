@@ -183,7 +183,13 @@ func Start(tb testing.TB, opt Options) *Server {
 		server.WithA2A(mux).WithHelpers(req)
 		hctx, hcancel := context.WithCancel(ctx)
 		done := make(chan struct{})
-		go func() { svc.Run(hctx); close(done) }()
+		go func() {
+			var wg sync.WaitGroup
+			wg.Go(func() { svc.Run(hctx) })
+			wg.Go(func() { req.Run(hctx) })
+			wg.Wait()
+			close(done)
+		}()
 		stopHelpers = func() { hcancel(); <-done }
 	}
 	handler := server.Handler()

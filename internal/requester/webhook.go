@@ -1,8 +1,6 @@
 package requester
 
 import (
-	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -131,7 +129,7 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	if subtle.ConstantTimeCompare([]byte(req.Header.Get("Authorization")), []byte("Bearer "+row.PushSecret)) != 1 {
+	if !helpers.Bearer(req.Header.Get("Authorization"), row.PushSecret) {
 		result = "unauthorized"
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -155,7 +153,11 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	row.TaskID = id
+	// A helper the requester abandoned or stopped wants no more notices; a
+	// task that surfaces for an abandoned start is canceled.
+	unwanted := row.CancelRequested && a2a.TaskState(row.State).Terminal()
 	method := "statusUpdate"
+	artifact, notice := "", ""
 	switch ev := sr.Event.(type) {
 	case *a2a.TaskArtifactUpdateEvent:
 		method = "artifactUpdate"
@@ -164,68 +166,57 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		seen, err := r.store.SeenArtifact(req.Context(), row.Handle, string(ev.Artifact.ID))
-		if err != nil {
-			result = "unavailable"
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		if seen {
-			result = "duplicate"
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		text := fmt.Sprintf("Helper %d (%q) reports:\n%s", row.Handle, row.Title, clip(partsText(ev.Artifact.Parts), 16<<10))
-		if err := r.notice(req.Context(), row, text); err != nil {
-			result = "unavailable"
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		if err := r.store.MarkArtifactSeen(req.Context(), row.Handle, string(ev.Artifact.ID)); err != nil {
-			result = "unavailable"
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
+		artifact = string(ev.Artifact.ID)
+		notice = fmt.Sprintf("Helper %d (%q) reports:\n%s", row.Handle, row.Title, clip(partsText(ev.Artifact.Parts), 16<<10))
 		row.Reports++
 		row.LastReportAt = time.Now().UnixMilli()
 	case *a2a.TaskStatusUpdateEvent:
 		row.ContextID = ev.ContextID
-		applyStatus(&row, ev.Status, ev.Metadata, r.cfg.AgentURL == r.cfg.BaseURL)
+		applyStatus(&row, ev.Status, ev.Metadata, r.local())
 	case *a2a.Task:
 		method = "task"
-		applyTask(&row, ev, r.cfg.AgentURL == r.cfg.BaseURL)
+		applyTask(&row, ev, r.local())
 	case *a2a.Message:
 		result = "bad_request"
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if method != "artifactUpdate" && row.State != row.NotifiedState {
-		text := ""
+	if unwanted {
+		notice = ""
+	} else if method != "artifactUpdate" && row.State != row.NotifiedState {
 		switch a2a.TaskState(row.State) {
 		case a2a.TaskStateUnspecified, a2a.TaskStateAuthRequired, a2a.TaskStateSubmitted, a2a.TaskStateWorking:
 		case a2a.TaskStateInputRequired:
-			text = fmt.Sprintf("Helper %d needs an answer before it can continue:\n%s\nAnswer with message_helper.", row.Handle, row.StatusMessage)
+			notice = fmt.Sprintf("Helper %d needs an answer before it can continue:\n%s\nAnswer with message_helper.", row.Handle, row.StatusMessage)
 		case a2a.TaskStateCompleted, a2a.TaskStateFailed, a2a.TaskStateRejected:
-			text = fmt.Sprintf("Helper %d has stopped (%s): %s", row.Handle, row.State, row.StatusMessage)
+			notice = fmt.Sprintf("Helper %d has stopped (%s): %s", row.Handle, row.State, row.StatusMessage)
 		case a2a.TaskStateCanceled:
 			if !row.CancelRequested {
-				text = fmt.Sprintf("Helper %d has stopped (%s): %s", row.Handle, row.State, row.StatusMessage)
-			}
-		}
-		if text != "" {
-			if err := r.notice(req.Context(), row, text); err != nil {
-				result = "unavailable"
-				w.WriteHeader(http.StatusServiceUnavailable)
-				return
+				notice = fmt.Sprintf("Helper %d has stopped (%s): %s", row.Handle, row.State, row.StatusMessage)
 			}
 		}
 		// Also record WORKING: a later, second question must notify again.
 		row.NotifiedState = row.State
 	}
-	if err := r.store.UpdateRemoteHelper(req.Context(), row); err != nil {
+	// The dedupe mark, the row and the notice commit together, and the push
+	// is answered then: the notice reaches the contact from the inbox, after
+	// any reply in flight, without holding up the sender or this handle.
+	accepted, err := r.store.AcceptPush(req.Context(), row, artifact, notice)
+	if err != nil {
 		result = "unavailable"
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
+	}
+	if !accepted {
+		result = "duplicate"
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	if notice != "" {
+		r.kickInbox()
+	}
+	if unwanted && remoteActive(sr.Event) {
+		r.cancelUnwanted(req.Context(), row)
 	}
 	r.observe(req.Context(), row, "push", method, "in", sr, row.State)
 	w.WriteHeader(http.StatusNoContent)
@@ -245,12 +236,14 @@ func eventID(ev a2a.Event) string {
 	return ""
 }
 
-func (r *Requester) notice(ctx context.Context, row core.RemoteHelper, text string) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	_, err := r.registry.HelperNotice(ctx, row.Parent, core.NoticeBody{Source: "helper-update", Helper: row.Handle, Text: text})
-	if err != nil {
-		return fmt.Errorf("deliver helper notice: %w", err)
+// remoteActive reports whether a pushed status says the task still runs.
+func remoteActive(ev a2a.Event) bool {
+	switch v := ev.(type) {
+	case *a2a.Task:
+		return !v.Status.State.Terminal()
+	case *a2a.TaskStatusUpdateEvent:
+		return !v.Status.State.Terminal()
+	case *a2a.TaskArtifactUpdateEvent, *a2a.Message:
 	}
-	return nil
+	return false
 }

@@ -19,7 +19,9 @@ INSERT INTO helper_tasks (
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 )
 VALUES (
     @id,
@@ -41,7 +43,9 @@ VALUES (
     @pushed_seq,
     @pushed_state,
     @created_at,
-    @terminal_seq
+    @terminal_seq,
+    @pushed_status_ts,
+    @message_id
 );
 
 -- name: UpdateHelperTask :exec
@@ -62,6 +66,7 @@ SET
     first_seq = @first_seq,
     pushed_seq = @pushed_seq,
     terminal_seq = @terminal_seq,
+    pushed_status_ts = @pushed_status_ts,
     pushed_state = @pushed_state
 WHERE id = @id;
 
@@ -86,9 +91,40 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE id = ?;
+
+-- name: GetHelperTaskByMessageID :one
+SELECT
+    id,
+    context_id,
+    contact,
+    title,
+    state,
+    status_message,
+    status_ts,
+    every_ms,
+    until_ts,
+    max_checks,
+    next_due,
+    checks,
+    failures,
+    last_check_at,
+    last_outcome,
+    first_seq,
+    pushed_seq,
+    pushed_state,
+    created_at,
+    terminal_seq,
+    pushed_status_ts,
+    message_id
+FROM helper_tasks
+WHERE message_id = ? AND message_id != ''
+ORDER BY created_at
+LIMIT 1;
 
 -- name: GetHelperTaskByContact :one
 SELECT
@@ -111,7 +147,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE contact = ? AND contact != 0;
 
@@ -136,7 +174,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE
     (state = 'TASK_STATE_WORKING' AND next_due > 0 AND (next_due <= @now OR until_ts <= @now))
@@ -173,11 +213,27 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
+-- A union, so each half reads its own index: by state, and the partial
+-- index of rows with something left to push.
 WHERE
-    state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED')
-    OR pushed_state != state
+    id IN (
+        SELECT active.id
+        FROM helper_tasks AS active
+        WHERE
+            active.state IN (
+                'TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED'
+            )
+        UNION
+        SELECT unpushed.id
+        FROM helper_tasks AS unpushed
+        WHERE
+            unpushed.pushed_state != unpushed.state
+            OR unpushed.pushed_status_ts != unpushed.status_ts
+    )
 ORDER BY created_at, id;
 
 -- name: ListHelperTasks :many
@@ -201,7 +257,9 @@ SELECT
     pushed_seq,
     pushed_state,
     created_at,
-    terminal_seq
+    terminal_seq,
+    pushed_status_ts,
+    message_id
 FROM helper_tasks
 WHERE
     (@context_id = '' OR context_id = @context_id)
