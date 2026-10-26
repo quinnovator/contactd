@@ -67,6 +67,7 @@ type Routes interface {
 // Server holds the handlers' dependencies.
 type Server struct {
 	a2a      http.Handler
+	helpers  Helpers
 	store    Store
 	contacts Contacts
 	routes   Routes
@@ -105,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/contacts", s.createContact)
 	mux.HandleFunc("GET /v1/contacts", s.listContacts)
 	mux.HandleFunc("GET /v1/contacts/{id}", s.getContact)
+	mux.HandleFunc("GET /v1/contacts/{id}/helpers", s.getHelpers)
 	mux.HandleFunc("PATCH /v1/contacts/{id}", s.renameContact)
 	mux.HandleFunc("POST /v1/contacts/{id}/messages", s.postMessage)
 	mux.HandleFunc("POST /v1/contacts/{id}/interrupt", s.interrupt)
@@ -318,6 +320,9 @@ func (s *Server) limit(w http.ResponseWriter, r *http.Request, def int) (int, bo
 }
 
 func validateAgent(a *core.AgentConfig) error {
+	if a.Helper {
+		return errors.New("agent.helper is set by the runtime when it starts a helper")
+	}
 	seen := make(map[string]struct{}, len(a.Tools))
 	for i := range a.Tools {
 		t := &a.Tools[i]
