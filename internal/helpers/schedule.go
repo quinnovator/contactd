@@ -10,10 +10,12 @@ import (
 	"github.com/a2aproject/a2a-go/v2/a2a"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/obs"
 )
 
 // Run resumes pending deliveries and overdue checks, then runs until cancellation.
 func (s *Service) Run(ctx context.Context) {
+	s.countActive(ctx)
 	var wg sync.WaitGroup
 	wg.Go(func() { s.schedule(ctx) })
 	wg.Go(func() { s.outbox(ctx) })
@@ -106,10 +108,13 @@ func (s *Service) check(ctx context.Context, id string) error {
 	_, checkErr := s.deps.Contacts.Check(ctx, t.Contact, checkText(t.Checks+1, t.MaxChecks, time.Now()))
 	switch {
 	case checkErr == nil:
+		obs.HelperChecks.WithLabelValues("started").Inc()
 		t.Checks++
 	case errors.Is(checkErr, core.ErrBusy):
+		obs.HelperChecks.WithLabelValues("busy").Inc()
 		s.log.DebugContext(ctx, "helper check skipped while busy", "task_id", id)
 	default:
+		obs.HelperChecks.WithLabelValues("error").Inc()
 		t.Failures++
 		if t.Failures >= 3 {
 			return s.transition(ctx, &t, a2a.TaskStateFailed, "Stopped after 3 failed checks: could not wake helper")

@@ -208,3 +208,9 @@ The fetch scripts and the container image include third-party components under t
 | [QuickJS-ng](https://github.com/quickjs-ng/quickjs) 0.17.0 | Tier-0 JavaScript | MIT |
 
 Go dependencies are listed in `go.mod`, each under its own license.
+
+## Helpers (A2A)
+
+Give a contact `agent.helpers: true` to let it start scheduled helpers that watch pages and report changes. Helpers communicate through A2A 1.0 over real HTTP, with a live status strip, `/a2a` traffic view, and `/helper N` read-only log.
+
+Run `mise run demo:a2a` with a provider key to try a local status-page watch. See [A2A helpers](docs/A2A.md) for authentication, configuration, protocol examples, and restart guarantees.

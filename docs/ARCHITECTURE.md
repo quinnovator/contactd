@@ -481,6 +481,10 @@ internal/llm      the provider contract, and the client: routing, admission, ret
   probe/          the live capability check behind `contactd probe`
   fake/           the scripted provider and its HTTP server
 internal/env      Piece 6: wasm/ (tier 0, wazero), remote/ (tier 1), workdir/ (a contact's files, read for the API)
+internal/helpers  A2A helper agent: durable tasks, scheduler, outbox and transport adapter
+internal/requester  SDK client tools, callback authentication and durable notices
+internal/fetch    bounded web fetches with dial-time private-address filtering
+internal/tui/helperboard  pure helper-strip and wire-history reducer
 internal/api      HTTP, SSE, WebSocket; apitest/ runs it for tests of its clients
 internal/client   the API from the other side: requests, one WebSocket, a session that reconnects, a contact's files
 internal/transcript  log events + live deltas -> one conversation (pure)
@@ -551,3 +555,9 @@ Tier-0 Python starts in about 48 ms, not single-digit milliseconds. That is CPyt
 **Run against live providers:** the probe results in [PROVIDERS.md](PROVIDERS.md), and one conversation through the real binary on `deepseek-flash`: two turns that each ran Python in the tier-0 sandbox, then a delegated sub-agent whose result came back as a notice. Reasoning was stored and replayed on every later request, and the provider's reported cache hits tracked the predictions (for example 512 of 649 input tokens reported cached against 290 of 384 estimated).
 
 **Not measured:** the Anthropic and Ollama Cloud profiles against their live endpoints (tested against written fixtures and the conformance suite only), the tier-1 sandbox client against a real service, checkpoints and forks against a live provider's cache, and any latency on linux/amd64 (CI passes there; nothing was timed). The container image was built and run on linux/arm64 only.
+
+## Helpers over A2A
+
+A helper is an unattended contact owned by a durable A2A task. The actor retains exclusive ownership of conversation state; adapters request brief delivery or a scheduled check through narrow ports. Turn outcomes update the task, and an outbox derives complete report artifacts from committed log events. Per-task serialization freezes terminal state and the final report boundary. JSON-RPC and HTTP+JSON use the same SDK-backed handler.
+
+The requester discovers an agent card and calls it over HTTP, including for a local agent. It persists callback credentials before sending and converts authenticated reports into queued notices behind the parent's ongoing reply. A separate notification cursor prevents list refreshes from consuming questions or completion notices. Ephemeral helper deltas feed the terminal strip and wire overlay without waking contacts. See [A2A](A2A.md) for state transitions, metrics, security, and precise restart limitations.

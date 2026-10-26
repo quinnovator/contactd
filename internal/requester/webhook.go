@@ -16,6 +16,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/core"
 	"github.com/quinnovator/contactd/internal/helpers"
+	"github.com/quinnovator/contactd/internal/obs"
 )
 
 func partsText(parts a2a.ContentParts) string {
@@ -93,13 +94,17 @@ func applyStatus(row *core.RemoteHelper, st a2a.TaskStatus, meta map[string]any,
 func (r *Requester) Webhook() http.Handler { return http.HandlerFunc(r.webhook) }
 
 func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
+	result := "ok"
+	defer func() { obs.A2AWebhook.WithLabelValues(result).Inc() }()
 	typ, _, err := mime.ParseMediaType(req.Header.Get("Content-Type"))
 	if err != nil || (typ != "application/a2a+json" && typ != "application/json") {
+		result = "bad_request"
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, req.Body, 1<<20))
 	if err != nil {
+		result = "bad_request"
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -112,22 +117,27 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 	} else if decodeErr == nil && id != "" {
 		row, err = r.store.RemoteHelperByTask(req.Context(), id)
 	} else {
+		result = "bad_request"
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if err != nil {
 		if errors.Is(err, core.ErrTaskNotFound) {
+			result = "not_found"
 			w.WriteHeader(http.StatusNotFound)
 		} else {
+			result = "unavailable"
 			w.WriteHeader(http.StatusServiceUnavailable)
 		}
 		return
 	}
 	if subtle.ConstantTimeCompare([]byte(req.Header.Get("Authorization")), []byte("Bearer "+row.PushSecret)) != 1 {
+		result = "unauthorized"
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 	if decodeErr != nil || id == "" {
+		result = "bad_request"
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -135,10 +145,12 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 	defer unlock()
 	row, err = r.store.RemoteHelper(req.Context(), row.Handle)
 	if err != nil {
+		result = "unavailable"
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 	if row.TaskID != "" && row.TaskID != id {
+		result = "not_found"
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -148,24 +160,29 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 	case *a2a.TaskArtifactUpdateEvent:
 		method = "artifactUpdate"
 		if ev.Artifact == nil || ev.Artifact.ID == "" {
+			result = "bad_request"
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		seen, err := r.store.SeenArtifact(req.Context(), row.Handle, string(ev.Artifact.ID))
 		if err != nil {
+			result = "unavailable"
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		if seen {
+			result = "duplicate"
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 		text := fmt.Sprintf("Helper %d (%q) reports:\n%s", row.Handle, row.Title, clip(partsText(ev.Artifact.Parts), 16<<10))
 		if err := r.notice(req.Context(), row, text); err != nil {
+			result = "unavailable"
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		if err := r.store.MarkArtifactSeen(req.Context(), row.Handle, string(ev.Artifact.ID)); err != nil {
+			result = "unavailable"
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -178,6 +195,7 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 		method = "task"
 		applyTask(&row, ev, r.cfg.AgentURL == r.cfg.BaseURL)
 	case *a2a.Message:
+		result = "bad_request"
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -196,6 +214,7 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 		}
 		if text != "" {
 			if err := r.notice(req.Context(), row, text); err != nil {
+				result = "unavailable"
 				w.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
@@ -204,6 +223,7 @@ func (r *Requester) webhook(w http.ResponseWriter, req *http.Request) {
 		row.NotifiedState = row.State
 	}
 	if err := r.store.UpdateRemoteHelper(req.Context(), row); err != nil {
+		result = "unavailable"
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
