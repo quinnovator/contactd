@@ -59,4 +59,10 @@ func TestPrivateTokenFile(t *testing.T) {
 	if err != nil || explicit != "explicit" {
 		t.Fatal("explicit token ignored")
 	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadToken(path, ""); err == nil {
+		t.Fatal("accepted a token file readable by other users")
+	}
 }

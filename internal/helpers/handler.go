@@ -30,6 +30,9 @@ func (h *Handler) SendMessage(ctx context.Context, r *a2a.SendMessageRequest) (a
 		return nil, fmt.Errorf("send helper message: %w", err)
 	}
 	defer w.Close()
+	if w.Message != nil {
+		return w.Message, nil
+	}
 	if immediate || interrupted(w.Task.Status.State) {
 		return w.Task, nil
 	}
@@ -76,6 +79,10 @@ func (h *Handler) SubscribeToTask(ctx context.Context, r *a2a.SubscribeToTaskReq
 
 func yieldWatch(w *Watch, yield func(a2a.Event, error) bool) {
 	defer w.Close()
+	if w.Message != nil {
+		yield(w.Message, nil)
+		return
+	}
 	if !yield(w.Task, nil) || interrupted(w.Task.Status.State) {
 		return
 	}
@@ -138,6 +145,8 @@ func HTTPHandler(backend Backend, cfg Config, log *slog.Logger) (http.Handler, e
 	mux := http.NewServeMux()
 	mux.Handle("GET /.well-known/agent-card.json", discovery)
 	mux.Handle("POST /a2a/helpers", authorize(a2asrv.NewJSONRPCHandler(handler), cfg))
+	// Some clients normalize their base URL with a trailing slash.
+	mux.Handle("POST /a2a/helpers/{$}", authorize(a2asrv.NewJSONRPCHandler(handler), cfg))
 	mux.Handle("/a2a/helpers/rest/", authorize(http.StripPrefix("/a2a/helpers/rest", a2asrv.NewRESTHandler(handler)), cfg))
 	return mux, nil
 }

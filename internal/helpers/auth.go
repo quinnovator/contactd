@@ -18,6 +18,13 @@ func LoadToken(path, explicit string) (string, error) {
 	}
 	raw, err := os.ReadFile(path) //nolint:gosec // path is the operator-configured token file
 	if err == nil {
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			return "", fmt.Errorf("stat A2A token: %w", statErr)
+		}
+		if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+			return "", errors.New("A2A token file must be a private regular file (chmod 600)")
+		}
 		token := strings.TrimSpace(string(raw))
 		if token == "" {
 			return "", errors.New("empty A2A token file")

@@ -211,3 +211,34 @@ func TestTaskCapsFailuresAndExpiry(t *testing.T) {
 		t.Fatalf("waiting expiry: %+v %v", got, err)
 	}
 }
+
+func TestRestartResolvesInterruptedCreation(t *testing.T) {
+	t.Parallel()
+	s, _ := testService(t)
+	interrupted := startTask(t, s)
+	working := startTask(t, s)
+	row, err := s.deps.Store.HelperTask(t.Context(), string(interrupted.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	row.State = string(a2a.TaskStateSubmitted)
+	if err := s.deps.Store.UpdateHelperTask(t.Context(), row); err != nil {
+		t.Fatal(err)
+	}
+	restarted := New(s.deps, s.cfg, obs.Discard())
+	restarted.recoverSubmitted(t.Context())
+	got, err := restarted.Snapshot(t.Context(), string(interrupted.ID), nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status.State != a2a.TaskStateFailed || got.Status.Message == nil {
+		t.Fatalf("interrupted creation: %+v", got)
+	}
+	stillWorking, err := restarted.Snapshot(t.Context(), string(working.ID), nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stillWorking.Status.State != a2a.TaskStateWorking {
+		t.Fatalf("changed healthy task: %+v", stillWorking)
+	}
+}

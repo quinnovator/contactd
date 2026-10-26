@@ -81,7 +81,7 @@ There are remaining crash windows:
 
 - If a requester notice commits before its follow-up turn starts and the process dies, the next message or notice triggers the response.
 - Notice insertion, artifact deduplication, and counter updates are separate commits. A crash between them can duplicate a notice or leave its counter behind. Delivery is at least once, not transactional exactly once.
-- An abrupt exit during initial task creation can leave a SUBMITTED row without a runnable brief. Inspect and cancel such a task.
+- An abrupt exit during initial task creation can leave a SUBMITTED row without a confirmed runnable brief. Startup marks it FAILED with an explanation; start a new helper. The brief is never replayed blindly.
 
 Failed starts retain a failed requester row rather than deleting it, so helper handles and callback identities cannot be reused. A timeout that already received a callback retains the adopted task. These choices and the terminal sequence boundary are intentional refinements of the design document.
 
@@ -139,4 +139,37 @@ Create a requester with `POST /v1/contacts` and `{"name":"ada","agent":{"helpers
 
 SDK-client tests exercise both transports, standard errors, card serialization, streaming, push CRUD and wire fixtures. Race-detector tests cover the complete HTTP loop, changing pages, questions, cancellation, and active restart. A real DeepSeek-backed watch was verified to send a baseline, stay quiet on subsequent checks, and cancel on request.
 
-The separate `a2a:tck` runner and TCK results are documented here when conformance validation completes. Scripted TCK behavior belongs only in the SUT command, never in the production helper service.
+Run `mise run a2a:tck` for the optional upstream MUST suite against both bindings. It builds `cmd/a2a-sut`, starts it on loopback port 9999, installs the TCK with uv, and saves its HTML/JUnit reports in a temporary directory printed on exit. `CONTACTD_A2A_TCK_DIR` selects a reusable directory. Python 3.11+ and network access are required; this task is deliberately outside CI. The TCK is pinned to `1.0.0.alpha3`, commit `5daf0144b4a4adbdefb62180739b13c5bd7d8196`, with its frozen dependency lock. The runner preserves upstream failures and exit status; it does not suppress or mark exceptions as passes.
+
+The SUT uses the production card, version/capability enforcement, HTTP handlers and SDK serializers with a separate in-memory backend. Message-ID scripts exercise completion, interruption, rejection, direct messages, text/file/data artifacts, chunked streams, and delayed resubscription. No TCK message-ID branches exist in the production service. This checks protocol interoperability; the durable actor/model behavior is covered by the Go integration tests and real-model demo.
+
+The following exceptions remain with a2a-go v2.7.0 and this TCK revision. Paths below are relative to upstream `tests/compatibility/`; `[both]` means the jsonrpc and http_json parameterizations. The HTML report is not committed.
+
+| Upstream test | Reason |
+| --- | --- |
+| `core_operations/test_push_notifications.py::TestPushNotificationCrud::test_create_push_config[jsonrpc]` | The TCK sends `task_id`; the SDK JSON decoder recognizes `taskId` only. ProtoJSON's alternate original field-name parsing is an SDK limitation. The five dependent JSON-RPC CRUD tests skip for the same reason. Production CRUD passes with the official Go SDK client. |
+| `core_operations/test_task_history.py::TestHistoryLengthLimit::test_get_task_history_does_not_exceed_limit[jsonrpc]` | The same SDK limitation ignores the TCK's `history_length`. Camel-case `historyLength` is enforced and covered on both transports. |
+| `core_operations/test_requirements.py::test_must_requirement[CORE-SEND-003-both]` | TCK registry entry omits `expected_error`, so its generic validator incorrectly expects success for the unsupported-media request. The server correctly returns ContentTypeNotSupportedError. |
+| `core_operations/test_task_lifecycle.py::TestCancelTask::test_cancel_terminal_task_returns_error[http_json]` | SDK maps TaskNotCancelableError to HTTP 400; TCK expects 409. The error reason and JSON-RPC code are correct. |
+| `core_operations/test_requirements.py::test_must_requirement[STREAM-SUB-004-both]` | SDK delivers the missing-task error inside an HTTP 200 SSE stream. TCK checks the initial HTTP response and treats it as success before reading the error. |
+| `jsonrpc/test_sse_streaming.py::TestSseSubscribeToTask::test_subscribe_nonexistent_task_returns_error` | Same initial-response versus SSE-error mismatch. |
+| `core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_rejects_terminal_task[both]` | SDK emits the correct unsupported-operation error as an SSE item; the TCK counts any item, including an error envelope, as a successful task event. The Go SDK client receives the expected sentinel. |
+| `core_operations/test_task_lifecycle.py::TestSubscribeLifecycle::test_subscribe_terminates_at_terminal_state[both]` | The fixture starts at INPUT_REQUIRED. Per design section 1 and the SDK convention, our stream closes at interruption; the test expects it to remain open until a later terminal transition. |
+
+Other skips cover unconfigured gRPC, unadvertised extended cards/required extensions, and negative tests whose unsupported capability cannot be exercised because streaming and push are enabled. Two content-type negative probes also skip because the SDK accepts their HTTP content type. These are not evidence of conformance. No complete TCK-conformance claim is made.
+
+Inspector check: upstream `a2a-inspector` commit `8aa064639af106ff771d60428ef6d460f5454743` successfully validated the public card and initialized its JSON-RPC client. Through its running HTTP/Socket.IO backend, chat created a real contactd task (auth off, fake model), streamed a Task, status updates and a report artifact, all with empty validation-error lists; cancellation succeeded. The same check also completed a scripted SUT task. This verifies the Inspector backend's 1.0 interoperability; it is not a visual UI audit.
+
+### Standards evidence
+
+The design's section 18 checklist is covered as follows, subject to the explicit interoperability and crash-window exceptions above:
+
+- [x] Card location, caching, required fields, both interfaces, auth declaration and extension: `TestVersionAndCardHTTP`, `TestAgentCardGoldens`.
+- [x] Version enforcement, all methods, task/context identity and standard errors: `TestSDKTransports`, `TestCapabilityErrorViaSDK`, `TestLifecycleAndSnapshots`.
+- [x] Blocking versus immediate sends, history limits, initial Task, terminal rejection and ordered broadcast: `TestSDKStreamsAndBlockingSend`, `TestBrokerOrderedBroadcastAndSlowSubscriber`, `TestScriptedTransports`.
+- [x] Immutable terminal snapshots and deterministic whole-report artifacts: `TestLifecycleAndSnapshots`, `TestOutboxRetryRestartAndPushHeaders`, `TestWireFixtures`.
+- [x] ProtoJSON enums, parts, timestamp serialization and golden wire fixtures: `TestWireFixtures` and card goldens.
+- [x] Inline push configs, CRUD, idempotent deletion and exact callback headers: `TestSDKTransports`, `TestOutboxRetryRestartAndPushHeaders`.
+- [x] Retry scheduling, restart replay, allowlists, redirect refusal and receiver authentication/deduplication: `TestOutboxTimerBackoff`, push tests and requester loop tests. The 24-hour retry budget resets on process restart, as documented above.
+- [x] Scheduling, missed periods, busy checks, both kinds of expiry and bounded dispatch concurrency: `TestSchedulerTimers`, `TestSchedulerConcurrencyCap`.
+- [x] SDK cross-check, TCK exceptions and Inspector check: tests and results described in this section.
