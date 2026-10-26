@@ -149,3 +149,9 @@ depends = ["dev:build"]
 raw = true
 raw_args = true
 run = ["go build -o bin/demosite ./cmd/demosite", "bash scripts/demo-a2a.sh"]
+
+[tasks."a2a:tck"]
+description = "Run the pinned upstream A2A MUST conformance suite on both HTTP transports"
+raw = true
+raw_args = true
+run = 'bash scripts/a2a-tck.sh'

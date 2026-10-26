@@ -15,11 +15,47 @@ import (
 
 // Run resumes pending deliveries and overdue checks, then runs until cancellation.
 func (s *Service) Run(ctx context.Context) {
+	s.recoverSubmitted(ctx)
 	s.countActive(ctx)
 	var wg sync.WaitGroup
 	wg.Go(func() { s.schedule(ctx) })
 	wg.Go(func() { s.outbox(ctx) })
 	wg.Wait()
+}
+
+// A SUBMITTED task has no committed acknowledgement that its brief was handed
+// to the actor. Never replay it blindly after a crash: that could run it twice.
+// Resolve the interrupted creation explicitly so it cannot consume capacity forever.
+func (s *Service) recoverSubmitted(ctx context.Context) {
+	rows, err := s.deps.Store.PendingHelperTasks(ctx)
+	if err != nil {
+		s.log.ErrorContext(ctx, "load interrupted helper creations", "error", err)
+		return
+	}
+	for _, row := range rows {
+		if row.State != string(a2a.TaskStateSubmitted) {
+			continue
+		}
+		if err := s.failSubmitted(ctx, row.ID); err != nil {
+			s.log.ErrorContext(ctx, "recover interrupted helper creation", "task_id", row.ID, "error", err)
+		}
+	}
+}
+
+func (s *Service) failSubmitted(ctx context.Context, id string) error {
+	unlock, err := s.lock(ctx, id)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	row, err := s.deps.Store.HelperTask(ctx, id)
+	if err != nil {
+		return fmt.Errorf("load interrupted helper creation: %w", err)
+	}
+	if row.State != string(a2a.TaskStateSubmitted) {
+		return nil
+	}
+	return s.transition(ctx, &row, a2a.TaskStateFailed, "Server restarted before helper creation completed. Start a new helper.")
 }
 
 func nextDue(due, every, now int64) int64 {

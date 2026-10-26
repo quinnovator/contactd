@@ -24,9 +24,10 @@ import (
 // Close must be called even when Events is not consumed.
 type (
 	Watch struct {
-		Task   *a2a.Task
-		Events iter.Seq2[a2a.Event, error]
-		Close  func()
+		Task    *a2a.Task
+		Message *a2a.Message // Alternative immediate response for backends without a task.
+		Events  iter.Seq2[a2a.Event, error]
+		Close   func()
 	}
 	// Backend is the durable operation seam shared by the HTTP handler and TCK SUT.
 	Backend interface {
