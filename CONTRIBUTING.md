@@ -80,6 +80,8 @@ Diagnostics are off outside the dev task. They expose full prompts over the API;
 
 `docs/images` holds the README's recordings of the terminal client, made with [vhs](https://github.com/charmbracelet/vhs) from `scripts/demo.tape`. The tape runs `mise run try` in a fresh data directory, so it needs a model provider key; the reply is the model's own and differs on each run. The header of the tape gives the commands, including the `gifsicle` step that keeps the animation near 3 MB.
 
+The A2A captures come from `scripts/demo-a2a.tape`, which runs `scripts/demo-a2a.sh` on ports 18080 and 19090 and turns the status page's API degraded after the helper's first report. Its animation comes to 4 or 5 MB after the steps in its header.
+
 ## Tests
 
 | Tier | Command | Needs |
