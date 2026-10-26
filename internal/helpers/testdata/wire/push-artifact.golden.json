@@ -1,0 +1,16 @@
+{
+  "artifactUpdate": {
+    "artifact": {
+      "artifactId": "report-7",
+      "name": "report",
+      "parts": [
+        {
+          "text": "baseline"
+        }
+      ]
+    },
+    "contextId": "context",
+    "lastChunk": true,
+    "taskId": "task"
+  }
+}

@@ -67,6 +67,7 @@ type HelperTask struct {
 	PushedSeq     int64
 	PushedState   string
 	CreatedAt     int64
+	TerminalSeq   int64
 }
 
 type RemoteHelper struct {

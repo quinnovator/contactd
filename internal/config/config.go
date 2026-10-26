@@ -18,7 +18,14 @@ import (
 // Config is every runtime setting. Each field has a flag and an environment
 // variable (CONTACTD_ plus the flag name in upper snake case); flags win.
 type Config struct {
-	Addr string
+	Addr                                                    string
+	Helpers                                                 string
+	A2AURL, A2AAuth, A2AToken                               string
+	A2APushAllow, FetchAllow                                []string
+	HelperAgentURL, HelperAgentToken                        string
+	HelperProvider, HelperModel, HelperEffort, HelperTools  string
+	HelpersMinEvery                                         time.Duration
+	HelpersMaxActive, HelpersPerContact, HelpersConcurrency int
 	// Socket is a Unix socket the API is also served on, for clients on the
 	// same machine. Empty means contactd.sock in the data directory; "off"
 	// disables it.
@@ -195,6 +202,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l.boolean(&c.Checkpoint, "checkpoint", true, "fold the oldest part of an over-budget tail into a summary written by the contact's model, instead of cutting it")
 	l.integer(&c.MaxChildren, "max-children", 8, "sub-agents one contact may have running at once")
 
+	pushAllow, fetchAllow := l.helperFlags(&c)
 	if err := fs.Parse(args); err != nil {
 		return Config{}, fmt.Errorf("parse flags: %w", err)
 	}
@@ -202,6 +210,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 		return Config{}, l.err
 	}
 
+	c.A2APushAllow, c.FetchAllow = list(*pushAllow), list(*fetchAllow)
 	c.BytesPerActor = int64(bytesPerActor)
 	c.OpenAIBaseURLs, c.OpenAIModels = list(openaiURLs), list(openaiModels)
 	var err error
@@ -249,6 +258,9 @@ func (c *Config) validate() error {
 		if !ok {
 			errs = append(errs, fmt.Errorf(format, args...))
 		}
+	}
+	if err := c.validateHelpers(); err != nil {
+		errs = append(errs, err)
 	}
 	on := c.Providers()
 	check(c.LLM != "", "no model provider is configured: set an API key (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENROUTER_API_KEY, OPENCODE_API_KEY, OLLAMA_API_KEY, or OPENAI_API_KEY / openai-base-urls) or llm=fake")

@@ -1,0 +1,13 @@
+{
+  "message": {
+    "messageId": "message",
+    "contextId": "context",
+    "parts": [
+      {
+        "text": "report"
+      }
+    ],
+    "role": "ROLE_AGENT",
+    "taskId": "task"
+  }
+}

@@ -77,7 +77,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     (state = 'TASK_STATE_WORKING' AND next_due > 0 AND (next_due <= ?1 OR until_ts <= ?1))
@@ -119,6 +120,7 @@ func (q *Queries) DueHelperTasks(ctx context.Context, arg DueHelperTasksParams) 
 			&i.PushedSeq,
 			&i.PushedState,
 			&i.CreatedAt,
+			&i.TerminalSeq,
 		); err != nil {
 			return nil, err
 		}
@@ -153,7 +155,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE id = ?
 `
@@ -181,6 +184,7 @@ func (q *Queries) GetHelperTask(ctx context.Context, id string) (HelperTask, err
 		&i.PushedSeq,
 		&i.PushedState,
 		&i.CreatedAt,
+		&i.TerminalSeq,
 	)
 	return i, err
 }
@@ -205,7 +209,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE contact = ? AND contact != 0
 `
@@ -233,6 +238,7 @@ func (q *Queries) GetHelperTaskByContact(ctx context.Context, contact int64) (He
 		&i.PushedSeq,
 		&i.PushedState,
 		&i.CreatedAt,
+		&i.TerminalSeq,
 	)
 	return i, err
 }
@@ -290,7 +296,8 @@ INSERT INTO helper_tasks (
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 )
 VALUES (
     ?1,
@@ -311,7 +318,8 @@ VALUES (
     ?16,
     ?17,
     ?18,
-    ?19
+    ?19,
+    ?20
 )
 `
 
@@ -335,6 +343,7 @@ type InsertHelperTaskParams struct {
 	PushedSeq     int64
 	PushedState   string
 	CreatedAt     int64
+	TerminalSeq   int64
 }
 
 func (q *Queries) InsertHelperTask(ctx context.Context, arg InsertHelperTaskParams) error {
@@ -358,6 +367,7 @@ func (q *Queries) InsertHelperTask(ctx context.Context, arg InsertHelperTaskPara
 		arg.PushedSeq,
 		arg.PushedState,
 		arg.CreatedAt,
+		arg.TerminalSeq,
 	)
 	return err
 }
@@ -382,7 +392,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     (?1 = '' OR context_id = ?1)
@@ -439,6 +450,7 @@ func (q *Queries) ListHelperTasks(ctx context.Context, arg ListHelperTasksParams
 			&i.PushedSeq,
 			&i.PushedState,
 			&i.CreatedAt,
+			&i.TerminalSeq,
 		); err != nil {
 			return nil, err
 		}
@@ -535,7 +547,8 @@ SELECT
     first_seq,
     pushed_seq,
     pushed_state,
-    created_at
+    created_at,
+    terminal_seq
 FROM helper_tasks
 WHERE
     state IN ('TASK_STATE_SUBMITTED', 'TASK_STATE_WORKING', 'TASK_STATE_INPUT_REQUIRED')
@@ -572,6 +585,7 @@ func (q *Queries) PendingHelperTasks(ctx context.Context) ([]HelperTask, error) 
 			&i.PushedSeq,
 			&i.PushedState,
 			&i.CreatedAt,
+			&i.TerminalSeq,
 		); err != nil {
 			return nil, err
 		}
@@ -652,8 +666,9 @@ SET
     last_outcome = ?12,
     first_seq = ?13,
     pushed_seq = ?14,
-    pushed_state = ?15
-WHERE id = ?16
+    terminal_seq = ?15,
+    pushed_state = ?16
+WHERE id = ?17
 `
 
 type UpdateHelperTaskParams struct {
@@ -671,6 +686,7 @@ type UpdateHelperTaskParams struct {
 	LastOutcome   string
 	FirstSeq      int64
 	PushedSeq     int64
+	TerminalSeq   int64
 	PushedState   string
 	ID            string
 }
@@ -691,6 +707,7 @@ func (q *Queries) UpdateHelperTask(ctx context.Context, arg UpdateHelperTaskPara
 		arg.LastOutcome,
 		arg.FirstSeq,
 		arg.PushedSeq,
+		arg.TerminalSeq,
 		arg.PushedState,
 		arg.ID,
 	)

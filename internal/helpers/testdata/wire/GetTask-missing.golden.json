@@ -1,0 +1,28 @@
+{
+  "request": {
+    "id": 1,
+    "jsonrpc": "2.0",
+    "method": "GetTask",
+    "params": {
+      "id": "missing"
+    }
+  },
+  "response": {
+    "error": {
+      "code": -32001,
+      "data": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "domain": "a2a-protocol.org",
+          "metadata": {
+            "timestamp": "\u003ctime\u003e"
+          },
+          "reason": "TASK_NOT_FOUND"
+        }
+      ],
+      "message": "helper backend: task not found: HelperTask: task not found"
+    },
+    "id": 1,
+    "jsonrpc": "2.0"
+  }
+}
