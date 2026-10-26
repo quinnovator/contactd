@@ -105,7 +105,8 @@ func (m *model) newImages(id core.ContactID) *images {
 	im := &images{
 		store: termimg.NewStore(termimg.StoreOptions{
 			Limits: termimg.DefaultLimits(), CacheBytes: imageCache,
-			IDBase: int(m.opt.Now().UnixMilli() % imageIDs),
+			IDBase:  int(m.opt.Now().UnixMilli() % imageIDs),
+			MaxCols: 120, MaxRows: 40,
 		}),
 		fetch: fetcher(m.opt.Backend, id), ctx: ctx, cancel: cancel,
 		up: map[imageKey]bool{},

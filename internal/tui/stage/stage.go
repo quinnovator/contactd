@@ -51,16 +51,33 @@ type Exhibit struct {
 	// Rev says which drawing of the exhibit this is. What an exhibit drew
 	// under one Rev is drawn again when it comes under another.
 	Rev uint64
+	// SourceSeq is the log item that owns this exhibit, for full inspection.
+	SourceSeq uint64
 	// At is when it is shown: the number of runes of the turn's words that
 	// are said first.
 	At int
 	// Where is the place on the stage the turn asked for.
 	Where Anchor
-	// Draw returns the exhibit's rows for a box of at most cols by rows
-	// cells: each row at most cols cells, and at most rows of them. It is
-	// asked again after Refresh, and whenever the box changes.
+	// PreferredCols avoids unnecessary wrapping; MinCols is the narrowest
+	// comfortable rendering. Priority breaks ties when not everything fits.
+	// Zero values use conservative defaults. Larger priorities come first.
+	PreferredCols, MinCols, Priority int
+	// Scalable content (pictures) can shrink in both dimensions without
+	// losing content. Text instead reports its full, unclipped row count.
+	Scalable bool
+	// Measure is side-effect free: it must not fetch files, run a mod or
+	// transmit pixels. Draw is called only for the selected arrangement.
+	// Nil falls back to measuring a bounded sample from Draw.
+	Measure func(cols, rows int) Size
+	// Draw renders for a box of cols by rows cells. Text may return its
+	// full height so the stage can report overflow, including when a custom
+	// renderer differs from Measure. It is asked again after Refresh and
+	// whenever the box changes. The stage clips any excess rows or columns.
 	Draw func(cols, rows int) []string
 }
+
+// Size is a content footprint in terminal cells.
+type Size struct{ Cols, Rows int }
 
 // Turn is what there is to perform: one turn of the conversation.
 type Turn struct {
@@ -134,6 +151,9 @@ type Stage struct {
 	// stale says the plan has to be made again.
 	stale bool
 	page  page
+	// Peers are background tasks; only actual exchanges make them speak.
+	peers []*peer
+	now   time.Time
 }
 
 // New makes a Stage with nothing to say.
@@ -171,6 +191,9 @@ func New(o Options) *Stage {
 // own: a picture is still there for the question about it and the answer.
 // What was shown earlier than that is taken down.
 func (s *Stage) Perform(t Turn, said bool) {
+	if t.Over && !s.turn.Over {
+		s.stale = true
+	}
 	if !s.begun || t.ID != s.turn.ID {
 		last := s.turn.ID
 		kept := s.cards[:0]
@@ -209,6 +232,7 @@ func (s *Stage) Speaking() bool { return s.voice.Head() < len(s.voice.Text()) }
 
 // Tick advances the performance to the time now.
 func (s *Stage) Tick(now time.Time) {
+	s.AdvancePeers(now)
 	for range s.clock.Tick(now) {
 		s.step()
 	}
@@ -226,8 +250,15 @@ func (s *Stage) step() {
 	} else {
 		s.rested = 0
 	}
-	s.avatar.Step(s.mood(state), s.voice.Mouth(), beats)
-	s.sound(s.avatar.Mouth())
+	mood, mouth := s.mood(state), s.voice.Mouth()
+	if sending := s.stepPeers(); sending && state != speech.Speaking {
+		mood, mouth = avatar.Speaking, s.packetMouth()
+		s.avatar.Step(mood, mouth, 0)
+		s.sound(speech.Rest)
+	} else {
+		s.avatar.Step(mood, mouth, beats)
+		s.sound(s.avatar.Mouth())
+	}
 	s.reveal()
 }
 
@@ -280,6 +311,7 @@ func (s *Stage) reveal() {
 			}
 			if s.turn.Shows[i].Rev != c.ex.Rev {
 				c.drawn, s.stale = false, true
+				c.sample = Size{}
 			}
 			c.ex = s.turn.Shows[i]
 		}
@@ -344,6 +376,7 @@ func (s *Stage) Resize(width, height int) {
 func (s *Stage) Refresh() {
 	for _, c := range s.cards {
 		c.drawn = false
+		c.sample = Size{}
 	}
 	s.stale = true
 }
@@ -414,6 +447,18 @@ func (s *Stage) Face() (cols, rows int) {
 	return s.plan.face.w, s.plan.face.h
 }
 
+// EarliestSource includes a retained exhibit from the previous reply, so an
+// inspection sheet can always reach content mentioned by the overflow hint.
+func (s *Stage) EarliestSource() uint64 {
+	var seq uint64
+	for _, c := range s.cards {
+		if c.ex.SourceSeq != 0 && (seq == 0 || c.ex.SourceSeq < seq) {
+			seq = c.ex.SourceSeq
+		}
+	}
+	return seq
+}
+
 // Said is the words of the turn that have been said so far.
 func (s *Stage) Said() string { return string(s.voice.Text()[:s.voice.Head()]) }
 
@@ -444,12 +489,18 @@ func (s *Stage) View() []string {
 			put(p.face.y+i, piece{x: p.face.x, w: p.face.w, s: closed(row)})
 		}
 	}
+	s.drawPeers(put)
 	for i, row := range s.caption(p.text.w, p.text.h) {
 		put(p.text.y+i, piece{x: p.text.x, w: row.w, s: row.s})
 	}
 	for i, line := range s.below[:p.below] {
+		line = s.th.Truncate(line, p.block.w)
 		w := s.th.Width(line)
 		put(p.belowY+i, piece{x: p.block.x + max(p.block.w-w, 0)/2, w: w, s: line})
+	}
+	if p.overflow != "" {
+		line := s.th.Truncate(p.overflow, s.width)
+		put(s.height-1, piece{x: max((s.width-s.th.Width(line))/2, 0), w: s.th.Width(line), s: line})
 	}
 	out := make([]string, s.height)
 	for y, pieces := range rows {

@@ -165,6 +165,9 @@ type Renderer struct {
 
 	// cache holds the parts of the replies drawn so far, by sequence number.
 	cache map[uint64]*reply
+	// Intrinsic content measurements are independent of the offered width.
+	// Keep a small cache so streamed prose does not reparse an earlier table.
+	metrics map[string]ContentMetrics
 	// langs says, for each language a code block named, whether the
 	// highlighter knows it.
 	langs map[string]bool

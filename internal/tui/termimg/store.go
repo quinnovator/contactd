@@ -120,6 +120,9 @@ type StoreOptions struct {
 	CacheBytes int
 	// IDBase chooses the first kitty image id; see NewIDs.
 	IDBase int
+	// MaxCols and MaxRows bound image grids and their retained masters.
+	// Zero keeps the thread defaults (44 by 12); stages can request more.
+	MaxCols, MaxRows int
 }
 
 // Stats counts the work a Store has done, for tests that pin how little
@@ -214,9 +217,10 @@ type entry struct {
 // across two. It is not safe for concurrent use; only a Job may run on
 // another goroutine.
 type Store struct {
-	limits Limits
-	cache  *cache
-	ids    *IDs
+	limits           Limits
+	cache            *cache
+	ids              *IDs
+	maxCols, maxRows int
 
 	level        termcaps.Images
 	ascii        bool
@@ -250,10 +254,17 @@ func NewStore(o StoreOptions) *Store {
 	if o.CacheBytes <= 0 {
 		o.CacheBytes = defaultCacheBytes
 	}
+	if o.MaxCols <= 0 {
+		o.MaxCols = boxCols
+	}
+	if o.MaxRows <= 0 {
+		o.MaxRows = boxRows
+	}
 	return &Store{
-		limits:   o.Limits.filled(),
-		cache:    newCache(o.CacheBytes),
-		ids:      NewIDs(o.IDBase),
+		limits:  o.Limits.filled(),
+		cache:   newCache(o.CacheBytes),
+		ids:     NewIDs(o.IDBase),
+		maxCols: min(o.MaxCols, 160), maxRows: min(o.MaxRows, 60),
 		level:    termcaps.ImagesText,
 		cellW:    defaultCellW,
 		cellH:    defaultCellH,
@@ -309,7 +320,7 @@ func (s *Store) SetCaps(c termcaps.Caps) (changed []uint64, raw string) {
 // maxRows cells, and notes that the image is wanted. It never waits: until
 // the picture is ready the answer is a text line.
 //
-// The box is cut to 44 by 12 cells, and the picture keeps its shape inside
+// The box is cut to the configured maximum, and the picture keeps its shape inside
 // it. Asking again with the same box costs nothing; a new box encodes the
 // picture again from its master. At the pixel level the new grid has to be
 // sent to the terminal first, so the answer is the text line until the job
@@ -323,7 +334,7 @@ func (s *Store) Show(ref Ref, maxCols, maxRows int) Shown {
 	e := s.entryFor(ref)
 	s.tick++
 	e.shown = s.tick
-	e.maxCols, e.maxRows = min(max(maxCols, 1), boxCols), min(max(maxRows, 1), boxRows)
+	e.maxCols, e.maxRows = min(max(maxCols, 1), s.maxCols), min(max(maxRows, 1), s.maxRows)
 
 	switch e.state {
 	case stateWanted:
@@ -369,6 +380,29 @@ func (s *Store) Show(ref Ref, maxCols, maxRows int) Shown {
 	return s.text(e)
 }
 
+// Measure returns an image's fitted cell dimensions without marking it shown,
+// creating an entry, scheduling work, or changing its terminal placement.
+// Unknown files return false; callers can measure their loading label instead.
+func (s *Store) Measure(ref Ref, maxCols, maxRows int) (cols, rows int, known bool) {
+	e := s.entries[entryKey{seq: ref.Seq, n: ref.N}]
+	if e == nil || e.ref.Path != ref.Path || e.info.W <= 0 || e.info.H <= 0 || s.level == termcaps.ImagesText {
+		return 0, 0, false
+	}
+	copy := *e
+	copy.maxCols, copy.maxRows = min(max(maxCols, 1), s.maxCols), min(max(maxRows, 1), s.maxRows)
+	cols, rows = s.fit(&copy)
+	return cols, rows, true
+}
+
+// Caption describes a known image without marking it shown or scheduling it.
+func (s *Store) Caption(ref Ref) string {
+	e := s.entries[entryKey{seq: ref.Seq, n: ref.N}]
+	if e == nil || e.ref.Path != ref.Path || e.info.W <= 0 {
+		return ""
+	}
+	return s.caption(e)
+}
+
 // Next returns the next job to run, if there is work and no job is out. At
 // most one job is out at a time: after a job is handed out Next returns false
 // until Finish has had its result. The image shown most recently goes first.
@@ -405,6 +439,7 @@ func (s *Store) Next() (Job, bool) {
 	p := &plan{
 		owner: s, serial: s.serial, key: e.key, epoch: e.epoch, gen: s.gen,
 		path: e.ref.Path, limits: s.limits, cellW: s.cellW, cellH: s.cellH,
+		limitCols: s.maxCols, limitRows: s.maxRows,
 	}
 	// An image shown before every image that holds an id gets none: its
 	// file is read, and its picture is sent when it is shown again.
@@ -733,12 +768,13 @@ func (s *Store) caption(e *entry) string {
 // plan is everything a job needs, copied out of the store when the job is
 // made, so that the job reads nothing the update loop writes.
 type plan struct {
-	owner              *Store // carried to the Done and never read
-	serial, epoch, gen uint64
-	key                entryKey
-	path               string
-	limits             Limits
-	cellW, cellH       int
+	owner                *Store // carried to the Done and never read
+	serial, epoch, gen   uint64
+	key                  entryKey
+	path                 string
+	limits               Limits
+	cellW, cellH         int
+	limitCols, limitRows int
 
 	// pic is set when the picture is already here and only has to be sent
 	// to the terminal. known is the newest picture of the same path, if
@@ -768,7 +804,7 @@ func (p *plan) run(ctx context.Context, fetch Fetch) (d Done) {
 		if d.fail != 0 {
 			return d
 		}
-	case p.id != 0 && pic.coarse(p.cellW, p.cellH):
+	case p.id != 0 && pic.coarse(p.cellW, p.cellH, p.limitCols, p.limitRows):
 		// The master was made when cells were smaller. The file is read
 		// again for the pixels the grid now has room for; if that fails,
 		// the master is still the picture.
@@ -816,7 +852,7 @@ func (p *plan) load(ctx context.Context, fetch Fetch) (pic *picture, fresh bool,
 		return nil, false, failureOf(err)
 	}
 	return &picture{
-		img:      master(img, p.cellW, p.cellH),
+		img:      masterBox(img, p.cellW, p.cellH, p.limitCols, p.limitRows),
 		info:     info,
 		bytes:    int64(len(file.Data)),
 		etag:     file.ETag,
@@ -838,19 +874,16 @@ func failureOf(err error) failure {
 	return failUnreadable
 }
 
-// master scales a decoded picture down to the most that is ever drawn; see
-// masterSize. A picture already that small is copied as it is.
-func master(img image.Image, cellW, cellH int) *image.RGBA {
+// masterBox retains enough pixels for the configured image budget.
+func masterBox(img image.Image, cellW, cellH, cols, rows int) *image.RGBA {
 	b := img.Bounds()
-	w, h := masterSize(b.Dx(), b.Dy(), cellW, cellH)
+	w, h := masterBoxSize(b.Dx(), b.Dy(), cellW, cellH, cols, rows)
 	return Scale(img, w, h)
 }
 
-// masterSize returns the size of the master of a picture w by h pixels: the
-// picture fitted into the largest box at this cell size, never more than
-// masterSide pixels a side, and never larger than the picture.
-func masterSize(w, h, cellW, cellH int) (mw, mh int) {
-	maxW, maxH := min(boxCols*cellW, masterSide), min(boxRows*cellH, masterSide)
+// masterBoxSize never exceeds masterSide pixels or enlarges the original.
+func masterBoxSize(w, h, cellW, cellH, cols, rows int) (mw, mh int) {
+	maxW, maxH := min(cols*cellW, masterSide), min(rows*cellH, masterSide)
 	if w <= maxW && h <= maxH {
 		return w, h
 	}
@@ -863,8 +896,8 @@ func masterSize(w, h, cellW, cellH int) (mw, mh int) {
 // coarse reports whether the master holds fewer pixels than one made from
 // the same file at this cell size would: it was scaled down for smaller
 // cells.
-func (p *picture) coarse(cellW, cellH int) bool {
-	w, h := masterSize(p.info.W, p.info.H, cellW, cellH)
+func (p *picture) coarse(cellW, cellH, cols, rows int) bool {
+	w, h := masterBoxSize(p.info.W, p.info.H, cellW, cellH, cols, rows)
 	b := p.img.Bounds()
 	return w > b.Dx() || h > b.Dy()
 }

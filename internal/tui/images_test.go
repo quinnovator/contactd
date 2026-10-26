@@ -1780,8 +1780,8 @@ func TestALateAnswerTurnsHalfBlocksIntoPixels(t *testing.T) {
 		t.Errorf("fetched %q", got)
 	}
 
-	// Larger cells: the picture is sent again with more pixels, for which
-	// the file is read once more, and the one sent before is forgotten.
+	// Larger cells: the picture is sent again with more pixels, using the
+	// larger retained master. The one sent before is forgotten.
 	r.send(uv.CellSizeEvent{Width: 16, Height: 32})
 	r.settle()
 	if len(r.raws) != 3 {
@@ -1801,8 +1801,8 @@ func TestALateAnswerTurnsHalfBlocksIntoPixels(t *testing.T) {
 	if cols, rows := r.picture(placeholder); cols != second[0].cols || rows != second[0].rows {
 		t.Errorf("the cells are %d by %d, and the picture was sent for %+v", cols, rows, second[0])
 	}
-	if got := r.asks(); len(got) != 2 {
-		t.Errorf("fetched %q, want the file twice", got)
+	if got := r.asks(); len(got) != 1 {
+		t.Errorf("fetched %q, want the retained master reused", got)
 	}
 }
 

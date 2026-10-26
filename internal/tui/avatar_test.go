@@ -12,7 +12,9 @@ import (
 
 	"github.com/quinnovator/contactd/internal/client"
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/tui/script"
 	"github.com/quinnovator/contactd/internal/tui/sound"
+	"github.com/quinnovator/contactd/internal/tui/stage"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
 )
 
@@ -283,6 +285,49 @@ func TestAReplyIsSaidWithoutItsMarksAndShowsTheRest(t *testing.T) {
 	}
 }
 
+func TestAnExhibitWithTheSameSourceCanChange(t *testing.T) {
+	t.Parallel()
+	h := newStaged(t, trueDark(), avatarOn)
+	h.size(120, 40)
+	h.openChat()
+	c := h.m.chat
+	show := script.Show{Kind: script.Table, N: 1, Text: "| Count |\n|---|\n| 7 |"}
+	c.stage.Resize(120, 36)
+	before := c.exhibit(0, 0, 11, 0, show)
+	c.stage.Perform(stage.Turn{ID: 1, Over: true, Shows: []stage.Exhibit{before}}, true)
+	c.stage.View()
+	show.Text = "| Count |\n|---|\n| 8 |"
+	after := c.exhibit(0, 0, 11, 0, show)
+	if before.Key != after.Key || before.Rev == after.Rev {
+		t.Fatal("content changes must invalidate the same exhibit's drawing")
+	}
+	c.stage.Perform(stage.Turn{ID: 1, Over: true, Shows: []stage.Exhibit{after}}, true)
+	view := ansi.Strip(strings.Join(c.stage.View(), "\n"))
+	if !strings.Contains(view, "8") || strings.Contains(view, "7") {
+		t.Fatalf("the old value remains on stage:\n%s", view)
+	}
+}
+
+func TestInspectionIncludesARetainedExhibitsReply(t *testing.T) {
+	t.Parallel()
+	h := newStaged(t, trueDark(), avatarOn)
+	h.size(100, 40)
+	sess := h.openChat()
+	h.from(sess, live())
+	reply := "Here is the result.\n\n```text\nretained-artifact\n```"
+	h.from(sess, replying("show the result", reply)...)
+	h.from(sess, delta(core.Delta{Type: core.DeltaMessage, Text: reply, Seq: 11}), typing(false))
+	h.key(esc())
+	h.from(sess, delta(core.Delta{Type: core.DeltaUser, Text: "is that final?", Seq: 12}), typing(true))
+	h.from(sess, delta(core.Delta{Type: core.DeltaMessage, Text: "Yes, it is final.", Seq: 13}), typing(false))
+	h.key(esc())
+	h.key(ctrl('o'))
+	lines := ansi.Strip(strings.Join(h.m.chat.sheetLines(h.now), "\n"))
+	if !strings.Contains(lines, "retained-artifact") || !strings.Contains(lines, "Yes, it is final.") {
+		t.Fatalf("inspection lost the retained artifact or current answer:\n%s", lines)
+	}
+}
+
 func TestAPictureStandsWhereTheReplyPutsIt(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -338,7 +383,7 @@ func TestAPictureStandsWhereTheReplyPutsIt(t *testing.T) {
 			if got := row <= 2; got != tc.top {
 				t.Errorf("the picture is on row %d of %d", row, len(body))
 			}
-			if got := row >= len(body)-3; got != tc.bottom {
+			if got := row >= len(body)-4; got != tc.bottom {
 				t.Errorf("the picture is on row %d of %d", row, len(body))
 			}
 			if cols, rows := h.m.chat.stage.Face(); cols < minFace || rows < 4 {

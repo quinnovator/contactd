@@ -11,15 +11,51 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/quinnovator/contactd/internal/client"
+	"github.com/quinnovator/contactd/internal/core"
 	"github.com/quinnovator/contactd/internal/tui/commands"
 	"github.com/quinnovator/contactd/internal/tui/conf"
 	"github.com/quinnovator/contactd/internal/tui/frame"
 	"github.com/quinnovator/contactd/internal/tui/safe"
+	"github.com/quinnovator/contactd/internal/tui/stage"
 )
 
 type helperPeek struct {
 	chat   *chat
 	handle uint64
+}
+
+func (c *chat) syncHelperScene(now time.Time) {
+	if c.stage == nil || c.state != client.StateLive {
+		return
+	}
+	hs := c.board.Active()
+	states := make([]stage.Helper, 0, len(hs))
+	for _, h := range hs {
+		states = append(states, stage.Helper{
+			Handle: h.Handle, Title: h.Title, State: h.State,
+			NextCheck: h.NextCheck, Checks: h.Checks, Reports: h.Reports,
+		})
+	}
+	c.stage.SyncHelpers(states, now)
+}
+
+// animateExchange consumes live protocol observations only. Helper snapshots,
+// tool names and duplicate notices must never imply new network traffic.
+func (c *chat) animateExchange(d core.Delta, now time.Time) {
+	if c.stage == nil || d.Type != core.DeltaHelper || d.Helper == nil {
+		return
+	}
+	h := d.Helper
+	title, state := h.Title, h.State
+	if known, ok := c.board.Get(h.Handle); ok {
+		if title == "" {
+			title = known.Title
+		}
+		if state == "" {
+			state = known.State
+		}
+	}
+	c.stage.Observe(stage.Exchange{Handle: h.Handle, Title: title, State: state, Direction: h.Dir, Method: h.Method, Event: h.Event}, now)
 }
 
 func cmdHelpers(m *model, _ commands.Line) tea.Cmd {
