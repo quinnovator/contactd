@@ -24,8 +24,6 @@ func Timbres() []Timbre {
 		// The house voice: vowel resonances matched to recorded Animalese, each
 		// syllable a short blip that chirps up into its note.
 		{Name: "chirp", Pitch: 255, Wave: Saw, Vowel: 1, Throat: 1, Ceiling: 1900, Ring: 0.022, Scoop: 2, Gain: 1.8},
-		// Something very small, talking fast.
-		{Name: "pip", Pitch: 350, Wave: Saw, Vowel: 1, Throat: 0.8, Ceiling: 2300, Ring: 0.016, Scoop: 3, Gain: 2.2},
 		// A soft hum whose syllables run together.
 		{Name: "mellow", Pitch: 210, Wave: Triangle, Vowel: 0.7, Throat: 1.1, Ceiling: 1500, Ring: 0.05, Sustain: 0.45, Scoop: 1, Gain: 1.1},
 		// Plain square-wave beeps, as a text box in an 8-bit game would make.

@@ -59,7 +59,7 @@ func TestAvatarSettingsRefused(t *testing.T) {
 		{"a variable that says neither", source{env: map[string]string{"CONTACTD_AVATAR": "yes"}}, `avatar is "yes"; it can be auto, on or off`},
 		{"a variable that is no switch", source{env: map[string]string{"CONTACTD_MUTE": "quiet"}}, `CONTACTD_MUTE is "quiet"; it can be true or false`},
 		{"a look nobody made", source{file: "[avatar]\nlook = \"plaid\"\n"}, `the avatar's look is "plaid"; it can be ember, tide, orchid, moss`},
-		{"a voice nobody has", source{file: "[avatar]\nvoice = \"loud\"\n"}, `the avatar's voice is "loud"; it can be chirp, pip, mellow, retro, deep`},
+		{"a voice nobody has", source{file: "[avatar]\nvoice = \"loud\"\n"}, `the avatar's voice is "loud"; it can be chirp, mellow, retro, deep`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

@@ -599,7 +599,7 @@ func TestAvatarCommand(t *testing.T) {
 	// What it cannot do it says, and keeps the line to be put right.
 	for _, tc := range []struct{ line, note string }{
 		{"/avatar look plaid", "a look is one of ember, tide, orchid, moss"},
-		{"/avatar voice loud", "a voice is one of chirp, pip, mellow, retro, deep"},
+		{"/avatar voice loud", "a voice is one of chirp, mellow, retro, deep"},
 		{"/avatar rate 1", "a rate is from 8 to 240 characters a second"},
 		{"/avatar rate fast", "a rate is from 8 to 240 characters a second"},
 		{"/avatar cells hex", "usage: /avatar on | off | auto | look <name> | voice <name> | rate <n> | cells <kind> | mute | unmute"},

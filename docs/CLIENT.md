@@ -147,7 +147,7 @@ It is shown when all of this holds:
 [avatar]
 show = "auto"     # auto | on | off        -avatar, CONTACTD_AVATAR, /avatar on|off|auto
 look = "ember"    # ember | tide | orchid | moss                     /avatar look <name>
-voice = "chirp"   # chirp | pip | mellow | retro | deep              /avatar voice <name>
+voice = "chirp"   # chirp | mellow | retro | deep                    /avatar voice <name>
 rate = 38         # characters a second, 8 to 240                    /avatar rate <n>
 cells = "auto"    # auto | quadrant | octant                         /avatar cells <kind>
 mute = false      #                          -mute, CONTACTD_MUTE,   /avatar mute|unmute
