@@ -17,6 +17,7 @@ import (
 
 	"github.com/quinnovator/contactd/internal/actor"
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/obs"
 )
 
 // Watch couples a snapshot with updates registered before the triggering change.
@@ -109,6 +110,7 @@ func taskInfo(t core.HelperTask) a2a.TaskInfo {
 }
 
 func (s *Service) transition(ctx context.Context, t *core.HelperTask, state a2a.TaskState, text string) error {
+	defer s.countActive(ctx)
 	if a2a.TaskState(t.State).Terminal() {
 		return fmt.Errorf("%w: task is terminal", a2a.ErrUnsupportedOperation)
 	}
@@ -278,6 +280,7 @@ func (s *Service) Send(ctx context.Context, req *a2a.SendMessageRequest, watch b
 }
 
 func (s *Service) createTask(ctx context.Context, id, contextID string, p schedule) (core.HelperTask, error) {
+	defer s.countActive(ctx)
 	if contextID == "" {
 		contextID = a2a.NewContextID()
 	}
@@ -435,6 +438,11 @@ func (s *Service) outcome(ctx context.Context, contact core.ContactID, o actor.H
 		s.notify()
 		return nil
 	}
+	defer func() {
+		if t.LastOutcome != "" {
+			obs.HelperTurns.WithLabelValues(t.LastOutcome).Inc()
+		}
+	}()
 	t.LastCheckAt = time.Now().UnixMilli()
 	t.Failures = 0
 	switch o.Kind {

@@ -20,7 +20,7 @@ func NewHandler(backend Backend, card *a2a.AgentCard, log *slog.Logger) (a2asrv.
 	if err != nil {
 		return nil, fmt.Errorf("create card enforcer: %w", err)
 	}
-	return &a2asrv.InterceptedHandler{Handler: &Handler{backend: backend}, Interceptors: []a2asrv.CallInterceptor{enforcer}, Logger: log}, nil
+	return &a2asrv.InterceptedHandler{Handler: &Handler{backend: backend}, Interceptors: []a2asrv.CallInterceptor{requestMetrics{}, enforcer}, Logger: log}, nil
 }
 
 func (h *Handler) SendMessage(ctx context.Context, r *a2a.SendMessageRequest) (a2a.SendMessageResult, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/a2aproject/a2a-go/v2/a2a"
 
 	"github.com/quinnovator/contactd/internal/core"
+	"github.com/quinnovator/contactd/internal/obs"
 )
 
 type delivery struct {
@@ -147,7 +148,7 @@ func (s *Service) deliver(ctx context.Context, id string, d *delivery) error {
 				d.seq = ev.Seq
 			}
 			unlock()
-			if err := s.sendAll(ctx, configs, event); err != nil {
+			if err := s.sendAll(ctx, configs, event, "artifact"); err != nil {
 				return err
 			}
 			if err := s.ackPush(ctx, id, ev.Seq, ""); err != nil {
@@ -182,25 +183,31 @@ func (s *Service) deliver(ctx context.Context, id string, d *delivery) error {
 	}
 	unlock()
 	if changed {
-		if err := s.sendAll(ctx, configs, event); err != nil {
+		if err := s.sendAll(ctx, configs, event, "status"); err != nil {
 			return err
 		}
 		return s.ackPush(ctx, id, 0, t.State)
 	}
 	if heartbeat {
-		if err := s.sendAll(ctx, configs, event); err != nil {
+		if err := s.sendAll(ctx, configs, event, "heartbeat"); err != nil {
 			s.log.DebugContext(ctx, "helper heartbeat not delivered", "task_id", id, "error", err)
 		}
 	}
 	return nil
 }
 
-func (s *Service) sendAll(ctx context.Context, configs []core.PushConfig, event a2a.Event) error {
+func (s *Service) sendAll(ctx context.Context, configs []core.PushConfig, event a2a.Event, kind string) error {
 	var first error
 	for _, c := range configs {
-		if err := s.push.send(ctx, c, event); err != nil && first == nil {
-			first = err
+		err := s.push.send(ctx, c, event)
+		result := "ok"
+		if err != nil {
+			result = "error"
+			if first == nil {
+				first = err
+			}
 		}
+		obs.A2APush.WithLabelValues(kind, result).Inc()
 	}
 	return first
 }

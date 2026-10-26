@@ -8,11 +8,12 @@ contactd serves one HTTP API, on a TCP address and on a Unix socket. There are n
 | --- | --- | --- |
 | POST | `/v1/contacts` | Create a contact from an agent config (below), an optional `name` and an optional `profile`. An unknown provider, model or effort is a 400 here, and a name another contact has is a 409 |
 | GET | `/v1/contacts` | The contacts a person talks to, most recently active first; sub-agents are left out. `?name=` finds one by its exact name |
+| GET | `/v1/contacts/{id}/helpers` | Durable helper snapshots as `{"helpers": [...]}`; empty when none, 404 for an unknown contact. No credentials. |
 | GET | `/v1/contacts/{id}` | One contact: name, agent config, profile, and the route that serves it with the deployment's defaults filled in |
 | PATCH | `/v1/contacts/{id}` | `{"name": ...}` renames; an empty name removes it |
 | POST | `/v1/contacts/{id}/messages` | Send `{"text": ...}` with optional `session_id`, `time_zone` and `presentation`; returns 202 with the durable `seq` |
 | POST | `/v1/contacts/{id}/interrupt` | Stop the reply in flight; 202 |
-| GET | `/v1/contacts/{id}/stream` | SSE: `ready`, `user`, `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `error` |
+| GET | `/v1/contacts/{id}/stream` | SSE: `ready`, `user`, `typing`, `text`, `tool_start`, `tool_call`, `tool_result`, `message`, `interrupted`, `notice`, `helper`, `error` |
 | GET | `/v1/contacts/{id}/live` | WebSocket: send an optional `hello` (see below), then `{"type":"message","text":...}`, `{"type":"typing"}` and `{"type":"interrupt"}`; receive the same deltas, and for each message one `ack` or one `error` frame, in the order sent |
 | GET | `/v1/contacts/{id}/events` | Page through the log in log order: `?after={seq}` forward, `?before={seq}` backward, `?tail=1` backward from the end, each with `limit`. `?kinds=user_msg,agent_msg` keeps only those kinds; the others are `tool_call`, `tool_result`, `attempt`, `checkpoint`, `notice`, `summary` and `env_snapshot` |
 | GET | `/v1/contacts/{id}/files/{path...}` | One file from the contact's tier-0 working directory, for a client that shows what a tool wrote. At most 8 MiB (413 beyond). PNG, JPEG, GIF, WebP and BMP are served as themselves, by their first bytes; anything else as `application/octet-stream` with `Content-Disposition: attachment`. A file is sent with an `ETag`, and `If-None-Match` gives 304. There is no listing, and a path that leaves the directory, by name or through a symbolic link, is a 404 like a file that is not there |
@@ -101,3 +102,9 @@ With `delegate` on, the model can call `delegate({"task": ..., "mode": "spawn" |
 With `-diagnostics` (or `CONTACTD_DIAGNOSTICS=true`), the server also serves `/debug/plans`, which `ctxtop` reads. It replays up to 500 calls and streams planning, bounded progress updates and completion. `/debug/plans/{run}/{call}` serves details on demand; its `/events` endpoint pages through source events up to the log head captured for that call. Captures are in memory only, limited to 2 MiB per call and 32 MiB overall, with explicit truncation and eviction. Slow stream readers are disconnected and can replay retained state.
 
 **Diagnostic mode exposes prompt previews, full prompt and tool contents and source log messages through the same socket and network access as the API.** Use it only where that access is appropriate. It does not capture authentication headers.
+
+## Helpers over A2A
+
+Set `agent.helpers: true` at contact creation to offer requester tools. `agent.helper` is runtime-only and is refused by this API. Helper contacts, like sub-agents, are omitted from the normal contact list. `GET /v1/contacts/{id}/helpers` returns handle, local contact (if any), title, task/context IDs, state/status message, schedule, counters, outcome, timestamps, and agent URL.
+
+Live `helper` deltas carry a `helper` object with the handle, contact, title, task ID, state, event, method, direction, summary, redacted wire JSON, and progress. They are ephemeral diagnostics; `notice` deltas carrying `helper.handle` correspond to durable helper-update notices. The public card is at `/.well-known/agent-card.json`; protocol bindings and callbacks are under `/a2a/`. All A2A routes disappear with `-helpers=off`. See [A2A](A2A.md) for authentication, extensions and examples.
