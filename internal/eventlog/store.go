@@ -141,6 +141,7 @@ func (s *Store) CreateNamed(ctx context.Context, name string, agent core.AgentCo
 	id, err := sqlcgen.New(s.wdb).InsertContact(ctx, sqlcgen.InsertContactParams{
 		Name:       name,
 		Parent:     i64(uint64(agent.Parent)),
+		Helper:     boolInt(agent.Helper),
 		Agent:      string(raw),
 		Profile:    []byte(profile),
 		LastActive: now,
@@ -523,3 +524,10 @@ func (c connector) Connect(context.Context) (driver.Conn, error) {
 }
 
 func (c connector) Driver() driver.Driver { return c.drv }
+
+func boolInt(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}

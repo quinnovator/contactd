@@ -122,10 +122,15 @@ type AgentConfig struct {
 	Tools     []ToolDef `json:"tools,omitempty"`
 	// Delegate gives the agent the delegate tool, which starts sub-agents.
 	Delegate bool `json:"delegate,omitempty"`
+	Helpers  bool `json:"helpers,omitempty"`
+	Helper   bool `json:"helper,omitempty"`
 	// Parent is set on a sub-agent: the contact that started it. A
 	// sub-agent cannot delegate, whatever Delegate says.
 	Parent ContactID `json:"parent,omitempty"`
 }
+
+// Unattended reports whether a contact works without a person on the other end.
+func (a *AgentConfig) Unattended() bool { return a.Parent != 0 || a.Helper }
 
 // ToolDef declares a tool. REPL tools take a single "code" argument and run
 // in Env; built-in and provider tools declare their arguments in Input.
@@ -167,7 +172,9 @@ type SnapshotID string
 
 // MsgBody is the body of KindUserMsg and KindAgentMsg events.
 type MsgBody struct {
-	Text string `json:"text"`
+	Text      string `json:"text"`
+	MessageID string `json:"message_id,omitempty"`
+	Raw       string `json:"raw,omitempty"`
 	// Interrupted marks an agent reply that was cut off by a new user
 	// message, so the model knows it never finished the thought.
 	Interrupted bool `json:"interrupted,omitempty"`
@@ -225,7 +232,8 @@ type ToolResult struct {
 	// Child is set on the result of a delegation that started a sub-agent.
 	// Together with the notice that later names the same child, it is the
 	// durable record of which sub-agents a contact is still waiting for.
-	Child ContactID `json:"child,omitempty"`
+	Child  ContactID `json:"child,omitempty"`
+	Helper uint64    `json:"helper,omitempty"`
 }
 
 // SummaryBody is the body of a KindSummary event.
@@ -290,7 +298,8 @@ type NoticeBody struct {
 	Source    string `json:"source"` // e.g. "subagent-settled"
 	Text      string `json:"text"`
 	// Child is the sub-agent a settlement notice is about.
-	Child ContactID `json:"child,omitempty"`
+	Child  ContactID `json:"child,omitempty"`
+	Helper uint64    `json:"helper,omitempty"`
 }
 
 // TaskRef is set on the message that gives a sub-agent its task. It records
@@ -374,21 +383,25 @@ const (
 	// number assigned before the stream began, or zero when the contact was
 	// not in memory: everything up to it is in the log or about to be, and
 	// everything after it will arrive on the stream.
-	DeltaReady DeltaType = "ready"
+	DeltaReady  DeltaType = "ready"
+	DeltaHelper DeltaType = "helper"
 )
 
 // Delta is one item on a contact's live stream.
 type Delta struct {
-	Type   DeltaType `json:"type"`
-	Turn   uint64    `json:"turn,omitempty"`
-	Text   string    `json:"text,omitempty"`
-	Tool   string    `json:"tool,omitempty"`
-	Seq    uint64    `json:"seq,omitempty"`
-	Typing bool      `json:"typing,omitempty"`
+	Type   DeltaType    `json:"type"`
+	Turn   uint64       `json:"turn,omitempty"`
+	Text   string       `json:"text,omitempty"`
+	Tool   string       `json:"tool,omitempty"`
+	Seq    uint64       `json:"seq,omitempty"`
+	Typing bool         `json:"typing,omitempty"`
+	Helper *HelperDelta `json:"helper,omitempty"`
 }
 
 // Sentinel errors, checked with errors.Is.
 var (
+	ErrBusy            = errors.New("contact is busy")
+	ErrTaskNotFound    = errors.New("task not found")
 	ErrContactNotFound = errors.New("contact not found")
 	// ErrClosed is returned once shutdown has begun.
 	ErrClosed = errors.New("closed")

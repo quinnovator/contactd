@@ -1,6 +1,6 @@
 -- name: InsertContact :one
-INSERT INTO contacts (name, parent, agent, profile, last_active)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO contacts (name, parent, helper, agent, profile, last_active)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: GetContact :one
@@ -31,7 +31,7 @@ SELECT
     profile,
     last_active
 FROM contacts
-WHERE parent = 0
+WHERE parent = 0 AND helper = 0
 ORDER BY last_active DESC, id DESC
 LIMIT ?;
 

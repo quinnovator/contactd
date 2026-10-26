@@ -85,14 +85,15 @@ func (q *Queries) GetContactByName(ctx context.Context, name string) (GetContact
 }
 
 const insertContact = `-- name: InsertContact :one
-INSERT INTO contacts (name, parent, agent, profile, last_active)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO contacts (name, parent, helper, agent, profile, last_active)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
 type InsertContactParams struct {
 	Name       string
 	Parent     int64
+	Helper     int64
 	Agent      string
 	Profile    []byte
 	LastActive int64
@@ -102,6 +103,7 @@ func (q *Queries) InsertContact(ctx context.Context, arg InsertContactParams) (i
 	row := q.db.QueryRowContext(ctx, insertContact,
 		arg.Name,
 		arg.Parent,
+		arg.Helper,
 		arg.Agent,
 		arg.Profile,
 		arg.LastActive,
@@ -119,7 +121,7 @@ SELECT
     profile,
     last_active
 FROM contacts
-WHERE parent = 0
+WHERE parent = 0 AND helper = 0
 ORDER BY last_active DESC, id DESC
 LIMIT ?
 `

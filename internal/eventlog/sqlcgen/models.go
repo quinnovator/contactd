@@ -17,6 +17,7 @@ type Contact struct {
 	Parent     int64
 	TimeZone   string
 	LastSpoke  int64
+	Helper     int64
 }
 
 type Episode struct {
@@ -34,6 +35,69 @@ type Event struct {
 	Ts      int64
 	Kind    int64
 	Body    []byte
+}
+
+type HelperPushConfig struct {
+	TaskID          string
+	ID              string
+	Url             string
+	Token           string
+	AuthScheme      string
+	AuthCredentials string
+	CreatedAt       int64
+}
+
+type HelperTask struct {
+	ID            string
+	ContextID     string
+	Contact       int64
+	Title         string
+	State         string
+	StatusMessage string
+	StatusTs      int64
+	EveryMs       int64
+	UntilTs       int64
+	MaxChecks     int64
+	NextDue       int64
+	Checks        int64
+	Failures      int64
+	LastCheckAt   int64
+	LastOutcome   string
+	FirstSeq      int64
+	PushedSeq     int64
+	PushedState   string
+	CreatedAt     int64
+}
+
+type RemoteHelper struct {
+	Handle          int64
+	Parent          int64
+	AgentUrl        string
+	TaskID          string
+	ContextID       string
+	Title           string
+	State           string
+	StatusMessage   string
+	HelperContact   int64
+	EveryMs         int64
+	UntilTs         int64
+	NextCheck       int64
+	Checks          int64
+	Reports         int64
+	LastCheckAt     int64
+	LastReportAt    int64
+	LastOutcome     string
+	PushToken       string
+	PushSecret      string
+	CancelRequested int64
+	NotifiedState   string
+	CreatedAt       int64
+	UpdatedAt       int64
+}
+
+type RemoteHelperArtifact struct {
+	Handle     int64
+	ArtifactID string
 }
 
 type Session struct {
