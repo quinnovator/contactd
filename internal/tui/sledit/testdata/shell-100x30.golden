@@ -7,7 +7,7 @@ Status line                                                       ~/.config/cont
  [x] route      deepseek-flash      left   core         │  format      "load $1"|
  [x] cache      cache 82%           left   core         │  short       none|
  [ ] tokens     3.7k tok            left   core         │  warn below  none|
- [x] latency    7.2s                left   core         │  drop order  2nd when narrow|
+ [x] latency    7.2s                left   core         │  drop order  3rd when narrow|
  [x] activity   running python      right  core         │  interval    "10s"|
  [x] stop       esc stop            right  core         │  timeout     "1s"|
  [x] scroll     ↓ newer             right  core         │|
@@ -15,13 +15,13 @@ Status line                                                       ~/.config/cont
  [ ] load       load 0.42           right  shell        │  on an interval, off the UI loop.|
  [x] branch     ⎇ main              right  mod git      │|
  [x] clock      12:04               right  core         │|
+ [x] helpers    no value            right  core         │|
 |
 PREVIEW|
 100 columns  ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s                        ⎇ main │ 12:04 |
 60 columns   ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s     12:04 |
             ----------------------------------------------------------------------------------------|
 no colour    * live | ada | deepseek-flash | cache 82% | 7.2s                          main | 12:04 |
-|
 |
 |
 |

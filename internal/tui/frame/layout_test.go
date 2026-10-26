@@ -437,3 +437,15 @@ func TestImageBox(t *testing.T) {
 		})
 	}
 }
+
+func TestHelperStripKeepsBody(t *testing.T) {
+	t.Parallel()
+	for height := 1; height < 80; height++ {
+		for want := range 12 {
+			r := frame.Layout(100, height, 1, 0, false, want)
+			if r.Height() != height || r.Helpers > 4 || (height < 16 && r.Helpers != 0) || (r.Helpers > 0 && r.Body < 5) {
+				t.Fatalf("height=%d want=%d rows=%+v", height, want, r)
+			}
+		}
+	}
+}

@@ -40,6 +40,7 @@ func (c *chat) snapshot(now time.Time) statusline.Snapshot {
 		LoadingOlder: c.loadingOlder,
 		Scrolled:     c.stage == nil && !c.win.Following(),
 		Agents:       c.waiting,
+		Helpers:      c.board.Count(),
 		Clock:        now.In(c.loc).Format("15:04"),
 	}
 	if live.Running != "" {

@@ -619,6 +619,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *model) onUpdates(msg updatesMsg) tea.Cmd {
 	c := m.chat
+	if c != nil && c.peek != nil && msg.sess == c.peek.chat.sess {
+		for _, u := range msg.batch {
+			c.peek.chat.apply(u, m.opt.Now())
+		}
+		c.dirty = dirtyAll
+		if !msg.closed {
+			return listen(msg.sess)
+		}
+		return nil
+	}
 	if c == nil || msg.sess != c.sess {
 		return nil // from a conversation that has since been left
 	}
@@ -631,7 +641,7 @@ func (m *model) onUpdates(msg updatesMsg) tea.Cmd {
 		cmds = append(cmds, listen(msg.sess))
 	}
 	// The time a tool has run is drawn from a tick, and only while one runs.
-	if c.tr.Live().Running != "" && !c.ticking {
+	if (c.tr.Live().Running != "" || c.helperTick()) && !c.ticking {
 		c.ticking = true
 		cmds = append(cmds, toolTick(c.sess))
 	}
@@ -645,11 +655,14 @@ func (m *model) onToolTick(msg toolTickMsg) tea.Cmd {
 	if c == nil || msg.sess != c.sess {
 		return nil
 	}
-	if c.tr.Live().Running == "" {
+	if c.tr.Live().Running == "" && !c.helperTick() {
 		c.ticking = false
 		return nil
 	}
 	c.dirty |= dirtyTail | dirtyBody
+	if c.tr.Live().Running == "" {
+		return tea.Tick(time.Second, func(time.Time) tea.Msg { return toolTickMsg{sess: c.sess} })
+	}
 	return toolTick(c.sess)
 }
 
@@ -786,6 +799,7 @@ func (m *model) open(c client.Contact) tea.Cmd {
 	}
 	sess := m.opt.Backend.Follow(m.ctx, c.ID, visit)
 	m.chat, m.screen = newChat(c, sess, m.th, m.opt.Location, m.shownBar(), m.cmds, m.newImages(c.ID)), screenChat
+	m.chat.hideHelpers = m.opt.Chat.Helpers == "off"
 	m.chat.extra = m.extra
 	m.chat.setRenderers(m.mods.kinds, false)
 	m.chat.resize(m.width, m.height)
@@ -800,6 +814,7 @@ func (m *model) closeChat() {
 		if m.chat.stage != nil {
 			m.chat.stage.Hush()
 		}
+		m.chat.closeHelperOverlay()
 		m.chat.sess.Close()
 		m.write(m.chat.imgs.leave())
 		m.chat = nil

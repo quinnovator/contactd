@@ -107,3 +107,12 @@ side = "right"
 format = "$time"
 short = "$time"
 drop = 7
+
+[[segment]]
+name = "helpers"
+from = "core"
+on = true
+side = "right"
+format = "$n helpers"
+short = "$n"
+drop = 1

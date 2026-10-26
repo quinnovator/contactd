@@ -70,12 +70,15 @@ const (
 	UpdateSynced
 	// UpdateState reports a change of connection state.
 	UpdateState
+	// UpdateHelpers carries a fresh helper snapshot after connection.
+	UpdateHelpers
 )
 
 // Update is one item of a Session's stream. Kind says which fields are set.
 type Update struct {
-	Kind   UpdateKind
-	Events []core.Event
+	Kind    UpdateKind
+	Helpers []core.HelperJSON
+	Events  []core.Event
 	// Start, with events, means the page reaches the beginning of the log.
 	Start  bool
 	Delta  core.Delta
@@ -322,6 +325,11 @@ func (s *Session) serve(ctx context.Context, live *Live) (synced bool, err error
 	case <-ctx.Done():
 		return false, nil
 	}
+	helperCtx, helperCancel := context.WithTimeout(ctx, 5*time.Second)
+	if hs, err := s.c.Helpers(helperCtx, s.id); err == nil {
+		s.emit(ctx, Update{Kind: UpdateHelpers, Helpers: hs})
+	}
+	helperCancel()
 	s.seen = max(s.seen, ready.Seq)
 	if err := s.readLog(ctx); err != nil {
 		return false, err

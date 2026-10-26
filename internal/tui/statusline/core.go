@@ -33,7 +33,7 @@ const (
 func coreNames() []string {
 	return []string{
 		"state", "contact", "route", "cache", "tokens", "latency",
-		"activity", "stop", "scroll", "agents", "clock",
+		"activity", "stop", "scroll", "agents", "clock", "helpers",
 	}
 }
 
@@ -63,6 +63,8 @@ func coreSegment(name string) (Segment, bool) {
 		s.Side, s.Format, s.Short = Right, "$newer newer", "$newer"
 	case "agents":
 		s.Side, s.Format, s.Short, s.Drop = Right, "$n sub-agent$s", "$n", 1
+	case "helpers":
+		s.Side, s.Format, s.Short, s.Drop = Right, "$n helpers", "$n", 1
 	case "clock":
 		s.Side, s.Format, s.Short, s.Drop = Right, "$time", "$time", 7
 	default:
@@ -93,11 +95,11 @@ func Preset(name string) (Config, bool) {
 	case "minimal":
 		on = []string{"state", "cache", "stop", "scroll", "clock"}
 	case DefaultPreset:
-		on = []string{"state", "route", "cache", "tokens", "latency", "activity", "stop", "scroll", "clock"}
+		on = []string{"state", "route", "cache", "tokens", "latency", "activity", "stop", "scroll", "clock", "helpers"}
 	case "ops":
 		on = []string{
 			"state", "contact", "route", "cache", "tokens", "latency",
-			"activity", "stop", "scroll", "agents", "clock",
+			"activity", "stop", "scroll", "agents", "clock", "helpers",
 		}
 	default:
 		return Config{}, false
@@ -172,7 +174,8 @@ type Snapshot struct {
 	// view is not following the newest line.
 	LoadingOlder, Scrolled bool
 	// Agents is how many sub-agents are at work.
-	Agents int
+	Agents  int
+	Helpers int
 	// Clock is the time, already formatted, "15:04".
 	Clock string
 }
@@ -214,6 +217,7 @@ func CoreValues(s Snapshot, m Marks) map[string]Value {
 		"core:activity": activityValue(s),
 		"core:stop":     {Tone: toneDim, Hide: !s.Replying && s.Running == ""},
 		"core:scroll":   {Vars: map[string]string{"newer": m.Newer}, Tone: toneDim, Hide: !s.Scrolled},
+		"core:helpers":  {Vars: map[string]string{"n": strconv.Itoa(s.Helpers)}, Hide: s.Helpers == 0},
 		"core:agents":   hidden,
 		"core:clock":    {Vars: map[string]string{"time": s.Clock}, Hide: s.Clock == ""},
 	}

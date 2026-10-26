@@ -58,6 +58,9 @@ func Core() []Spec {
 		{Name: "redraw", Summary: "clear the screen and draw it again", Key: "ctrl+l"},
 		{Name: "reload", Summary: "read the config files and mods again"},
 		{Name: "quit", Summary: "leave", Key: "ctrl+c"},
+		{Name: "helpers", Summary: "show or hide the helper strip"},
+		{Name: "a2a", Summary: "inspect live A2A traffic"},
+		{Name: "helper", Usage: "<n>", Summary: "read a helper's own log", NeedsArg: true},
 	}
 	for i := range specs {
 		specs[i].Source = SourceCore

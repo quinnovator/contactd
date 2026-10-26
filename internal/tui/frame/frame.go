@@ -67,7 +67,7 @@ type Rows struct {
 	// closed. BarRule is the rule above a status bar that has no fill, and
 	// Bar the status bar. Input is the input with its box borders, when it
 	// has a box. Hint is the line of key hints.
-	Header, HeaderRule, Body, Palette, BarRule, Bar, Input, Hint int
+	Header, HeaderRule, Body, Helpers, Palette, BarRule, Bar, Input, Hint int
 	// Boxed says the input is drawn in a box. Otherwise it is the prompt and
 	// the text alone.
 	Boxed bool
@@ -78,14 +78,14 @@ type Rows struct {
 // Height returns the number of rows in the plan. For a plan made by Layout it
 // is the height Layout was given, or zero for a height under one.
 func (r Rows) Height() int {
-	return r.Header + r.HeaderRule + r.Body + r.Palette + r.BarRule + r.Bar + r.Input + r.Hint
+	return r.Header + r.HeaderRule + r.Body + r.Helpers + r.Palette + r.BarRule + r.Bar + r.Input + r.Hint
 }
 
 // InputTop returns the screen row of the input's first line, counted from
 // zero: the number of rows above the input. The cursor's row is this plus its
 // row inside the input.
 func (r Rows) InputTop() int {
-	return r.Header + r.HeaderRule + r.Body + r.Palette + r.BarRule + r.Bar
+	return r.Header + r.HeaderRule + r.Body + r.Helpers + r.Palette + r.BarRule + r.Bar
 }
 
 // Layout plans the rows of the chat screen for a terminal of width by height
@@ -110,7 +110,7 @@ func (r Rows) InputTop() int {
 // A terminal of two rows has one row of transcript and the input, one of one
 // row has the input alone, and a height under one has no rows at all. No count
 // is ever negative.
-func Layout(width, height, inputLines, paletteWant int, barFilled bool) Rows {
+func Layout(width, height, inputLines, paletteWant int, barFilled bool, helpersWant ...int) Rows {
 	var r Rows
 	if height <= 0 {
 		return r
@@ -140,6 +140,10 @@ func Layout(width, height, inputLines, paletteWant int, barFilled bool) Rows {
 	rest := max(height-r.Height(), 0)
 	r.Palette = min(max(paletteWant, 0), max(rest-bodyKeep, 0))
 	r.Body = rest - r.Palette
+	if height >= 16 && len(helpersWant) > 0 {
+		r.Helpers = min(max(helpersWant[0], 0), 4, max(r.Body-5, 0))
+		r.Body -= r.Helpers
+	}
 	return r
 }
 
@@ -158,7 +162,7 @@ type Regions struct {
 	Header, HeaderRule, BarRule, Bar, Hint string
 	// Body is the transcript's rows, Palette the command palette's and
 	// Input the input's, box borders included.
-	Body, Palette, Input []string
+	Body, Helpers, Palette, Input []string
 }
 
 // Compose joins the regions into one screen, top to bottom, with a newline
@@ -174,6 +178,7 @@ func Compose(r Rows, g Regions) string {
 	j.one(r.Header, g.Header)
 	j.one(r.HeaderRule, g.HeaderRule)
 	j.many(r.Body, g.Body)
+	j.many(r.Helpers, g.Helpers)
 	j.many(r.Palette, g.Palette)
 	j.one(r.BarRule, g.BarRule)
 	j.one(r.Bar, g.Bar)
@@ -187,7 +192,7 @@ func Compose(r Rows, g Regions) string {
 func size(g Regions) int {
 	const single = 5
 	n := len(g.Header) + len(g.HeaderRule) + len(g.BarRule) + len(g.Bar) + len(g.Hint) + single
-	for _, lines := range [][]string{g.Body, g.Palette, g.Input} {
+	for _, lines := range [][]string{g.Body, g.Helpers, g.Palette, g.Input} {
 		for _, l := range lines {
 			n += len(l) + 1
 		}

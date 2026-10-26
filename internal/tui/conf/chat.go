@@ -15,6 +15,7 @@ import (
 
 // Chat is chat.toml: the lasting form of the client's display settings.
 type Chat struct {
+	Helpers string // empty/on shows the helper strip; off hides it
 	// Color, Glyphs, Theme and Images are each "" or "auto" to let the
 	// client detect, or one of the values chat.toml allows:
 	// truecolor, 256, 16, none; unicode, ascii; dark, light; pixels, blocks,
@@ -105,6 +106,8 @@ func parseChat(src []byte) (Chat, []string, error) {
 	root := doc.Root()
 	for _, key := range root.Keys() {
 		switch key {
+		case "helpers":
+			chat.Helpers, err = choice(root, key, "on", "off")
 		case "color":
 			chat.Color, err = colour(root, key)
 		case "glyphs":
@@ -260,4 +263,18 @@ func glyphs(t *toml.Table) (map[string]string, error) {
 		out[key] = v
 	}
 	return out, nil
+}
+
+// SaveHelpers changes the helper strip setting while preserving other TOML values.
+func SaveHelpers(path, value string) error {
+	src, err := readFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read chat settings: %w", err)
+	}
+	doc, err := toml.Parse(src)
+	if err != nil {
+		return fmt.Errorf("parse chat settings: %w", err)
+	}
+	doc.Root().Set("helpers", value)
+	return WriteFile(path, doc.Encode())
 }

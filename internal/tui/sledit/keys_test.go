@@ -63,7 +63,7 @@ func TestSelect(t *testing.T) {
 	for range 40 {
 		send(t, m, down())
 	}
-	if got := m.Selected(); got != "core:clock" {
+	if got := m.Selected(); got != "core:helpers" {
 		t.Errorf("down past the end selects %q, want the last segment", got)
 	}
 	if m.Config().Segments[0].ID() != "core:state" || len(m.Config().Segments) != len(drawing(t).Segments) {
@@ -150,7 +150,7 @@ func TestKeys(t *testing.T) {
 				t.Errorf("order is %v", ids(m.Config()))
 			}
 		}},
-		{"J at the bottom changes nothing", "core:clock", []tea.Msg{shift('j')}, func(t *testing.T, m *sledit.Model) {
+		{"J at the bottom changes nothing", "core:helpers", []tea.Msg{shift('j')}, func(t *testing.T, m *sledit.Model) {
 			t.Helper()
 			if !slices.Equal(ids(m.Config()), order) {
 				t.Errorf("order is %v", ids(m.Config()))
@@ -587,7 +587,7 @@ func TestAddShell(t *testing.T) {
 	}
 	// It goes before the clock, as a mod's segment does, and is selected.
 	got := ids(m.Config())
-	if n := len(got); got[n-2] != "shell:disk" || got[n-1] != "core:clock" {
+	if n := len(got); got[n-3] != "shell:disk" || got[n-2] != "core:clock" {
 		t.Errorf("order is %v, want the new segment before the clock", got)
 	}
 	if m.Selected() != "shell:disk" {
@@ -609,7 +609,7 @@ func TestAddShellWithoutARightClock(t *testing.T) {
 	send(t, m, typed("disk")...)
 	send(t, m, enter(), esc())
 	got := ids(m.Config())
-	if n := len(got); n != len(c.Segments)+1 || got[n-1] != "shell:disk" || got[n-2] != "core:clock" {
+	if n := len(got); n != len(c.Segments)+1 || got[n-1] != "shell:disk" || got[n-2] != "core:helpers" {
 		t.Errorf("order is %v, want the new segment last", got)
 	}
 	if m.Selected() != "shell:disk" {
@@ -750,7 +750,7 @@ func TestPresetKeepsOtherSegments(t *testing.T) {
 	want := preset(t, "ops")
 	branch := segment(t, sledit.New(drawing(t), path, nil), "mod:git/branch")
 	n := len(want.Segments)
-	want.Segments = slices.Concat(want.Segments[:n-1], []statusline.Segment{disk, branch}, want.Segments[n-1:])
+	want.Segments = slices.Concat(want.Segments[:n-2], []statusline.Segment{disk, branch}, want.Segments[n-2:])
 	if !slices.Equal(got.Segments, want.Segments) {
 		t.Errorf("segments are %v, want %v", ids(got), ids(want))
 	}
@@ -782,7 +782,7 @@ func TestPresetNearest(t *testing.T) {
 			t.Helper()
 			c := preset(t, "minimal")
 			for i, s := range c.Segments {
-				if s.Name == "route" || s.Name == "tokens" {
+				if s.Name == "route" || s.Name == "tokens" || s.Name == "helpers" {
 					c.Segments[i].On = true
 				}
 			}
@@ -1259,13 +1259,13 @@ func TestFortySegments(t *testing.T) {
 			}
 			// The list is full: 29 mod and shell segments of 32, so three
 			// more can be added and no fourth.
-			for i := range 3 {
+			for i := range 4 {
 				send(t, m, char('a'))
 				send(t, m, typed("more"+strconv.Itoa(i))...)
 				send(t, m, enter(), esc())
 			}
-			if n := len(m.Config().Segments); n != 43 {
-				t.Fatalf("%d segments after three more, want 43", n)
+			if n := len(m.Config().Segments); n != 44 {
+				t.Fatalf("%d segments after three more, want 44", n)
 			}
 			if res := send(t, m, char('a')); m.Editing() || !strings.Contains(res.Note, "at most 32") {
 				t.Errorf("a 33rd was not refused: %+v", res)
@@ -1276,7 +1276,7 @@ func TestFortySegments(t *testing.T) {
 			}
 			back, warnings, err := statusline.Parse(res.Save.Encode())
 			// The three added have no command yet, and Parse says so.
-			if err != nil || len(warnings) != 3 {
+			if err != nil || len(warnings) != 4 {
 				t.Fatalf("the saved file does not read back: %v, warnings %q", err, warnings)
 			}
 			if !slices.Equal(back.Segments, res.Save.Segments) {

@@ -439,6 +439,9 @@ func TestTheChatFitsInEveryState(t *testing.T) {
 						if c.rows.Input < 1 || c.rows.Body < 1 || top+c.rows.Input > height {
 							t.Errorf("%s at %dx%d: the rows are %+v", what, width, height, c.rows)
 						}
+						if (c.peek != nil || c.wireOpen) && v.Cursor == nil {
+							return
+						}
 						if v.Cursor == nil {
 							t.Errorf("%s at %dx%d: there is no cursor", what, width, height)
 							return
@@ -453,6 +456,19 @@ func TestTheChatFitsInEveryState(t *testing.T) {
 					check("an empty conversation")
 					h.from(sess, live(), everything(t))
 					check("one of everything")
+					h.from(sess, client.Update{Kind: client.UpdateHelpers, Helpers: []core.HelperJSON{{Handle: 1, Contact: 2, Title: "Status page", State: "TASK_STATE_WORKING"}}})
+					check("helper strip")
+					c.wireOpen = true
+					c.dirty = dirtyAll
+					check("wire overlay")
+					c.closeHelperOverlay()
+					p := newChat(client.Contact{ID: 2, Name: "helper 1"}, sess, c.th, c.loc, c.bar, c.cmds, h.m.newImages(2))
+					c.peek = &helperPeek{chat: p, handle: 1}
+					c.dirty = dirtyAll
+					check("helper overlay")
+					c.peek = nil
+					c.dirty = dirtyAll
+
 					h.typeText("compare with the week before")
 					check("a draft")
 					h.from(sess,

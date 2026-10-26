@@ -154,7 +154,7 @@ func TestCommandsMock(t *testing.T) {
 		{10, "    7   3154    1536  5408"},
 		{12, "  Turn 7 sent 3,154 tokens and 1,536 of them came from cache: 48%."},
 		{16, "╭" + edge + "╮"},
-		{17, boxed("commands matching /st", "5 of 24")},
+		{17, boxed("commands matching /st", "5 of 27")},
 		{18, boxed("▸ /statusline       choose a preset or edit the status line", "core")},
 		{19, boxed("  /status           connection, route and cache for this contact", "core")},
 		{20, boxed("  /stop             stop the reply in flight (esc)", "core")},

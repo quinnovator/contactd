@@ -20,6 +20,7 @@ const maxGlyphCells = 3
 // always one cell: an ASCII stand-in can be wider than the symbol it stands
 // for, so a layout measures the glyph it places with Theme.Width.
 type Glyphs struct {
+	Wire string
 	// Prompt marks the input and your own messages. Task marks the message
 	// that gave a sub-agent its task.
 	Prompt, Task string
@@ -59,7 +60,7 @@ func GlyphSet(g termcaps.Glyphs) Glyphs {
 	switch g {
 	case termcaps.GlyphsUnicode:
 		return Glyphs{
-			Prompt: "❯", Task: "⇢", Tool: "⏺", Elbow: "⎿",
+			Wire: "⇄", Prompt: "❯", Task: "⇢", Tool: "⏺", Elbow: "⎿",
 			Stopped: "⏹", Notice: "◆", Fail: "✗", Pointer: "▸", Dot: "●",
 			Sep: "│", HRule: "─", Ellipsis: "…", Mid: "·", Bullet: "•",
 			Newer: "↓", UpDown: "↑↓", LeftRight: "←→",
@@ -77,7 +78,7 @@ func GlyphSet(g termcaps.Glyphs) Glyphs {
 // trusted with anything else.
 func asciiGlyphs() Glyphs {
 	return Glyphs{
-		Prompt: ">", Task: "->", Tool: "*", Elbow: "|_",
+		Wire: "<>", Prompt: ">", Task: "->", Tool: "*", Elbow: "|_",
 		Stopped: "--", Notice: "+", Fail: "x", Pointer: ">", Dot: "*",
 		Sep: "|", HRule: "-", Ellipsis: "...", Mid: "|", Bullet: "-",
 		Newer: "v", UpDown: "up/down", LeftRight: "left/right",
@@ -98,6 +99,7 @@ type slot struct {
 // them: a block image is only a picture when each cell is that one character.
 func (g *Glyphs) slots() []slot {
 	return []slot{
+		{"wire", &g.Wire},
 		{"prompt", &g.Prompt},
 		{"task", &g.Task},
 		{"tool", &g.Tool},

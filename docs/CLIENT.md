@@ -176,6 +176,14 @@ mute = false      #                          -mute, CONTACTD_MUTE,   /avatar mut
 
 On the list of contacts: `enter` opens, `n` makes a new contact, `r` renames, `g` reloads, `q` leaves. For a terminal that keeps a `ctrl` chord for itself, each has a command that does the same, and a backslash before `enter` stands in for `ctrl+j`.
 
+## Helpers over A2A
+
+Contacts created with `agent.helpers: true` can start standing helpers. Requester tool calls are labeled `⇄ A2A SendMessage` or `CancelTask`; incoming notices show the helper number and whether they are a report, question, or stopped task. Quiet turns have a single dim line. ASCII terminals use `<>` for the wire glyph, which can also be replaced with `[glyph] wire = "<>"` in `chat.toml`.
+
+A strip above the status bar shows up to three helpers and an overflow count, with state, next check, checks, reports, and latest outcome. It appears at heights of 16 rows or more and keeps at least five transcript rows. Terminal tasks remain visible for ten minutes. `/helpers` toggles it and saves `helpers = "on"` or `"off"` in `chat.toml`. The `helpers` status segment counts active tasks.
+
+`/a2a` opens the latest 200 exchanges from this session. Up/down selects an exchange, enter expands its redacted JSON, and escape returns. `/helper N` follows a local helper's log in a second, passive, read-only session, including check notices. It sends no visit or message. Escape closes that session. Logs of helpers running on another server are unavailable here. Both overlays work in thread and avatar modes. See [A2A](A2A.md) for protocol and restart behavior.
+
 ## Commands
 
 A one-line draft that starts with `/` is a command. It is run in the client and never sent to the contact, and neither is the sign that someone is writing. While one is typed, the commands it could mean are listed between the transcript and the status bar, the rest of the chosen name and what it takes are shown dim after the cursor, and the hint line says `a line that starts with / is a command and is never sent to the contact`.
@@ -185,6 +193,9 @@ A one-line draft that starts with `/` is a command. It is run in the client and 
 | `/statusline` | `preset <name>` or `edit` | Apply a preset for this session, or open the editor. No argument opens the editor | |
 | `/status` | | Print the connection, the server, the contact and its route, the last model call, what the terminal can do and why the client thinks so, and a line for each mod | |
 | `/stop` | | Stop the reply in flight | `esc` |
+| `/helpers` | | Toggle and save the helper strip | |
+| `/a2a` | | Inspect live A2A exchanges | |
+| `/helper` | `<n>` | Read a local helper’s log | |
 | `/help` | `[command]` | Print the commands and the keys, or one command | |
 | `/contacts` | | Back to the list | `ctrl+p` |
 | `/open` | `<contact>` | Open another contact by its name, the start of its name when only one starts so, or its id (`3` or `#3`) | |
@@ -442,7 +453,7 @@ Only `probe.go` may import the terminal library under Bubble Tea, which is an un
 | The avatar's eyes following the pointer | The mouse is never asked for. It looks at what it shows and at the draft |
 | Pausing, replaying or rewinding the avatar's speech; older turns on the stage | `ctrl+o` shows the turn and `/avatar off` the thread |
 | A size for a picture, or a place by row and column | A picture is as large as a thread shows it, 44 by 12 cells at most; nine places and "where there is room" |
-| Showing a sub-agent's own log beside its parent's; editing a contact's agent config or profile | The settlement appears as a notice, and `contactd chat <id>` opens a sub-agent like any contact |
+| Showing a sub-agent's own log beside its parent's; editing a contact's agent config or profile | Helpers open with `/helper N`; sub-agents still open with `contactd chat <id>`. Agent config and profile editing remain unavailable |
 | Windows | Not examined. Shell segments report that they are not supported, and `statusline.toml` is never trusted with commands there |
 
 ## Known limits

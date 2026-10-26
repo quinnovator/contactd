@@ -56,6 +56,9 @@ func TestCoreIsTheDeclaredList(t *testing.T) {
 		{"redraw", "", "ctrl+l"},
 		{"reload", "", ""},
 		{"quit", "", "ctrl+c"},
+		{"helpers", "", ""},
+		{"a2a", "", ""},
+		{"helper", "<n>", ""},
 	}
 	core := commands.Core()
 	got := make([]row, 0, len(core))
@@ -91,7 +94,7 @@ func TestCoreSpecsAreWellFormed(t *testing.T) {
 		if s.Summary == "" || strings.ContainsAny(s.Summary, "\n\t") {
 			t.Errorf("/%s has summary %q, want one line", s.Name, s.Summary)
 		}
-		if got := s.NeedsArg; got != (s.Name == "open") {
+		if got := s.NeedsArg; got != (s.Name == "open" || s.Name == "helper") {
 			t.Errorf("/%s has NeedsArg %t; only /open needs an argument", s.Name, got)
 		}
 		// The Commands mock draws the key at the end of the summary.

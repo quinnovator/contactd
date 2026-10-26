@@ -16,6 +16,7 @@ import (
 	"github.com/quinnovator/contactd/internal/tui/commands"
 	"github.com/quinnovator/contactd/internal/tui/draw"
 	"github.com/quinnovator/contactd/internal/tui/frame"
+	"github.com/quinnovator/contactd/internal/tui/helperboard"
 	"github.com/quinnovator/contactd/internal/tui/inputbox"
 	"github.com/quinnovator/contactd/internal/tui/mods/wire"
 	"github.com/quinnovator/contactd/internal/tui/palette"
@@ -179,9 +180,14 @@ type local struct {
 // the window on the transcript, and the box a message or a command is
 // written in.
 type chat struct {
-	contact client.Contact
-	sess    Session
-	tr      transcript.Transcript
+	board                  helperboard.Board
+	hideHelpers            bool
+	wireOpen, wireExpanded bool
+	wireSelected           int
+	peek                   *helperPeek
+	contact                client.Contact
+	sess                   Session
+	tr                     transcript.Transcript
 
 	th  *theme.Theme
 	loc *time.Location
@@ -314,7 +320,7 @@ func (c *chat) renamed(contact client.Contact) {
 func (c *chat) drawOptions() draw.Options {
 	cols, rows := frame.ImageBox(c.width, c.height)
 	return draw.Options{
-		Theme: c.th, Width: max(c.width, 1), Expanded: c.expanded, Location: c.loc,
+		Contact: c.label, Theme: c.th, Width: max(c.width, 1), Expanded: c.expanded, Location: c.loc,
 		Images: c.imgs, Mods: c.renders,
 		MaxCols: cols, MaxRows: rows,
 	}
@@ -376,7 +382,7 @@ func (c *chat) setTheme(th *theme.Theme) {
 func (c *chat) layout() {
 	most := frame.Layout(c.width, c.height, 8, 0, c.th.BarFilled).InputText
 	c.input.SetSize(c.width, most, frame.BoxedAt(c.width, c.height))
-	rows := frame.Layout(c.width, c.height, c.input.TextRows(), c.pal.Want(c.width), c.th.BarFilled)
+	rows := frame.Layout(c.width, c.height, c.input.TextRows(), c.pal.Want(c.width), c.th.BarFilled, c.helperWant())
 	// The window hears of every size, also a width that leaves the rows as
 	// they were. It does nothing when told the size it has.
 	c.win.Resize(max(c.width, 1), rows.Body)
@@ -509,6 +515,10 @@ func (c *chat) apply(u client.Update, now time.Time) {
 func (c *chat) fold(u client.Update, now time.Time) {
 	c.dirty |= dirtyTail | dirtyBody
 	switch u.Kind {
+	case client.UpdateHelpers:
+		c.board.Tick(now.UnixMilli())
+		c.board.Reset(u.Helpers)
+		c.layout()
 	case client.UpdateEvents:
 		c.tr.Events(u.Events)
 		c.start = c.start || u.Start
@@ -521,6 +531,12 @@ func (c *chat) fold(u client.Update, now time.Time) {
 		c.tr.Events(u.Events)
 		c.start = u.Start
 	case client.UpdateDelta:
+		followWire := c.wireSelected >= len(c.board.Wire())-1
+		c.board.Delta(u.Delta, now.UnixMilli())
+		if followWire {
+			c.wireSelected = max(0, len(c.board.Wire())-1)
+		}
+		c.layout()
 		c.tr.Delta(u.Delta, now.UnixMilli())
 		if u.Delta.Type == core.DeltaToolCall {
 			c.toolSince = now
@@ -594,6 +610,9 @@ func (c *chat) giveBack(text string) {
 // When the key was enter on a command, the command is returned for the
 // model to run: what a command does reaches beyond the conversation.
 func (c *chat) key(msg tea.KeyPressMsg, now time.Time) (tea.Cmd, *commands.Line) {
+	if c.helperKey(msg) {
+		return nil, nil
+	}
 	// While the list of commands is open, four keys are its own.
 	if c.pal.Open() {
 		switch msg.String() {
@@ -703,6 +722,9 @@ func (c *chat) page() int { return max(c.rows.Body-1, 1) }
 // that its human is writing. A command is not written to the contact, so
 // nothing is said about a draft that starts with one slash.
 func (c *chat) typing(msg tea.Msg, now time.Time) tea.Cmd {
+	if c.peek != nil || c.wireOpen {
+		return nil
+	}
 	before := c.input.Value()
 	cmd, changed := c.input.Update(msg)
 	if changed {
@@ -928,6 +950,10 @@ func (c *chat) tail(now time.Time) []string {
 // draw returns the screen. Only the regions that are stale are drawn again,
 // and when none is, the view is the one returned last time.
 func (c *chat) draw(now time.Time) tea.View {
+	c.board.Tick(now.UnixMilli())
+	if c.helperTick() {
+		c.layout()
+	}
 	if c.dirty == 0 {
 		return c.view
 	}
@@ -945,6 +971,10 @@ func (c *chat) draw(now time.Time) tea.View {
 			c.reg.Body = c.win.View(&c.list)
 		}
 	}
+	if c.peek != nil || c.wireOpen {
+		c.reg.Body = c.helperOverlayRows(now)
+	}
+	c.reg.Helpers = c.helperRows(now)
 	if info := c.headerInfo(); dirty&dirtyHeader != 0 || info != c.info {
 		c.info = info
 		c.reg.Header = frame.Header(c.th, info, c.width)
@@ -963,10 +993,13 @@ func (c *chat) draw(now time.Time) tea.View {
 	if dirty&dirtyInput != 0 {
 		c.reg.Input = c.input.Lines()
 	}
+	if c.peek != nil || c.wireOpen {
+		c.reg.Input = []string{c.th.Truncate(c.helperInput(), c.width)}
+	}
 	v := tea.NewView(frame.Compose(c.rows, c.reg))
 	v.AltScreen = true
 	v.WindowTitle = "contactd: " + c.label
-	if c.rows.Input > 0 {
+	if c.rows.Input > 0 && c.peek == nil && !c.wireOpen {
 		x, y := c.input.Cursor()
 		v.Cursor = tea.NewCursor(x, c.rows.InputTop()+y)
 		v.Cursor.Blink = false

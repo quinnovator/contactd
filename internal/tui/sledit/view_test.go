@@ -764,8 +764,8 @@ func TestShortScreens(t *testing.T) {
 		previews []string
 		gone     []string
 	}{
-		{30, 13, []string{"100 columns", "60 columns", "no colour"}, nil},
-		{24, 13, []string{"100 columns", "60 columns", "no colour"}, nil},
+		{30, 14, []string{"100 columns", "60 columns", "no colour"}, nil},
+		{24, 14, []string{"100 columns", "60 columns", "no colour"}, nil},
 		{23, 13, []string{"100 columns", "60 columns", "no colour"}, nil},
 		{22, 12, []string{"100 columns", "60 columns", "no colour"}, nil},
 		{20, 10, []string{"100 columns", "60 columns", "no colour"}, nil},
@@ -1019,16 +1019,16 @@ func TestSettings(t *testing.T) {
 		}},
 		{"a mod's segment", "mod:git/branch", []string{
 			"branch", `format      "$text"`, `short       "$short"`, "warn below  none",
-			"drop order  1st when narrow", "refresh     when its mod answers",
+			"drop order  2nd when narrow", "refresh     when its mod answers",
 		}},
 		{"a shell segment", "shell:load", []string{
 			"load", `command     "uptime"`, `match       "load averages?: ([0-9.]+)"`, `format      "load $1"`,
-			"short       none", "warn below  none", "drop order  2nd when narrow", `interval    "10s"`, `timeout     "1s"`,
+			"short       none", "warn below  none", "drop order  3rd when narrow", `interval    "10s"`, `timeout     "1s"`,
 			"", "A shell segment runs a command", "on an interval, off the UI loop.",
 		}},
 		{"the clock", "core:clock", []string{
 			"clock", `format      "$time"`, `short       "$time"`, "warn below  none",
-			"drop order  3rd when narrow", "refresh     each minute",
+			"drop order  4th when narrow", "refresh     each minute",
 			"", "A shell segment runs a command", "on an interval, off the UI loop:", "",
 			`command   "uptime"`, `interval  "10s"`, `timeout   "1s"`,
 		}},
