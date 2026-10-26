@@ -142,3 +142,10 @@ run = "docker build -f deploy/Dockerfile -t contactd:dev ."
 [tasks.ci]
 description = "Everything CI runs, in order"
 run = ["mise run lint", "mise run gen:check", "mise run test:all", "mise run vuln"]
+
+[tasks."demo:a2a"]
+description = "Watch a mutable status page with Ada and an A2A helper"
+depends = ["dev:build"]
+raw = true
+raw_args = true
+run = ["go build -o bin/demosite ./cmd/demosite", "bash scripts/demo-a2a.sh"]

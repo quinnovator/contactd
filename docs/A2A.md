@@ -113,6 +113,12 @@ Credentials are stored in plaintext in the private data directory, like the exis
 
 `contactd_helper_tasks` counts active tasks. `contactd_helper_checks_total{outcome}` counts started, busy, and error dispatches. `contactd_helper_turns_total{outcome}` counts reported, quiet, asked, finished, and failed turns. `contactd_a2a_requests_total{method,result}`, `contactd_a2a_push_total{kind,result}`, and `contactd_a2a_webhook_total{result}` describe protocol handling and callback delivery. Labels contain no task IDs, message text, or credentials.
 
+## Demo
+
+With one supported model provider key in the environment, run `mise run demo:a2a`. The launcher uses a separate `data/a2a-demo` directory, creates Ada with helpers enabled, and opens chat. It stops the site and server on exit. Server and site logs are in that directory. `CONTACTD_A2A_DEMO_DATA`, `CONTACTD_A2A_DEMO_PORT` (8080), and `CONTACTD_A2A_SITE_PORT` (9090) override the demo locations.
+
+Ask Ada to watch `http://127.0.0.1:9090` every 30 seconds for half an hour. After the baseline and a quiet check, run `curl -XPOST 'localhost:9090/set?component=API&state=degraded'` in another terminal. The next check should report the change. Inspect `/a2a` and `/helper 1`, then ask Ada to stop. `curl -XPOST localhost:9090/reset` restores all four components. States are operational, degraded, outage, and maintenance.
+
 ## Examples
 
 ```sh
