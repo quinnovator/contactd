@@ -31,9 +31,11 @@ type Ack struct {
 
 // Inbound is a message from the contact's human. Ack must be buffered.
 type Inbound struct {
-	Visit core.Visit
-	Text  string
-	Ack   chan<- Ack
+	Visit     core.Visit
+	Text      string
+	MessageID string
+	Raw       string
+	Ack       chan<- Ack
 }
 
 // Typing is a typing indicator. It holds the reply back like a message does,
@@ -223,6 +225,7 @@ type Creator interface {
 
 // Deps are the services actors use. They are shared by every contact.
 type Deps struct {
+	Helpers HelperHook
 	Log     Writer
 	Hydrate Hydrator
 	// Create makes the contact behind each sub-agent; nil disables
@@ -278,4 +281,50 @@ func DefaultConfig() Config {
 		MaxChildren:     8,
 		Recall:          recall.DefaultParams(),
 	}
+}
+
+// Check starts a scheduled helper check unless a turn is already pending.
+type (
+	Check struct {
+		Text string
+		Ack  chan<- Ack
+	}
+	// HelperNotice queues news behind the current reply and acknowledges its durable write.
+	HelperNotice struct {
+		Notice core.NoticeBody
+		Ack    chan<- Ack
+	}
+	observe struct{ d core.Delta }
+)
+
+func (Check) isCmd()        {}
+func (HelperNotice) isCmd() {}
+func (observe) isCmd()      {}
+
+// HelperHook observes helper turn endings. Implementations must return promptly.
+type (
+	HelperHook interface {
+		HelperTurnEnded(ctx context.Context, contact core.ContactID, o HelperOutcome)
+	}
+	// HelperOutcome describes the durable result of one helper turn.
+	HelperOutcome struct {
+		Kind OutcomeKind
+		Seq  uint64
+		Text string
+	}
+	// OutcomeKind identifies a helper turn ending.
+	OutcomeKind uint8
+)
+
+const (
+	OutcomeReplied OutcomeKind = iota + 1
+	OutcomeQuiet
+	OutcomeAsked
+	OutcomeFinished
+	OutcomeFailed
+)
+
+type pendingNotice struct {
+	body core.NoticeBody
+	ack  chan<- Ack
 }

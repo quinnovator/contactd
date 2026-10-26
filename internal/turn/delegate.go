@@ -67,7 +67,7 @@ func (d *Deps) delegate(ctx context.Context, in Input, p *plan.PromptPlan, call 
 	if d.Delegate == nil || in.Agent == nil || !in.Agent.Delegate {
 		return fail("delegation is not available to this agent")
 	}
-	if in.Agent.Parent != 0 {
+	if in.Agent.Unattended() {
 		return fail("a sub-agent cannot start sub-agents")
 	}
 	var args delegateArgs
