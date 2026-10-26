@@ -510,6 +510,7 @@ func oneShot(ctx context.Context, c *client.Client, contact *client.Contact, tex
 	var mine uint64 // the message's sequence number, once known
 	for u := range sess.Updates() {
 		switch u.Kind {
+		case client.UpdateHelpers:
 		case client.UpdateState:
 			switch u.State {
 			case client.StateLive:

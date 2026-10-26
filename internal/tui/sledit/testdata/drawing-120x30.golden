@@ -15,13 +15,13 @@ Status line                                                                     
  [ ] load       load 0.42           right  shell        │  interval  "10s"|
  [x] branch     ⎇ main              right  mod git      │  timeout   "1s"|
  [x] clock      12:04               right  core         │|
+ [x] helpers    no value            right  core         │|
 |
 PREVIEW|
 100 columns  ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s                                    ⎇ main │ 12:04 |
 60 columns   ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s     12:04 |
             ----------------------------------------------------------------------------------------------------|
 no colour    * live | ada | deepseek-flash | cache 82% | 7.2s                                      main | 12:04 |
-|
 |
 |
 |

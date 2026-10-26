@@ -1,20 +1,20 @@
 Status line                                   ~/.config/contactd/statusline.toml|
 ────────────────────────────────────────────────────────────────────────────────|
-     SEGMENT    SHOWS               SIDE   FROM   21/40 │  s8|
- [x] stop       esc stop            right  core         │  command    "echo 8"|
+     SEGMENT    SHOWS               SIDE   FROM   21/40 │  s7|
+ [x] stop       esc stop            right  core         │  command    "echo 7"|
  [x] scroll     ↓ newer             right  core         │  match      none|
  [x] agents     1 sub-agent         right  core         │  format     "$out"|
  [ ] load       load 0.42           right  shell        │  short      none|
  [x] clock      12:04               right  core         │  warn below none|
- [x] s0         0.42                left   shell        │  drop order never|
- [ ] s1         0.42                right  shell        │  interval   "10s"|
- [x] s2         0.42                left   shell        │  timeout    "1s"|
- [ ] s3         0.42                right  shell        │|
- [x] s4         0.42                left   shell        │  A shell segment runs…|
- [ ] s5         0.42                right  shell        │  on an interval, off …|
+ [x] helpers    no value            right  core         │  drop order 3rd when …|
+ [x] s0         0.42                left   shell        │  interval   "10s"|
+ [ ] s1         0.42                right  shell        │  timeout    "1s"|
+ [x] s2         0.42                left   shell        │|
+ [ ] s3         0.42                right  shell        │  A shell segment runs…|
+ [x] s4         0.42                left   shell        │  on an interval, off …|
+ [ ] s5         0.42                right  shell        │|
  [x] s6         0.42                left   shell        │|
  [ ] s7         0.42                right  shell        │|
- [x] s8         0.42                left   shell        │|
 PREVIEW|
 100 columns  ● live │ ada │ cache 82% │ 7.2s │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42…|
 60 columns   ● live │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42 │ 0.42    |

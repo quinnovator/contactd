@@ -42,6 +42,8 @@ const (
 
 // Item is one entry of the conversation.
 type Item struct {
+	Source string
+	Helper uint64
 	// Seq is the event's sequence number. A Failure has none.
 	Seq  uint64
 	TS   int64 // unix ms
@@ -94,9 +96,10 @@ type Live struct {
 // Transcript is the state of one conversation view. The zero value is an
 // empty transcript.
 type Transcript struct {
-	items   []Item
-	live    Live
-	pending []pending
+	ShowChecks bool
+	items      []Item
+	live       Live
+	pending    []pending
 	// calls maps a tool call's ID to its tool, so that a result read from
 	// the log can be labelled.
 	calls map[string]string
@@ -253,6 +256,7 @@ func (t *Transcript) event(ev *core.Event) {
 		if json.Unmarshal(ev.Body, &b) != nil {
 			return
 		}
+		it.Helper = b.Helper
 		it.Kind, it.Tool, it.Text, it.IsError, it.Child = ToolResult, t.calls[b.ID], b.Output, b.IsError, b.Child
 		if it.Tool == "" {
 			// Its call has not been read yet: it is on an older page, or
@@ -267,10 +271,11 @@ func (t *Transcript) event(ev *core.Event) {
 		if json.Unmarshal(ev.Body, &b) != nil {
 			return
 		}
-		if b.Source == "session-start" {
+		if b.Source == "session-start" || (b.Source == "helper-check" && !t.ShowChecks) {
 			return
 		}
 		it.Kind, it.Text, it.Child = Notice, b.Text, b.Child
+		it.Source, it.Helper = b.Source, b.Helper
 	case core.KindCheckpoint:
 		var b core.CheckpointBody
 		if json.Unmarshal(ev.Body, &b) != nil {
@@ -339,6 +344,10 @@ func (t *Transcript) Delta(d core.Delta, now int64) {
 		t.put(it)
 		t.live.Text = ""
 	case core.DeltaNotice:
+		if d.Helper != nil {
+			it.Helper = d.Helper.Handle
+			it.Source = "helper-update"
+		}
 		it.Kind, it.Text = Notice, d.Text
 		t.put(it)
 	case core.DeltaUser:

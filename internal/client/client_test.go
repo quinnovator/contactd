@@ -256,6 +256,7 @@ func fold(tr *transcript.Transcript, u client.Update) {
 		tr.Refused(u.Text)
 	case client.UpdateSynced:
 		tr.DropPending()
+	case client.UpdateHelpers:
 	case client.UpdateState:
 	}
 }

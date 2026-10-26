@@ -320,3 +320,14 @@ func (c *Client) unreachable(ctx context.Context, err error) error {
 func backoff(n int) time.Duration {
 	return min(250*time.Millisecond<<min(n, 5), 5*time.Second)
 }
+
+// Helpers fetches durable snapshots of this contact's helpers.
+func (c *Client) Helpers(ctx context.Context, id core.ContactID) ([]core.HelperJSON, error) {
+	var out struct {
+		Helpers []core.HelperJSON `json:"helpers"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/v1/contacts/"+id.String()+"/helpers", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Helpers, nil
+}

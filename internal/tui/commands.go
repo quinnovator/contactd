@@ -42,6 +42,9 @@ const (
 // by the program, as any other.
 func handlers() map[string]func(m *model, l commands.Line) tea.Cmd {
 	return map[string]func(m *model, l commands.Line) tea.Cmd{
+		"helpers":    cmdHelpers,
+		"a2a":        cmdA2A,
+		"helper":     cmdHelper,
 		"statusline": cmdStatusLine,
 		"status":     cmdStatus,
 		"stop":       cmdStop,
@@ -548,6 +551,12 @@ func (m *model) onReloaded(msg reloadedMsg) tea.Cmd {
 	if msg.err != nil {
 		wrong = append(wrong, msg.err.Error())
 	} else {
+		m.opt.Chat.Helpers = msg.chat.Helpers
+		if m.chat != nil {
+			m.chat.hideHelpers = msg.chat.Helpers == "off"
+			m.chat.layout()
+			m.chat.dirty = dirtyAll
+		}
 		if !maps.Equal(msg.chat.Glyph, m.opt.Chat.Glyph) {
 			m.opt.Chat.Glyph = msg.chat.Glyph
 			cmd = m.restyle()

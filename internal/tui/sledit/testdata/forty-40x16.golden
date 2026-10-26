@@ -3,6 +3,7 @@ Status line                             |
      SEGMENT    SHOWS             21/40|
  [ ] load       load 0.42       right   |
  [x] clock      12:04           right   |
+ [x] helpers    no value        right   |
  [x] s0         0.42            left    |
  [ ] s1         0.42            right   |
  [x] s2         0.42            left    |
@@ -11,6 +12,5 @@ Status line                             |
  [ ] s5         0.42            right   |
  [x] s6         0.42            left    |
  [ ] s7         0.42            right   |
- [x] s8         0.42            left    |
 presets  minimal  default  ops|
 space toggle · s save · esc back|

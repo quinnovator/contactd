@@ -1853,7 +1853,7 @@ func TestStatusAndReloadWithMods(t *testing.T) {
 	if host.loads != loads+1 {
 		t.Errorf("/reload had the host load %d times", host.loads-loads)
 	}
-	if want := "read chat.toml again; glyph overrides: 0; read statusline.toml again; segments on: 9; mods on: 4"; r.note() != want {
+	if want := "read chat.toml again; glyph overrides: 0; read statusline.toml again; segments on: 10; mods on: 4"; r.note() != want {
 		t.Errorf("/reload says\n%q, want\n%q", r.note(), want)
 	}
 	if _, ok := r.m.cmds.Lookup("standup"); !ok {

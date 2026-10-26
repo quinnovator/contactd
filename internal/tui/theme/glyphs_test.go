@@ -27,6 +27,7 @@ func glyphFields(g theme.Glyphs) map[string]string {
 // then in the ASCII set.
 func glyphCells() map[string][2]int {
 	return map[string][2]int{
+		"Wire":   {1, 2},
 		"Prompt": {1, 1}, "Task": {1, 2}, "Tool": {1, 1}, "Elbow": {1, 2},
 		"Stopped": {1, 2}, "Notice": {1, 1}, "Fail": {1, 1}, "Pointer": {1, 1}, "Dot": {1, 1},
 		"Sep": {1, 1}, "HRule": {1, 1}, "Ellipsis": {1, 3}, "Mid": {1, 1}, "Bullet": {1, 1},
@@ -40,6 +41,7 @@ func glyphCells() map[string][2]int {
 func TestGlyphTable(t *testing.T) {
 	t.Parallel()
 	want := map[string][2]string{
+		"Wire":   {"⇄", "<>"},
 		"Prompt": {"❯", ">"}, "Task": {"⇢", "->"}, "Tool": {"⏺", "*"}, "Elbow": {"⎿", "|_"},
 		"Stopped": {"⏹", "--"}, "Notice": {"◆", "+"}, "Fail": {"✗", "x"}, "Pointer": {"▸", ">"},
 		"Dot": {"●", "*"}, "Sep": {"│", "|"}, "HRule": {"─", "-"}, "Ellipsis": {"…", "..."},

@@ -15,6 +15,7 @@ Status line                                  ~/.config/contactd/statusline.toml|
  [ ] load       load 0.42           right  shell        |
  [x] branch     ⎇ main              right  mod git      |
  [x] clock      12:04               right  core         |
+ [x] helpers    no value            right  core         |
 |
  cache|
  format      "cache $pct%"|
@@ -25,6 +26,5 @@ Status line                                  ~/.config/contactd/statusline.toml|
 |
 PREVIEW|
  ● live │ ada │ deepseek-flash │ cache 82% │ 7.2s               ⎇ main │ 12:04 |
-|
 presets  minimal  default  ops|
 space toggle · ←→ side · J K reorder · e edit · p preset · s save · esc back|

@@ -116,6 +116,7 @@ type RenderSource interface {
 
 // Options are what a Renderer is made from.
 type Options struct {
+	Contact string
 	// Theme is the look. Nil is the safest one: ASCII and no colour.
 	Theme *theme.Theme
 	// Width is the cells in a row, at least 1.

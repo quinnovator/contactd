@@ -56,10 +56,20 @@ func (r *Renderer) Item(it *transcript.Item) []string {
 			out = append(out, strings.Repeat(" ", indent)+r.tone(toneDim, r.th.G.Stopped+" interrupted"))
 		}
 	case transcript.ToolCall:
-		out = r.call(it)
+		if rows, ok := r.helperCall(it); ok {
+			out = rows
+		} else {
+			out = r.call(it)
+		}
 	case transcript.ToolResult:
-		out = r.result(it)
+		if it.Tool != "stay_quiet" {
+			out = r.result(it)
+		}
 	case transcript.Notice:
+		if it.Source == "helper-update" {
+			out = r.helperNotice(it)
+			break
+		}
 		out = r.marked(r.th.G.Notice, r.th.Style(toneWarn), trimText(r.clean(it.Text)))
 	case transcript.Checkpoint:
 		out = []string{r.th.Rule(r.w, "earlier conversation folded into a summary")}
@@ -164,6 +174,9 @@ func (r *Renderer) modded(ref RenderRef, name string, width int) ([]wire.Line, b
 
 // toolName is a tool's name as it is shown.
 func (r *Renderer) toolName(name string) string {
+	if method := a2aMethod(name); method != "" {
+		return "A2A " + method
+	}
 	if name = r.name(name); name != "" {
 		return name
 	}

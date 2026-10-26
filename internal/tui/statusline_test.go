@@ -460,7 +460,7 @@ func TestTheStatusLineEditor(t *testing.T) {
 			}
 			return out
 		}
-		want := []string{"state", "contact", "route", "cache", "tokens", "latency", "activity", "stop", "scroll", "clock"}
+		want := []string{"state", "contact", "route", "cache", "tokens", "latency", "activity", "stop", "scroll", "clock", "helpers"}
 		if !slices.Equal(on(cfg), want) {
 			t.Errorf("the file has %q switched on, want %q", on(cfg), want)
 		}
@@ -769,7 +769,7 @@ func TestReloadReadsTheStatusLine(t *testing.T) {
 
 	// No file: the default, and nothing is wrong.
 	r.then(r.command("/reload"))
-	r.wantOnScreen("read chat.toml again; glyph overrides: 0; read statusline.toml again; segments on: 9")
+	r.wantOnScreen("read chat.toml again; glyph overrides: 0; read statusline.toml again; segments on: 10")
 	if r.m.chat.noteTone != toneDone {
 		t.Errorf("the note is in the tone %q", r.m.chat.noteTone)
 	}

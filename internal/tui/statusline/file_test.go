@@ -314,8 +314,8 @@ func TestParseManySegments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if n := len(got.Segments); n != statusline.MaxSegments+11 {
-		t.Errorf("%d segments, want %d", n, statusline.MaxSegments+11)
+	if n := len(got.Segments); n != statusline.MaxSegments+12 {
+		t.Errorf("%d segments, want %d", n, statusline.MaxSegments+12)
 	}
 	if s := got.Segments[statusline.MaxSegments]; s.ID() != "core:clock" || !s.On {
 		t.Errorf("after the shell segments comes %+v, want the clock the file lists", s)
@@ -473,8 +473,8 @@ func TestEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the encoded file does not parse: %v", err)
 	}
-	if n := len(doc.Named("segment")); n != 12 {
-		t.Errorf("%d [[segment]] tables, want 12", n)
+	if n := len(doc.Named("segment")); n != 13 {
+		t.Errorf("%d [[segment]] tables, want 13", n)
 	}
 	if got := (statusline.Config{}).Encode(); !bytes.HasPrefix(got, []byte("# ")) {
 		t.Errorf("an empty config encodes to %q", got)

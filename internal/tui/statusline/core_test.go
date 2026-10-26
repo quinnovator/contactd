@@ -57,17 +57,17 @@ func TestPresets(t *testing.T) {
 		{
 			"default",
 			[]string{"state", "route", "cache", "tokens", "latency"},
-			[]string{"activity", "stop", "scroll", "clock"},
+			[]string{"activity", "stop", "scroll", "clock", "helpers"},
 		},
 		{
 			"ops",
 			[]string{"state", "contact", "route", "cache", "tokens", "latency"},
-			[]string{"activity", "stop", "scroll", "agents", "clock"},
+			[]string{"activity", "stop", "scroll", "agents", "clock", "helpers"},
 		},
 	}
 	listed := []string{
 		"core:state", "core:contact", "core:route", "core:cache", "core:tokens", "core:latency",
-		"core:activity", "core:stop", "core:scroll", "core:agents", "shell:load", "core:clock",
+		"core:activity", "core:stop", "core:scroll", "core:agents", "shell:load", "core:clock", "core:helpers",
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -445,7 +445,7 @@ func TestWithMods(t *testing.T) {
 		want := []string{
 			"core:state", "core:contact", "core:route", "core:cache", "core:tokens", "core:latency",
 			"core:activity", "core:stop", "core:scroll", "core:agents", "shell:load",
-			"mod:git/branch", "mod:cache/cache", "core:clock",
+			"mod:git/branch", "mod:cache/cache", "core:clock", "core:helpers",
 		}
 		if !slices.Equal(ids(got), want) {
 			t.Errorf("the segments are %q, want %q", ids(got), want)
