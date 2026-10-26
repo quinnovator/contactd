@@ -2,6 +2,7 @@ package turn
 
 import (
 	"context"
+	"time"
 
 	"github.com/quinnovator/contactd/internal/core"
 	"github.com/quinnovator/contactd/internal/llm"
@@ -83,3 +84,41 @@ type ExecResult struct {
 	// opened or an instance is restarted, and leave it empty otherwise.
 	Note string
 }
+
+// Helpers starts and steers helpers on behalf of a contact.
+type Helpers interface {
+	Start(ctx context.Context, parent core.ContactID, req HelperStart) (HelperInfo, error)
+	Message(ctx context.Context, parent core.ContactID, handle uint64, text string) (HelperInfo, error)
+	Stop(ctx context.Context, parent core.ContactID, handle uint64) (HelperInfo, error)
+	List(ctx context.Context, parent core.ContactID) ([]HelperInfo, error)
+}
+
+// HelperStart describes one standing job.
+type (
+	HelperStart struct {
+		Title, Brief string
+		Every, For   time.Duration
+	}
+	// HelperInfo is the model's view of a helper.
+	HelperInfo struct {
+		Handle               uint64
+		Title, TaskID, State string
+		Every                time.Duration
+		Until, NextCheck     time.Time
+		Checks, Reports      int
+		Message              string
+	}
+)
+
+// Fetcher reads a web page as text.
+type (
+	Fetcher interface {
+		Fetch(ctx context.Context, url string) (Page, error)
+	}
+	// Page is the bounded text of a fetched resource.
+	Page struct {
+		URL               string
+		Status            int
+		Type, Title, Text string
+	}
+)

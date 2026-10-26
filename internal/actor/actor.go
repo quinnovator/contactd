@@ -1,6 +1,7 @@
 package actor
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -75,7 +76,7 @@ type actor struct {
 	// Delegation. notices are settlements waiting for the turn in flight to
 	// end, so that each lands in the log after the reply it did not
 	// interrupt. forkBase and taskOpen are set on a sub-agent.
-	notices  []core.NoticeBody
+	notices  []pendingNotice
 	forkBase *plan.PromptPlan
 	taskOpen bool
 	// kids are the sub-agents this contact's log shows as started and not
@@ -166,13 +167,34 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		a.interrupt(ctx)
 		a.flushNotices(ctx)
 		a.beginVisit(ctx, c.Visit, time.Now())
-		ev := a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text}, c.Ack)
+		ev := a.append(ctx, core.KindUserMsg, core.MsgBody{Text: c.Text, Raw: c.Raw, MessageID: c.MessageID}, c.Ack)
 		// Every stream sees the message, not only the connection that sent
 		// it: a contact may be open in more than one place.
 		a.broadcast(core.Delta{Type: core.DeltaUser, Text: c.Text, Seq: ev.Seq})
 		a.pendingBytes += len(c.Text)
 		a.wantTurn = true
 		a.armDebounce()
+	case Check:
+		if a.turn != nil || a.debounceArmed {
+			c.Ack <- Ack{Err: core.ErrBusy}
+			break
+		}
+		a.touch()
+		ev := a.append(ctx, core.KindNotice, core.NoticeBody{Source: "helper-check", Text: c.Text}, c.Ack)
+		a.broadcast(core.Delta{Type: core.DeltaNotice, Text: c.Text, Seq: ev.Seq})
+		a.wantTurn = true
+		a.startTurn(ctx)
+	case HelperNotice:
+		a.touch()
+		a.notices = append(a.notices, pendingNotice{body: c.Notice, ack: c.Ack})
+		if a.turn == nil {
+			a.flushNotices(ctx)
+			if !a.debounceArmed {
+				a.startTurn(ctx)
+			}
+		}
+	case observe:
+		a.broadcast(c.d)
 	case Typing:
 		a.touch()
 		if a.wantTurn {
@@ -181,7 +203,7 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 	case Interrupt:
 		// Stopping a reply is something a contact's human does. A sub-agent
 		// has a task to settle, and is left to finish it.
-		if a.contact.Agent.Parent == 0 {
+		if !a.contact.Agent.Unattended() {
 			a.touch()
 			a.interrupt(ctx)
 		}
@@ -219,7 +241,14 @@ func (a *actor) handle(ctx context.Context, c Cmd) (retired bool) {
 		// this is logged after the call and waits for the tool to finish.
 		t.partial.Reset() // the text before the call is part of the call event
 		ev := a.append(ctx, core.KindToolCall, c.call, nil)
-		a.broadcast(core.Delta{Type: core.DeltaToolCall, Turn: c.id, Tool: c.call.Name, Text: c.call.Code, Seq: ev.Seq})
+		text := c.call.Code
+		if text == "" && len(c.call.Args) > 0 {
+			var buf bytes.Buffer
+			if json.Compact(&buf, c.call.Args) == nil {
+				text = buf.String()
+			}
+		}
+		a.broadcast(core.Delta{Type: core.DeltaToolCall, Turn: c.id, Tool: c.call.Name, Text: text, Seq: ev.Seq})
 		c.ack <- nil
 	case turnToolResult:
 		t := a.turn
@@ -437,10 +466,20 @@ func (a *actor) failHydration(ctx context.Context, err error) {
 // closed when closeSubs is set and otherwise kept, to be parked for the
 // contact's next actor.
 func (a *actor) drainInbox(ctx context.Context, err error, closeSubs bool) {
+	for _, n := range a.notices {
+		if n.ack != nil {
+			n.ack <- Ack{Err: err}
+		}
+	}
+	a.notices = nil
 	for {
 		select {
 		case c := <-a.inbox:
 			switch c := c.(type) {
+			case Check:
+				c.Ack <- Ack{Err: err}
+			case HelperNotice:
+				c.Ack <- Ack{Err: err}
 			case Inbound:
 				c.Ack <- Ack{Err: err}
 			case subscribe:
@@ -660,6 +699,7 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 		}
 		a.broadcast(core.Delta{Type: core.DeltaError, Turn: c.id, Text: failureReason(c.err)})
 		a.settle(ctx, &c.res, c.err)
+		a.helperOutcome(ctx, HelperOutcome{Kind: OutcomeFailed, Text: failureReason(c.err)})
 	default:
 		res := c.res
 		switch {
@@ -677,8 +717,21 @@ func (a *actor) onTurnDone(ctx context.Context, c turnDone) {
 		if res.Final != "" {
 			// The reasoning behind the reply is stored only where the route
 			// must be given it back; the turn decided that.
-			ev := a.append(ctx, core.KindAgentMsg, core.MsgBody{Text: res.Final, Reasoning: res.Reasoning}, nil)
+			ev := a.appendHelperReply(ctx, res)
 			a.broadcast(core.Delta{Type: core.DeltaMessage, Turn: c.id, Text: res.Final, Seq: ev.Seq})
+		}
+		if !res.Replan && res.Final == "" {
+			o := HelperOutcome{Kind: OutcomeQuiet, Text: res.End.Text}
+			switch {
+			case res.StepLimit:
+				o.Kind = OutcomeFailed
+				o.Text = "step_limit"
+			case res.End.Tool == turn.AskRequesterTool:
+				o.Kind = OutcomeAsked
+			case res.End.Tool == turn.FinishTool:
+				o.Kind = OutcomeFinished
+			}
+			a.helperOutcome(ctx, o)
 		}
 		a.lastPlan = res.Plan
 		a.trimTail(res.Plan)

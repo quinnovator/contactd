@@ -62,19 +62,7 @@ func (r *Registry) Message(ctx context.Context, id core.ContactID, text string, 
 	if err := visit.Validate(); err != nil {
 		return 0, fmt.Errorf("validate visit: %w", err)
 	}
-	ack := make(chan Ack, 1)
-	if err := r.Send(ctx, id, Inbound{Text: text, Visit: visit, Ack: ack}); err != nil {
-		return 0, err
-	}
-	select {
-	case a := <-ack:
-		if a.Err != nil {
-			return 0, fmt.Errorf("append message: %w", a.Err)
-		}
-		return a.Seq, nil
-	case <-ctx.Done():
-		return 0, fmt.Errorf("wait for durable ack: %w", ctx.Err())
-	}
+	return r.message(ctx, id, Inbound{Text: text, Visit: visit})
 }
 
 // Typing forwards a typing indicator. It never wakes a hibernated contact:

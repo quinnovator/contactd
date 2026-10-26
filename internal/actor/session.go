@@ -12,7 +12,7 @@ import (
 // beginVisit runs only for an accepted human message, after interrupted replies
 // and settlements have been logged. Opening a connection alone changes nothing.
 func (a *actor) beginVisit(ctx context.Context, v core.Visit, now time.Time) {
-	if a.contact.Agent.Parent != 0 {
+	if a.contact.Agent.Unattended() {
 		return
 	}
 	if v.TimeZone != "" {

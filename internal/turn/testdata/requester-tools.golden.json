@@ -1,0 +1,113 @@
+[
+  {
+    "name": "start_helper",
+    "description": "Start a helper: a background agent that checks something on a schedule and reports only what changed. Returns at once with the helper's number. Its reports arrive later as notices; you never need to poll it.",
+    "env": {
+      "tier": 0,
+      "base": ""
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "A short name for what the helper watches, shown to the person. At most 60 characters."
+        },
+        "brief": {
+          "type": "string",
+          "description": "Everything the helper needs: what to watch, where (URLs), what counts as worth reporting, and when to stop early. It cannot talk to the person; it can ask you."
+        },
+        "every": {
+          "type": "string",
+          "description": "How often to check, as a duration such as 5m or 1h. At least 1m. Default 15m."
+        },
+        "duration": {
+          "type": "string",
+          "description": "How long to keep watching, such as 2h or 72h. At most 168h. Default 24h."
+        }
+      },
+      "required": [
+        "title",
+        "brief"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "message_helper",
+    "description": "Send a message to one of your helpers, for example to answer its question.",
+    "env": {
+      "tier": 0,
+      "base": ""
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "helper": {
+          "type": "integer",
+          "description": "The helper's number."
+        },
+        "text": {
+          "type": "string",
+          "description": "What to tell it: an answer to its question, or a change to its brief."
+        }
+      },
+      "required": [
+        "helper",
+        "text"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "stop_helper",
+    "description": "Stop one of your helpers. It will not check again.",
+    "env": {
+      "tier": 0,
+      "base": ""
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "helper": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "helper"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_helpers",
+    "description": "List your helpers with their state, schedule and number of reports.",
+    "env": {
+      "tier": 0,
+      "base": ""
+    },
+    "input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "stay_quiet",
+    "description": "End this turn without saying anything to the person. Use it when a notice, such as a helper's routine report, needs no reply.",
+    "env": {
+      "tier": 0,
+      "base": ""
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Why nothing needs saying. Not shown to the person."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+]

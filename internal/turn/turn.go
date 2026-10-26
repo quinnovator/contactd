@@ -61,6 +61,8 @@ type Deps struct {
 	Models Models
 	// Delegate starts sub-agents; nil disables the delegate tool.
 	Delegate Delegator
+	Helpers  Helpers
+	Fetch    Fetcher
 	Logger   *slog.Logger
 	// Diagnostics enables bounded, in-memory prompt inspection. Nil disables it.
 	Diagnostics *diagnostic.Bus
@@ -122,6 +124,7 @@ type Input struct {
 
 // Result is what a finished turn hands to commitTurn.
 type Result struct {
+	End   Ending
 	Final string // the reply, when the model finished one
 	// Reasoning is the payload that belongs to Final. It is set only on a
 	// route that must be given it back on later turns.
@@ -193,6 +196,7 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 	res := Result{Route: route, Params: pr}
 	in.configuredAgent = in.Agent
 	in.Agent = withDelegate(in.Agent, d.Delegate != nil)
+	in.Agent = withHelperTools(in.Agent, d)
 	in.route = route
 	if p, ok := d.Models.(llm.ToolProvider); ok {
 		in.Agent, in.nativeTools = withProviderTools(in.Agent, p.Tools(route))
@@ -274,6 +278,7 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 		// several. They run one at a time, in order, each logged with its
 		// result before the next starts, so an interruption takes effect
 		// between calls and never in the middle of one.
+		var ending Ending
 		for i := range out.ToolCalls {
 			call := out.ToolCalls[i]
 			call.Route = route.ID()
@@ -309,10 +314,19 @@ func Run(ctx context.Context, in Input, d *Deps) (Result, error) {
 				return res, fmt.Errorf("record tool result: %w", err)
 			}
 			p.AppendTail(call, result) // append-only, cache-safe
+			if !result.IsError {
+				if e := toolEnding(call); e.Tool != "" {
+					ending = e
+				}
+			}
 			if replan {
 				res.Replan = true
 				return res, nil
 			}
+		}
+		if ending.Tool != "" {
+			res.End = ending
+			return res, nil
 		}
 	}
 	res.StepLimit = true
@@ -560,6 +574,8 @@ func (d *Deps) runTool(ctx context.Context, log *slog.Logger, in Input, p *plan.
 		return core.ToolResult{ID: call.ID, Output: "unknown tool: " + call.Name, IsError: true}
 	case def.Name == DelegateTool && len(def.Input) > 0:
 		return d.delegate(ctx, in, p, call)
+	case isHelperTool(def.Name) && len(def.Input) > 0:
+		return d.helperTool(ctx, in, call)
 	case len(def.Input) > 0:
 		// Only REPL tools, which take code, have somewhere to run.
 		return core.ToolResult{ID: call.ID, Output: "this tool has no runtime on this deployment", IsError: true}

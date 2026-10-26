@@ -243,7 +243,7 @@ func (a *actor) onSettled(ctx context.Context, c settled) {
 		}
 	}
 	a.touch()
-	a.notices = append(a.notices, c.notice)
+	a.notices = append(a.notices, pendingNotice{body: c.notice})
 	if a.turn != nil {
 		return
 	}
@@ -260,8 +260,12 @@ func (a *actor) flushNotices(ctx context.Context) {
 		return
 	}
 	for _, n := range a.notices {
-		ev := a.append(ctx, core.KindNotice, n, nil)
-		a.broadcast(core.Delta{Type: core.DeltaNotice, Text: n.Text, Seq: ev.Seq})
+		ev := a.append(ctx, core.KindNotice, n.body, n.ack)
+		d := core.Delta{Type: core.DeltaNotice, Text: n.body.Text, Seq: ev.Seq}
+		if n.body.Helper != 0 {
+			d.Helper = &core.HelperDelta{Handle: n.body.Helper, Event: "notice"}
+		}
+		a.broadcast(d)
 	}
 	a.notices = nil
 	a.wantTurn = true
