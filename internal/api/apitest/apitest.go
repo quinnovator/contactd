@@ -18,11 +18,14 @@ import (
 	"github.com/quinnovator/contactd/internal/api"
 	"github.com/quinnovator/contactd/internal/env/workdir"
 	"github.com/quinnovator/contactd/internal/eventlog"
+	"github.com/quinnovator/contactd/internal/fetch"
+	"github.com/quinnovator/contactd/internal/helpers"
 	fakeinfer "github.com/quinnovator/contactd/internal/infer/fake"
 	fakellm "github.com/quinnovator/contactd/internal/llm/fake"
 	"github.com/quinnovator/contactd/internal/obs"
 	"github.com/quinnovator/contactd/internal/plan"
 	"github.com/quinnovator/contactd/internal/recall"
+	"github.com/quinnovator/contactd/internal/requester"
 	"github.com/quinnovator/contactd/internal/turn"
 )
 
@@ -35,7 +38,11 @@ type Options struct {
 	// FSRoot, when set, is a directory the server serves contacts' files
 	// from: contact 7's are under FSRoot/7. It must exist. No tool runs
 	// here, so a test writes the files itself.
-	FSRoot string
+	FSRoot     string
+	Helpers    *helpers.Config
+	FetchAllow []string
+	Database   string
+	Address    string
 }
 
 // Server is a running API.
@@ -47,7 +54,11 @@ type Server struct {
 	Store  *eventlog.Store
 
 	conns *tracker
+	stop  func()
 }
+
+// Close stops this server, allowing a test to reopen its database.
+func (s *Server) Close() { s.stop() }
 
 // DropConnections cuts every open connection on the TCP address, WebSockets
 // included, as a network failure would. The server keeps running.
@@ -104,7 +115,11 @@ func (rerank) Score(_ context.Context, q string, ps []string) ([]float32, error)
 // Start runs a server until the test ends.
 func Start(tb testing.TB, opt Options) *Server {
 	tb.Helper()
-	store, err := eventlog.Open(tb.Context(), filepath.Join(tb.TempDir(), "contacts.db"), eventlog.Options{})
+	db := opt.Database
+	if db == "" {
+		db = filepath.Join(tb.TempDir(), "contacts.db")
+	}
+	store, err := eventlog.Open(tb.Context(), db, eventlog.Options{})
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -122,13 +137,11 @@ func Start(tb testing.TB, opt Options) *Server {
 		opt.Actor(&cfg)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	td := &turn.Deps{Embed: embed{}, Rerank: rerank{}, Log: store, Models: models, Logger: obs.Discard(), Recall: cfg.Recall, Plan: plan.DefaultParams(), MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128}
 	reg := actor.New(ctx, actor.Deps{
 		Log: store, Create: store, Hydrate: store, Repair: store, Embed: embed{}, Snapshots: store,
 		Summarize: &turn.ModelSummarizer{Models: models},
-		Turn: &turn.Deps{
-			Embed: embed{}, Rerank: rerank{}, Log: store, Models: models, Logger: obs.Discard(),
-			Recall: cfg.Recall, Plan: plan.DefaultParams(), MaxToolSteps: 4, MaxToolOutput: 4096, QueryTokens: 128,
-		},
+		Turn:      td,
 	}, cfg, obs.Discard())
 
 	server := api.New(store, reg, models, obs.Discard())
@@ -141,8 +154,40 @@ func Start(tb testing.TB, opt Options) *Server {
 		server.WithFiles(dirs)
 		closeFiles = func() { _ = dirs.Close() } // read-only; nothing to lose
 	}
+	tcp := httptest.NewUnstartedServer(nil)
+	if opt.Address != "" {
+		_ = tcp.Listener.Close()
+		listener, err := (&net.ListenConfig{}).Listen(tb.Context(), "tcp", opt.Address)
+		if err != nil {
+			tb.Fatal(err)
+		}
+		tcp.Listener = listener
+	}
+	stopHelpers := func() {}
+	if opt.Helpers != nil {
+		hc := *opt.Helpers
+		hc.BaseURL = "http://" + tcp.Listener.Addr().String()
+		hc.PushAllow = []string{tcp.Listener.Addr().String()}
+		svc := helpers.New(helpers.Deps{Contacts: reg, Creator: store, Events: store, Store: store}, hc, obs.Discard())
+		reg.SetHelperHook(svc)
+		req := requester.New(store, reg, requester.Config{AgentURL: hc.BaseURL, BaseURL: hc.BaseURL, Token: hc.Token}, obs.Discard())
+		td.Helpers = req
+		td.Fetch = fetch.New(fetch.Config{Allow: opt.FetchAllow})
+		h, err := svc.HTTPHandler()
+		if err != nil {
+			tb.Fatal(err)
+		}
+		mux := http.NewServeMux()
+		mux.Handle("/", h)
+		mux.Handle("POST /a2a/push", req.Webhook())
+		server.WithA2A(mux).WithHelpers(req)
+		hctx, hcancel := context.WithCancel(ctx)
+		done := make(chan struct{})
+		go func() { svc.Run(hctx); close(done) }()
+		stopHelpers = func() { hcancel(); <-done }
+	}
 	handler := server.Handler()
-	tcp := httptest.NewUnstartedServer(handler)
+	tcp.Config.Handler = handler
 	conns := &tracker{Listener: tcp.Listener}
 	tcp.Listener = conns
 	tcp.Start()
@@ -161,8 +206,9 @@ func Start(tb testing.TB, opt Options) *Server {
 	unix := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = unix.Serve(local) }() // ends when the test closes it
 
-	tb.Cleanup(func() {
+	stop := sync.OnceFunc(func() {
 		reg.Shutdown(ctx)
+		stopHelpers()
 		tcp.Close()
 		_ = unix.Close()
 		closeFiles()
@@ -174,5 +220,6 @@ func Start(tb testing.TB, opt Options) *Server {
 			tb.Errorf("close store: %v", err)
 		}
 	})
-	return &Server{URL: tcp.URL, Socket: socket, Store: store, conns: conns}
+	tb.Cleanup(stop)
+	return &Server{URL: tcp.URL, Socket: socket, Store: store, conns: conns, stop: stop}
 }

@@ -61,10 +61,12 @@ const (
 // message wins. A rule with Tool set makes the model call that tool with
 // Code; both may reference capture groups as $1, $2.
 type Rule struct {
-	Match *regexp.Regexp
-	Reply string
-	Tool  string
-	Code  string
+	// ToolResult also matches this rule against tool output, before the default reply.
+	ToolResult bool
+	Match      *regexp.Regexp
+	Reply      string
+	Tool       string
+	Code       string
 	// Calls is how many times the tool is called in the one step; 0 means
 	// once.
 	Calls int
@@ -218,10 +220,7 @@ func (m *Model) charge(marks []plan.Mark, now time.Time) (total, cached int) {
 // decide picks the scripted reaction to the latest thing in the prompt.
 func (m *Model) decide(msgs []core.Message, tools []core.ToolDef) Response {
 	last, isResult := latest(msgs)
-	if isResult {
-		line, _, _ := strings.Cut(strings.TrimSpace(last), "\n")
-		return Response{Text: "The result is: " + line}
-	}
+
 	switch {
 	case strings.HasPrefix(last, TranscriptTag):
 		return Response{Text: Summary(strings.TrimPrefix(last, TranscriptTag))}
@@ -229,6 +228,9 @@ func (m *Model) decide(msgs []core.Message, tools []core.ToolDef) Response {
 		return Response{Text: digest(msgs)}
 	}
 	for _, rule := range m.opt.Rules {
+		if isResult && !rule.ToolResult {
+			continue
+		}
 		groups := rule.Match.FindStringSubmatchIndex(last)
 		if groups == nil {
 			continue
@@ -244,6 +246,10 @@ func (m *Model) decide(msgs []core.Message, tools []core.ToolDef) Response {
 			return m.calling(expand(rule.Reply), last, calls...)
 		}
 		return Response{Text: expand(rule.Reply)}
+	}
+	if isResult {
+		line, _, _ := strings.Cut(strings.TrimSpace(last), "\n")
+		return Response{Text: "The result is: " + line}
 	}
 	// Built-in convention: "!name code" calls the tool with that name, and
 	// " ;; " separates several calls made in one step.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"slices"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/quinnovator/contactd/internal/eventlog"
 	"github.com/quinnovator/contactd/internal/fetch"
 	"github.com/quinnovator/contactd/internal/helpers"
+	"github.com/quinnovator/contactd/internal/requester"
 	"github.com/quinnovator/contactd/internal/turn"
 )
 
@@ -67,7 +69,19 @@ func wireHelpers(ctx context.Context, cfg *config.Config, store *eventlog.Store,
 	if err != nil {
 		return nil, fmt.Errorf("configure helper agent: %w", err)
 	}
-	server.WithA2A(handler)
+	agentURL, agentToken := cfg.HelperAgentURL, cfg.HelperAgentToken
+	if agentURL == "" {
+		agentURL = hc.BaseURL
+	}
+	if agentToken == "" {
+		agentToken = token
+	}
+	req := requester.New(store, registry, requester.Config{AgentURL: agentURL, Token: agentToken, BaseURL: hc.BaseURL, PerContact: cfg.HelpersPerContact}, log)
+	td.Helpers = req
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+	mux.Handle("POST /a2a/push", req.Webhook())
+	server.WithA2A(mux).WithHelpers(req)
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() { svc.Run(runCtx); close(done) }()
