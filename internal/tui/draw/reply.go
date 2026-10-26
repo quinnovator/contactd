@@ -446,6 +446,10 @@ func (r *Renderer) image(ref ImageRef) []string {
 	if r.o.Images != nil {
 		s = r.o.Images.Image(ref, r.cols, r.rows)
 	}
+	return r.imageShown(ref, s)
+}
+
+func (r *Renderer) imageShown(ref ImageRef, s Shown) []string {
 	pad := strings.Repeat(" ", indent)
 	if len(s.Rows) > 0 {
 		out := make([]string, 0, len(s.Rows)+1)

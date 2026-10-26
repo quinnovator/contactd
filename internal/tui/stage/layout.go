@@ -10,8 +10,8 @@ import (
 type Anchor uint8
 
 const (
-	// Auto is where there is room: beside the avatar on a wide stage, and
-	// over it on a narrow one.
+	// Auto chooses columns, stacks or a grid from the content dimensions
+	// and the available stage space.
 	Auto Anchor = iota
 	TopLeft
 	Top
@@ -127,9 +127,6 @@ const (
 	// are left beside or under an exhibit.
 	minBlockCols = 26
 	minBlockRows = 7
-	// wideFrom is the width from which an exhibit with no place of its own
-	// stands beside the avatar.
-	wideFrom = 72
 	// cardMargin is the cells kept clear between an exhibit and the edge of
 	// the stage it stands at.
 	cardMargin = 2
@@ -155,6 +152,8 @@ type card struct {
 	rows       []string
 	cols, most int
 	drawn      bool
+	clipped    bool
+	sample     Size
 	// on says the card has a place in the plan: x and y, w cells wide and h
 	// of its rows high.
 	on         bool
@@ -170,6 +169,9 @@ type plan struct {
 	// stand between the two, the first of them on the row belowY.
 	block, face, text rect
 	below, belowY     int
+	overflow          string
+	a2a               rect
+	peers             []peerPlace
 }
 
 // block is how the avatar and its words share a box.
@@ -192,7 +194,7 @@ func share(w, h, below int) block {
 		b.top = (h - b.textH) / 2
 		return b
 	}
-	b.rows = min(max(room-6, room*2/3, minFaceRows), maxFaceRows)
+	b.rows = min(max(room-maxTextRows, room*2/3, minFaceRows), maxFaceRows)
 	// The picture is a little wider than it is tall, and a cell twice as
 	// tall as it is wide. A box too narrow for that has a smaller avatar.
 	half := min(b.rows*5/4, w/2)
@@ -216,106 +218,27 @@ func (s *Stage) arrange() {
 	}
 	p.below = min(len(s.below), max(area.h-1, 0))
 
-	p.block = s.place(area)
-	b := share(p.block.w, p.block.h, p.below)
-	p.belowY = p.block.y + b.top
+	p.block, p.overflow = s.compose(area)
+	body := p.block
+	if len(s.peers) > 0 && body.h >= 3 {
+		p.a2a = rect{body.x, body.y, body.w, 1}
+		body.y++
+		body.h--
+	}
+	b := share(body.w, body.h, p.below)
+	p.belowY = body.y + b.top
 	if b.rows > 0 {
-		p.face = rect{x: p.block.x + (p.block.w-b.cols)/2, y: p.block.y + b.top, w: b.cols, h: b.rows}
-		s.canvas = canvas.New(b.cols, b.rows, s.grid)
+		p.face = rect{x: body.x + (body.w-b.cols)/2, y: body.y + b.top, w: b.cols, h: b.rows}
 		p.belowY = p.face.y + b.rows + gap
+		s.placePeers(&p)
+		s.canvas = canvas.New(p.face.w, p.face.h, s.grid)
 	}
 	p.text = rect{x: p.block.x + max(p.block.w-b.textW, 0)/2, y: p.belowY + p.below, w: b.textW, h: b.textH}
 	s.plan = p
 	s.glance()
 }
 
-// place gives every card its place in the area, and returns the room that
-// is left for the avatar and its words: the best of the four strips around
-// the cards. A card that stands where a later one does is taken down, and
-// so is the oldest, for as long as no strip is left to read the words in.
-func (s *Stage) place(area rect) rect {
-	for _, c := range s.cards {
-		c.on = false
-	}
-	// A stage with no room to spare shows nothing but the avatar's words.
-	if area.h < minBlockRows+1 || area.w < minStripCols {
-		return area
-	}
-	var placed []*card
-	for _, c := range s.cards {
-		if !s.fit(c, area) {
-			continue
-		}
-		kept := placed[:0]
-		for _, o := range placed {
-			if !o.box().meets(c.box()) {
-				kept = append(kept, o)
-			}
-		}
-		placed = append(kept, c)
-	}
-	for {
-		if len(placed) == 0 {
-			return area
-		}
-		if strip, ok := best(area, placed); ok {
-			for _, c := range placed {
-				c.on = true
-			}
-			return strip
-		}
-		placed = placed[1:]
-	}
-}
-
 func (c *card) box() rect { return rect{c.x, c.y, c.w, c.h} }
-
-// fit draws a card for the area and stands it at its anchor. It reports
-// false for a card that has nothing to show.
-func (s *Stage) fit(c *card, area rect) bool {
-	where := c.ex.Where
-	if where == Auto {
-		where = Top
-		if area.w >= wideFrom {
-			where = Right
-		}
-	}
-	// Beside the avatar a card may be as tall as the stage. One that leaves
-	// no room beside it stands over or under the avatar, and is cut to
-	// leave the avatar its rows.
-	cols, most := area.w, area.h
-	if where.across() != 0 && area.w >= minBlockCols+minStripCols {
-		cols = area.w - minBlockCols - cardMargin
-	}
-	s.draw(c, cols, most)
-	if c.w == 0 {
-		return false
-	}
-	if area.w-c.w-cardMargin < minBlockCols {
-		s.draw(c, cols, area.h-minBlockRows)
-	}
-	c.h = min(len(c.rows), c.most)
-	if c.w == 0 || c.h == 0 {
-		return false
-	}
-	switch where.across() {
-	case -1:
-		c.x = area.x + min(cardMargin, area.w-c.w)
-	case 1:
-		c.x = area.x + max(area.w-c.w-cardMargin, 0)
-	default:
-		c.x = area.x + (area.w-c.w)/2
-	}
-	switch where.down() {
-	case -1:
-		c.y = area.y
-	case 1:
-		c.y = area.y + area.h - c.h
-	default:
-		c.y = area.y + (area.h-c.h)/2
-	}
-	return true
-}
 
 // draw has a card's exhibit drawn for a box, unless what it drew for that
 // box is still good, and measures it.
@@ -325,6 +248,7 @@ func (s *Stage) draw(c *card, cols, most int) {
 		return
 	}
 	c.rows, c.cols, c.most, c.drawn, c.w = nil, cols, most, true, 0
+	c.clipped = false
 	if c.ex.Draw != nil && most > 0 {
 		c.rows = c.ex.Draw(cols, most)
 	}
@@ -336,35 +260,6 @@ func (s *Stage) draw(c *card, cols, most int) {
 		}
 		c.w = max(c.w, w)
 	}
-}
-
-// best is the strip around the cards that suits the avatar best: the one it
-// can be drawn largest in, and the roomiest among equals. ok is false when
-// none has room for the words.
-func best(area rect, cards []*card) (strip rect, ok bool) {
-	// The box that holds every card.
-	hold := cards[0].box()
-	for _, c := range cards[1:] {
-		b := c.box()
-		x, y := min(hold.x, b.x), min(hold.y, b.y)
-		hold = rect{x, y, max(hold.x+hold.w, b.x+b.w) - x, max(hold.y+hold.h, b.y+b.h) - y}
-	}
-	right, bottom := hold.x+hold.w, hold.y+hold.h
-	score := -1
-	for _, r := range [...]rect{
-		{area.x, area.y, hold.x - area.x, area.h},
-		{right, area.y, area.x + area.w - right, area.h},
-		{area.x, area.y, area.w, hold.y - area.y},
-		{area.x, bottom, area.w, area.y + area.h - bottom},
-	} {
-		if r.w < minStripCols || r.h < minStripRows {
-			continue
-		}
-		if n := share(r.w, r.h, 0).rows*1_000_000 + r.w*r.h; n > score {
-			strip, score, ok = r, n, true
-		}
-	}
-	return strip, ok
 }
 
 // glance has the avatar look at what was just put on the stage.

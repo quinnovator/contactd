@@ -49,13 +49,17 @@ func plain(s *Stage) []string {
 
 // box is an exhibit that draws a block of a mark, as large as it is let.
 func box(key string, at int, where Anchor, mark string, cols, rows int) Exhibit {
-	return Exhibit{Key: key, At: at, Where: where, Draw: func(maxCols, maxRows int) []string {
-		out := make([]string, min(rows, maxRows))
-		for i := range out {
-			out[i] = strings.Repeat(mark, min(cols, maxCols))
-		}
-		return out
-	}}
+	return Exhibit{
+		Key: key, At: at, Where: where, PreferredCols: cols * ansi.StringWidth(mark), MinCols: min(cols, 24),
+		Measure: func(maxCols, _ int) Size { return Size{min(maxCols, cols*ansi.StringWidth(mark)), rows} },
+		Draw: func(maxCols, maxRows int) []string {
+			out := make([]string, min(rows, maxRows))
+			for i := range out {
+				out[i] = strings.Repeat(mark, min(cols, maxCols))
+			}
+			return out
+		},
+	}
 }
 
 // find is where a mark first stands on the stage: its row and its column.
@@ -283,16 +287,15 @@ func TestAnExhibitStandsAtItsAnchorAndTheAvatarMakesRoom(t *testing.T) {
 		where    Anchor
 		row, col int
 	}{
-		{TopLeft, 1, 2},
-		{Top, 1, 40},
-		{TopRight, 1, 78},
-		{Left, 10, 2},
-		{Center, 10, 40},
-		{Right, 10, 78},
-		{BottomLeft, 19, 2},
-		{Bottom, 19, 40},
-		{BottomRight, 19, 78},
-		{Auto, 10, 78},
+		{TopLeft, 2, 2},
+		{Top, 2, 40},
+		{TopRight, 2, 78},
+		{Left, 9, 2},
+		{Center, 9, 40},
+		{Right, 9, 78},
+		{BottomLeft, 17, 2},
+		{Bottom, 17, 40},
+		{BottomRight, 17, 78},
 	} {
 		s := newStage(t, width, height, Options{})
 		s.SetAround("the line above", nil)
@@ -320,23 +323,23 @@ func TestAnExhibitStandsAtItsAnchorAndTheAvatarMakesRoom(t *testing.T) {
 			}
 		}
 	}
-	// On a narrow stage an exhibit with no place of its own stands over the
-	// avatar, and is cut to leave it its rows.
+	// On a narrow stage an automatic exhibit leaves margins and a gap
+	// above the avatar, with room reserved for the words.
 	s := newStage(t, 50, 20, Options{})
 	s.Perform(Turn{ID: 1, Text: "Look.", Over: true, Shows: []Exhibit{box("a", 0, Auto, "#", 50, 30)}}, true)
 	rows := plain(s)
-	if row, col := find(rows, "#"); row != 0 || col != 0 {
+	if row, col := find(rows, "#"); row < 1 || col != cardMargin {
 		t.Errorf("the exhibit is at row %d, column %d:\n%s", row, col, strings.Join(rows, "\n"))
 	}
-	if n := strings.Count(strings.Join(rows, "\n"), strings.Repeat("#", 50)); n != 20-minBlockRows {
-		t.Errorf("%d rows of the exhibit are shown, want %d", n, 20-minBlockRows)
+	if c := s.cards[0]; !c.on || padded(c.box()).meets(s.plan.block) {
+		t.Errorf("the exhibit has no gap around it: %+v, block %+v", c.box(), s.plan.block)
 	}
 	if !strings.Contains(strings.Join(rows, "\n"), "Look.") {
 		t.Errorf("the words are not on the stage:\n%s", strings.Join(rows, "\n"))
 	}
 }
 
-func TestExhibitsThatMeetGiveWayToTheNewest(t *testing.T) {
+func TestExhibitsWithConflictingAnchorsShareTheStage(t *testing.T) {
 	t.Parallel()
 	s := newStage(t, 100, 23, Options{})
 	s.Perform(Turn{ID: 1, Text: "One, two, three.", Over: true, Shows: []Exhibit{
@@ -348,9 +351,10 @@ func TestExhibitsThatMeetGiveWayToTheNewest(t *testing.T) {
 	a, _ := find(rows, "@")
 	b, _ := find(rows, "&")
 	c, _ := find(rows, "=")
-	if a >= 0 || c < 0 {
-		t.Errorf("A is shown (%v) under C (%v):\n%s", a >= 0, c >= 0, strings.Join(rows, "\n"))
+	if a < 0 || b < 0 || c < 0 {
+		t.Errorf("all three should be arranged without hiding one:\n%s", strings.Join(rows, "\n"))
 	}
+	assertSeparated(t, s)
 	// Two that leave the avatar no room: the older one goes.
 	if b >= 0 && !strings.Contains(strings.Join(rows, "\n"), "One, two, three.") {
 		t.Errorf("the words have no room:\n%s", strings.Join(rows, "\n"))
@@ -361,10 +365,14 @@ func TestAnExhibitIsDrawnAgainOnlyWhenItHasTo(t *testing.T) {
 	t.Parallel()
 	s := newStage(t, 100, 23, Options{})
 	draws := 0
-	ex := Exhibit{Key: "a", Where: Right, Draw: func(cols, rows int) []string {
-		draws++
-		return []string{strings.Repeat("#", min(cols, 10))}
-	}}
+	ex := Exhibit{
+		Key: "a", Where: Right, PreferredCols: 10, MinCols: 10,
+		Measure: func(cols, _ int) Size { return Size{min(cols, 10), 1} },
+		Draw: func(cols, rows int) []string {
+			draws++
+			return []string{strings.Repeat("#", min(cols, 10))}
+		},
+	}
 	turn := Turn{ID: 1, Text: "Look.", Over: true, Shows: []Exhibit{ex}}
 	s.Perform(turn, true)
 	now := run(s, time.Unix(0, 0), time.Second)

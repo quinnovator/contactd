@@ -42,7 +42,12 @@ func (a *actor) beginVisit(ctx context.Context, v core.Visit, now time.Time) {
 	}
 	switch v.Presentation {
 	case "avatar":
-		b.WriteString("They see you as an avatar that speaks your replies aloud.")
+		b.WriteString("They see you as an avatar that speaks your replies aloud. " +
+			"Markdown tables, code blocks and images are displayed beside you. " +
+			"The previous reply's display stays visible until you provide a new one; prose alone does not edit it. " +
+			"When reporting changed values from a table you displayed, including changes reported by a helper, " +
+			"include the complete updated Markdown table in your reply so the display is replaced. " +
+			"Use only known values; mark unknown or unconfirmed values explicitly.")
 	case "text":
 		b.WriteString("They see your replies as text.")
 	}

@@ -58,6 +58,30 @@ func (f *fakeImages) Image(ref draw.ImageRef, _, _ int) draw.Shown {
 	return draw.Shown{Line: "[image: " + ref.Path + ", 640×360]", Hint: "/image save 31"}
 }
 
+type fittedImage struct {
+	caption string
+	rows    int
+}
+
+func (f *fittedImage) Image(_ draw.ImageRef, _, rows int) draw.Shown {
+	f.rows = rows
+	return draw.Shown{Rows: strings.Split(strings.TrimSuffix(strings.Repeat("####\n", rows), "\n"), "\n"), Caption: f.caption}
+}
+
+func TestImageBoxReservesWrappedCaption(t *testing.T) {
+	t.Parallel()
+	images := &fittedImage{caption: "a-long-portrait-name.png · 240×720 · 43 kB · /image save 31"}
+	rd := draw.New(draw.Options{Theme: theme.New(trueDark().caps, theme.Options{}), Width: 26, Images: images})
+	captionRows := rd.ImageCaptionRows(images.caption)
+	lines := rd.ImageBox(draw.ImageRef{Seq: 31, N: 1, Path: "portrait.png"}, 14, captionRows)
+	if images.rows != 14-captionRows || len(lines) != 14 {
+		t.Fatalf("image and caption do not share the height: image=%d caption=%d total=%d", images.rows, captionRows, len(lines))
+	}
+	if !strings.Contains(ansi.Strip(strings.Join(lines, "\n")), "/image save 31") {
+		t.Fatal("the save command was split or clipped")
+	}
+}
+
 func TestExhibitsMakeTheirTextSafe(t *testing.T) {
 	t.Parallel()
 	rd := draw.New(draw.Options{Theme: theme.New(trueDark().caps, theme.Options{}), Width: 64})

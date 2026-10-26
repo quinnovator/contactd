@@ -526,6 +526,7 @@ func (c *chat) fold(u client.Update, now time.Time) {
 	case client.UpdateHelpers:
 		c.board.Tick(now.UnixMilli())
 		c.board.Reset(u.Helpers)
+		c.syncHelperScene(now)
 		c.layout()
 	case client.UpdateEvents:
 		c.tr.Events(u.Events)
@@ -541,6 +542,10 @@ func (c *chat) fold(u client.Update, now time.Time) {
 	case client.UpdateDelta:
 		followWire := c.wireSelected >= len(c.board.Wire())-1
 		c.board.Delta(u.Delta, now.UnixMilli())
+		if u.Delta.Type == core.DeltaHelper || u.Delta.Type == core.DeltaNotice {
+			c.syncHelperScene(now)
+		}
+		c.animateExchange(u.Delta, now)
 		if followWire {
 			c.wireSelected = max(0, len(c.board.Wire())-1)
 		}
@@ -587,12 +592,18 @@ func (c *chat) fold(u client.Update, now time.Time) {
 func (c *chat) setState(state client.State, err error, now time.Time) {
 	if c.state == client.StateLive && state != client.StateLive {
 		c.tr.Delta(core.Delta{Type: core.DeltaTyping}, now.UnixMilli())
+		if c.stage != nil {
+			c.stage.ClearPeers()
+		}
 	}
 	if state == client.StateLive && c.state != client.StateLive &&
 		(strings.HasSuffix(c.note, "not connected") || strings.HasPrefix(c.note, "disconnected")) {
 		c.setNote("") // no longer true
 	}
 	c.state, c.stateErr = state, ""
+	if state == client.StateLive {
+		c.syncHelperScene(now)
+	}
 	if err != nil {
 		c.stateErr = safe.Line(err.Error(), 256, false)
 	}

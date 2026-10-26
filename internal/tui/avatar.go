@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/cespare/xxhash/v2"
 
 	"github.com/quinnovator/contactd/internal/transcript"
 	"github.com/quinnovator/contactd/internal/tui/avatar"
@@ -21,6 +22,7 @@ import (
 	"github.com/quinnovator/contactd/internal/tui/sound"
 	"github.com/quinnovator/contactd/internal/tui/stage"
 	"github.com/quinnovator/contactd/internal/tui/termcaps"
+	"github.com/quinnovator/contactd/internal/tui/termimg"
 )
 
 // The avatar. Where the terminal can draw one, a conversation is not a
@@ -203,6 +205,7 @@ func (m *model) restage() {
 			Paper: paper, Dark: dark,
 		})
 		c.perform(true)
+		c.syncHelperScene(m.opt.Now())
 		c.dirty = dirtyAll
 	case !on && c.stage != nil:
 		c.stage.Hush()
@@ -354,21 +357,50 @@ func (c *chat) sayable(src string) string {
 // the item that holds it, zero while the reply is still being written: a
 // picture is fetched, and a mod asked, once the reply is in the log.
 func (c *chat) exhibit(i, at int, seq uint64, ts int64, sh script.Show) stage.Exhibit {
-	ex := stage.Exhibit{Key: strconv.Itoa(i), Rev: seq, At: at}
+	revision := xxhash.Sum64String(fmt.Sprintf("%d:%d:%d:%d:%s\x00%s\x00%s\x00%s\x00%s", seq, ts, sh.Kind, sh.N, sh.Text, sh.Path, sh.Lang, sh.Place, sh.Alt))
+	ex := stage.Exhibit{Key: strconv.Itoa(i), Rev: revision, SourceSeq: seq, At: at}
 	switch sh.Kind {
 	case script.Image:
 		ex.Where, _ = stage.Place(sh.Place)
 		ref := draw.ImageRef{Seq: seq, N: sh.N, Path: sh.Path, Alt: sh.Alt, TS: ts}
-		ex.Draw = func(cols, _ int) []string { return c.card(cols).Image(ref) }
+		ex.PreferredCols, ex.MinCols, ex.Scalable = 82, 16, true
+		captionRows := func(cols int) int {
+			if c.imgs != nil {
+				if caption := c.imgs.store.Caption(termimg.Ref(ref)); caption != "" {
+					return c.card(cols).ImageCaptionRows(caption)
+				}
+			}
+			return 2
+		}
+		ex.Measure = func(cols, rows int) stage.Size {
+			if c.imgs != nil {
+				if w, _, ok := c.imgs.store.Measure(termimg.Ref(ref), max(cols-2, 1), max(rows-captionRows(cols), 1)); ok {
+					frame := min(max(w+2, 24), cols)
+					caption := captionRows(frame)
+					_, h, _ := c.imgs.store.Measure(termimg.Ref(ref), max(frame-2, 1), max(rows-caption, 1))
+					return stage.Size{Cols: frame, Rows: h + caption}
+				}
+			}
+			return stage.Size{Cols: min(cols, c.th.Width("[image: "+sh.Path+"]")+2), Rows: 2}
+		}
+		ex.Draw = func(cols, rows int) []string { return c.card(cols).ImageBox(ref, rows, captionRows(cols)) }
 	case script.Code:
-		ex.Draw = func(cols, rows int) []string {
-			rd := c.card(cols)
-			return rd.Clip(rd.Code(seq, sh.N, sh.Lang, sh.Text), rows)
+		metrics := c.card(80).CodeMetrics(sh.Lang, sh.Text)
+		ex.PreferredCols, ex.MinCols = metrics.PreferredCols, metrics.MinCols
+		ex.Measure = func(cols, _ int) stage.Size {
+			return stage.Size{Cols: min(cols, metrics.PreferredCols), Rows: metrics.Rows(cols)}
+		}
+		ex.Draw = func(cols, _ int) []string {
+			return c.card(cols).Code(seq, sh.N, sh.Lang, sh.Text)
 		}
 	case script.Table:
-		ex.Draw = func(cols, rows int) []string {
-			rd := c.card(cols)
-			return rd.Clip(rd.Markdown(sh.Text), rows)
+		metrics := c.card(80).TableMetrics(sh.Text)
+		ex.PreferredCols, ex.MinCols = metrics.PreferredCols, metrics.MinCols
+		ex.Measure = func(cols, _ int) stage.Size {
+			return stage.Size{Cols: min(cols, metrics.PreferredCols), Rows: metrics.Rows(cols)}
+		}
+		ex.Draw = func(cols, _ int) []string {
+			return c.card(cols).Markdown(sh.Text)
 		}
 	}
 	return ex
@@ -451,6 +483,7 @@ func (c *chat) below(now time.Time) []string {
 // the avatar: the stage, or the sheet that lies over it. told says the
 // transcript may have changed since the stage was last handed the turn.
 func (c *chat) stageRows(now time.Time, told bool) []string {
+	c.stage.AdvancePeers(now)
 	if told {
 		c.perform(!c.primed)
 	}
@@ -574,7 +607,18 @@ func (c *chat) sheetLines(now time.Time) []string {
 	rd := c.list.rd.With(o)
 	items := c.tr.Items()
 	call := false
-	for i := max(turnStart(items)-1, 0); i < len(items); i++ {
+	from := max(turnStart(items)-1, 0)
+	if c.stage != nil {
+		if source := c.stage.EarliestSource(); source != 0 {
+			for i := range from {
+				if items[i].Seq == source {
+					from = i
+					break
+				}
+			}
+		}
+	}
+	for i := from; i < len(items); i++ {
 		it := &items[i]
 		// A tool's result belongs to the call above it.
 		block(rd.Item(it), it.Kind != transcript.ToolResult || !call)

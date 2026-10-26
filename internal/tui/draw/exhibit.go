@@ -40,6 +40,40 @@ func (r *Renderer) Image(ref ImageRef) []string {
 	return r.fit(r.image(ref))
 }
 
+// ImageBox draws an exhibit within its allocated height, including its
+// caption. Unlike clipping rows afterward, this preserves the whole image.
+func (r *Renderer) ImageBox(ref ImageRef, rows, captionRows int) []string {
+	var shown Shown
+	if r.o.Images != nil {
+		shown = r.o.Images.Image(ref, max(r.w-indent, 1), max(rows-captionRows, 1))
+	}
+	if len(shown.Rows) == 0 {
+		return r.Clip(r.fit(r.imageShown(ref, shown)), rows)
+	}
+	var out []string
+	for _, line := range shown.Rows {
+		out = append(out, strings.Repeat(" ", max((r.w-r.th.Width(line))/2, 0))+line)
+	}
+	out = append(out, r.imageCaption(shown.Caption)...)
+	return r.Clip(r.fit(out), rows)
+}
+
+// ImageCaptionRows reserves the actual wrapped caption before fitting pixels.
+func (r *Renderer) ImageCaptionRows(caption string) int {
+	return len(r.imageCaption(caption))
+}
+
+func (r *Renderer) imageCaption(caption string) []string {
+	// Keep the save command together on its own line. It should not break
+	// between "save" and the image number when the picture is narrow.
+	caption, command, found := strings.Cut(caption, "/image save ")
+	out := r.aside(toneDim, strings.TrimRight(caption, " ·|"))
+	if found {
+		out = append(out, r.aside(toneDim, "/image save "+command)...)
+	}
+	return out
+}
+
 // Clip cuts drawn lines to at most rows of them. Where some are left out,
 // the last row says how many, and names the key that shows the turn whole.
 func (r *Renderer) Clip(lines []string, rows int) []string {
