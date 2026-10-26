@@ -300,7 +300,7 @@ func (t *Transcript) Delta(d core.Delta, now int64) {
 	t.rev++
 	it := Item{Seq: d.Seq, TS: now}
 	switch d.Type {
-	case core.DeltaReady:
+	case core.DeltaReady, core.DeltaHelper:
 	case core.DeltaTyping:
 		if d.Typing {
 			t.live = Live{Typing: true}

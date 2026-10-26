@@ -48,6 +48,13 @@ linters:
   settings:
     depguard:
       rules:
+        a2a-no-grpc:
+          files: ["**/*.go"]
+          deny:
+            - pkg: github.com/a2aproject/a2a-go/v2/a2agrpc
+              desc: only JSONRPC and HTTP+JSON are served
+            - pkg: github.com/a2aproject/a2a-go/v2/a2apb
+              desc: only JSONRPC and HTTP+JSON are served
         domain-stays-pure:
           files:
             - "**/internal/core/**"
@@ -59,6 +66,14 @@ linters:
             # (infer/fake, llm/fake) and a real event log; rule 10 depends on it.
             - "!$test"
           deny:
+            - pkg: github.com/a2aproject/a2a-go
+              desc: A2A belongs to adapters
+            - pkg: github.com/quinnovator/contactd/internal/helpers
+              desc: adapters are wired in cmd/contactd
+            - pkg: github.com/quinnovator/contactd/internal/requester
+              desc: adapters are wired in cmd/contactd
+            - pkg: github.com/quinnovator/contactd/internal/fetch
+              desc: adapters are wired in cmd/contactd
             - pkg: database/sql
               desc: domain code talks to storage through ports
             - pkg: net/http
