@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -559,5 +560,35 @@ func TestAPIToken(t *testing.T) {
 	// The socket needs no token.
 	if got, err := overSocket(t, srv).Contacts(t.Context()); err != nil || len(got) != 1 {
 		t.Fatalf("Contacts over the socket = %v, %v", got, err)
+	}
+}
+
+// A redirect to another host must not carry the token there.
+func TestAPITokenStaysWithItsServer(t *testing.T) {
+	t.Parallel()
+	const token = "client-token-0123456789"
+	leaked := make(chan string, 1)
+	elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked <- r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"contacts":[]}`))
+	}))
+	t.Cleanup(elsewhere.Close)
+	home := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+token {
+			t.Errorf("the server the token is for got %q", r.Header.Get("Authorization"))
+		}
+		http.Redirect(w, r, elsewhere.URL+r.URL.Path, http.StatusFound)
+	}))
+	t.Cleanup(home.Close)
+
+	c, err := client.New(client.Options{URL: home.URL, Token: token})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Contacts(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := <-leaked; got != "" {
+		t.Fatalf("the redirect target got Authorization %q", got)
 	}
 }

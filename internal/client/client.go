@@ -74,7 +74,7 @@ func New(opt Options) (*Client, error) {
 		}
 		hc := &http.Client{}
 		if opt.Token != "" {
-			hc.Transport = bearer{token: opt.Token, next: http.DefaultTransport}
+			hc.Transport = bearer{token: opt.Token, scheme: u.Scheme, host: u.Host, next: http.DefaultTransport}
 		}
 		return &Client{http: hc, base: strings.TrimRight(opt.URL, "/"), where: opt.URL}, nil
 	}
@@ -92,15 +92,19 @@ func New(opt Options) (*Client, error) {
 }
 
 // bearer adds the API token to each request, the WebSocket handshake
-// included.
+// included, but only to the server it belongs to: a redirect to another
+// host, or from https to http, goes without it.
 type bearer struct {
-	token string
-	next  http.RoundTripper
+	token        string
+	scheme, host string
+	next         http.RoundTripper
 }
 
 func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
-	r = r.Clone(r.Context()) // a RoundTripper must not change the caller's request
-	r.Header.Set("Authorization", "Bearer "+b.token)
+	if r.URL.Scheme == b.scheme && strings.EqualFold(r.URL.Host, b.host) {
+		r = r.Clone(r.Context()) // a RoundTripper must not change the caller's request
+		r.Header.Set("Authorization", "Bearer "+b.token)
+	}
 	return b.next.RoundTrip(r) //nolint:wrapcheck // the transport's own error, passed through
 }
 
