@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"slices"
@@ -70,6 +71,7 @@ func chatMain(args []string) int {
 	dataDir := fs.String("data-dir", env("CONTACTD_DATA_DIR", "/data"), "the server's data directory, where its socket is ($CONTACTD_DATA_DIR)")
 	socket := fs.String("socket", env("CONTACTD_SOCKET", ""), "the server's Unix socket; empty means contactd.sock in the data directory ($CONTACTD_SOCKET)")
 	url := fs.String("url", env("CONTACTD_URL", ""), "reach the server over TCP instead, such as http://host:8080 ($CONTACTD_URL)")
+	token := fs.String("api-token", env("CONTACTD_API_TOKEN", ""), "with -url: the server's API token ($CONTACTD_API_TOKEN)")
 	list := fs.Bool("list", false, "print the contacts and exit")
 	timeout := fs.Duration("timeout", 10*time.Minute, "how long a one-shot message waits for its reply")
 
@@ -98,11 +100,14 @@ func chatMain(args []string) int {
 		if errors.Is(err, client.ErrUnavailable) {
 			msg += "\nIs contactd running? Point at it with -data-dir, -socket or -url."
 		}
+		if client.IsStatus(err, http.StatusUnauthorized) {
+			msg += "\nThe server wants its API token: pass -api-token or set CONTACTD_API_TOKEN."
+		}
 		fmt.Fprintln(os.Stderr, "contactd chat:", msg)
 		return 2
 	}
 
-	opt := client.Options{URL: *url, Socket: *socket}
+	opt := client.Options{URL: *url, Socket: *socket, Token: *token}
 	if opt.URL == "" && opt.Socket == "" {
 		opt.Socket = config.DefaultSocket(*dataDir)
 	}

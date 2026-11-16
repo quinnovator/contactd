@@ -186,3 +186,26 @@ func TestSocketPath(t *testing.T) {
 		t.Errorf("DefaultSocket = %q", got)
 	}
 }
+
+func TestAPIToken(t *testing.T) {
+	t.Parallel()
+	c, err := config.Load(nil, env("ANTHROPIC_API_KEY", "k"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.APIToken != "" {
+		t.Errorf("api token %q by default; the TCP API should stay open unless asked", c.APIToken)
+	}
+	c, err = config.Load(nil, env("ANTHROPIC_API_KEY", "k", "CONTACTD_API_TOKEN", "0123456789abcdef"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.APIToken != "0123456789abcdef" {
+		t.Errorf("api token %q, want it from CONTACTD_API_TOKEN", c.APIToken)
+	}
+	for _, bad := range []string{"short", "has a space in it ok", "tab\there-0123456789"} {
+		if _, err := config.Load([]string{"-api-token=" + bad}, env("ANTHROPIC_API_KEY", "k")); err == nil || !strings.Contains(err.Error(), "api-token") {
+			t.Errorf("api-token %q: err %v, want it refused", bad, err)
+		}
+	}
+}

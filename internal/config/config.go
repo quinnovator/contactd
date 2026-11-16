@@ -18,7 +18,11 @@ import (
 // Config is every runtime setting. Each field has a flag and an environment
 // variable (CONTACTD_ plus the flag name in upper snake case); flags win.
 type Config struct {
-	Addr                                                    string
+	Addr string
+	// APIToken, when set, is the bearer token every API request on Addr
+	// must carry. The Unix socket, the A2A routes and /healthz do without
+	// it. Empty leaves the TCP address open, as it always was.
+	APIToken                                                string
 	Helpers                                                 string
 	A2AURL, A2AAuth, A2AToken                               string
 	A2APushAllow, FetchAllow                                []string
@@ -130,6 +134,7 @@ func Load(args []string, getenv func(string) string) (Config, error) {
 	l := loader{fs: fs, getenv: getenv}
 
 	l.str(&c.Addr, "addr", ":8080", "listen address")
+	l.str(&c.APIToken, "api-token", "", "bearer token the API requires on the TCP address; empty requires none (the Unix socket, A2A routes and /healthz never need it)")
 	l.str(&c.Socket, "socket", "", "Unix socket to also serve the API on, for local clients such as contactd chat; empty means contactd.sock in the data directory, off disables it")
 	l.str(&c.DataDir, "data-dir", "/data", "directory for the SQLite file and tier-0 filesystems; must be a real local filesystem")
 	l.str(&c.LogFormat, "log-format", "json", "json or text")
@@ -281,7 +286,22 @@ func (c *Config) validate() error {
 	check(c.TailBudget > 0, "tail-budget must be positive")
 	check(c.MaxToolSteps > 0, "max-tool-steps must be positive")
 	check(c.BytesPerActor > 0, "bytes-per-actor must be positive")
+	check(c.APIToken == "" || len(c.APIToken) >= minAPIToken, "api-token must be at least %d characters; try: openssl rand -base64 32", minAPIToken)
+	check(c.APIToken == "" || validToken(c.APIToken), "api-token must be printable ASCII without spaces, so it can travel in an Authorization header")
 	return errors.Join(errs...)
+}
+
+// minAPIToken is the shortest API token accepted. A token on the network is
+// only as strong as it is long; this keeps out the obviously guessable.
+const minAPIToken = 16
+
+func validToken(t string) bool {
+	for i := range len(t) {
+		if t[i] <= ' ' || t[i] > '~' {
+			return false
+		}
+	}
+	return true
 }
 
 // Providers lists the providers that have credentials, in the order the

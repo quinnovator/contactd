@@ -14,7 +14,7 @@ Threads, prompt-cache layout and the REPL environment are not stored objects. Ea
 
 It also behaves like a person on the other end: it waits for you to finish a burst of messages, and a message sent mid-reply interrupts it. Idle contacts cost no memory and no goroutines.
 
-> **Status:** early and single-node. The API has no authentication of its own; see [Security](#security).
+> **Status:** early and single-node. The API on the TCP address is open unless you set `-api-token`; see [Security](#security).
 
 ## Quick start
 
@@ -159,6 +159,7 @@ Every setting is a flag and an environment variable (`CONTACTD_` + the flag name
 | Flag | Default | Notes |
 | --- | --- | --- |
 | `-addr` | `:8080` | The TCP address of the API |
+| `-api-token` | none | A bearer token the TCP address requires; see [Security](#security) |
 | `-data-dir` | `/data` | SQLite, the contacts' files and the Unix socket |
 | `-llm`, `-model` | first configured provider, its default model | The default route |
 | `-effort`, `-max-tokens` | none | Defaults for agents that set none |
@@ -216,7 +217,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-- **The API is not authenticated.** The TCP address is meant for a trusted network, and the Unix socket (mode `0600`) for the user who runs the server. Put an authenticating proxy in front of it before exposing it further.
+- **The TCP address is open unless you give it a token.** Set `CONTACTD_API_TOKEN` (or `-api-token`) and every request there must carry `Authorization: Bearer <token>`; without one, the address is for a trusted network only. The Unix socket (mode `0600`) never needs the token: it is for the user who runs the server. The A2A routes keep their own token (`-a2a-token`), and `GET /healthz` stays open for health checks. The token is plain text on the wire, so put TLS in front of the address (a reverse proxy, or a tailnet) before exposing it further.
+
+  ```sh
+  export CONTACTD_API_TOKEN="$(openssl rand -base64 32)"
+  contactd                                          # the server reads it
+  contactd chat -url http://host:8080 ada           # so does the client
+  curl -H "Authorization: Bearer $CONTACTD_API_TOKEN" http://host:8080/v1/contacts
+  ```
 - **Tools run model-written code.** Tier 0 runs it under wazero with no network and a filesystem confined to the contact's directory, with memory and time limits. Tier 1 is only as isolated as the sandbox service you point it at.
 - **Diagnostics expose prompts.** `-diagnostics` serves full prompt and tool contents over the same access as the API.
 - **The terminal client never passes outside text to the terminal raw.** Escape sequences in replies, tool output, names and mods are stripped.

@@ -1,6 +1,6 @@
 # The terminal client
 
-`contactd chat` is a terminal client for a server running on the same machine. It finds the server through a Unix socket in the data directory, so it needs the same `-data-dir` (or `CONTACTD_DATA_DIR`) and nothing else.
+`contactd chat` is a terminal client for a server running on the same machine. It finds the server through a Unix socket in the data directory, so it needs the same `-data-dir` (or `CONTACTD_DATA_DIR`) and nothing else. For a server elsewhere, `-url` (or `CONTACTD_URL`) reaches it over TCP, with `-api-token` (or `CONTACTD_API_TOKEN`) when that server requires one.
 
 ```sh
 contactd chat -new ada -system "You are Ada, a thoughtful colleague." -tools python

@@ -43,6 +43,9 @@ type Options struct {
 	FetchAllow []string
 	Database   string
 	Address    string
+	// APIToken, when set, is required on the TCP address as it is by
+	// contactd -api-token. The socket does without it.
+	APIToken string
 }
 
 // Server is a running API.
@@ -192,7 +195,7 @@ func Start(tb testing.TB, opt Options) *Server {
 		}()
 		stopHelpers = func() { hcancel(); <-done }
 	}
-	handler := server.Handler()
+	handler := api.RequireToken(server.Handler(), opt.APIToken)
 	tcp.Config.Handler = handler
 	conns := &tracker{Listener: tcp.Listener}
 	tcp.Listener = conns
