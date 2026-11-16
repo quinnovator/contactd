@@ -208,7 +208,8 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 		})
 	}
 	httpServer := &http.Server{
-		Handler:           server.Handler(),
+		// The socket is exempt from the token: its permissions guard it.
+		Handler:           api.RequireToken(server.Handler(), cfg.APIToken),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		IdleTimeout:       2 * time.Minute,
@@ -242,6 +243,7 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	log.Info("contactd listening",
 		"addr", listener.Addr().String(),
 		"socket", socket,
+		"api_token", cfg.APIToken != "",
 		"llm", cfg.LLM,
 		"infer", cfg.Infer,
 		"infer_workers", cfg.InferWorkers,

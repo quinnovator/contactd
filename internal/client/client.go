@@ -52,6 +52,9 @@ type Options struct {
 	Socket string
 	// URL is the server's base URL, such as http://host:8080.
 	URL string
+	// Token is the server's API token (-api-token), sent as a bearer token
+	// on every request to URL. The socket does not need it.
+	Token string
 }
 
 // Client talks to one contactd server.
@@ -69,7 +72,11 @@ func New(opt Options) (*Client, error) {
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return nil, fmt.Errorf("server URL %q must look like http://host:port", opt.URL)
 		}
-		return &Client{http: &http.Client{}, base: strings.TrimRight(opt.URL, "/"), where: opt.URL}, nil
+		hc := &http.Client{}
+		if opt.Token != "" {
+			hc.Transport = bearer{token: opt.Token, scheme: u.Scheme, host: u.Host, next: http.DefaultTransport}
+		}
+		return &Client{http: hc, base: strings.TrimRight(opt.URL, "/"), where: opt.URL}, nil
 	}
 	if opt.Socket == "" {
 		return nil, errors.New("no server given: need a socket path or a URL")
@@ -82,6 +89,23 @@ func New(opt Options) (*Client, error) {
 		},
 	}
 	return &Client{http: &http.Client{Transport: transport}, base: "http://contactd", where: socket}, nil
+}
+
+// bearer adds the API token to each request, the WebSocket handshake
+// included, but only to the server it belongs to: a redirect to another
+// host, or from https to http, goes without it.
+type bearer struct {
+	token        string
+	scheme, host string
+	next         http.RoundTripper
+}
+
+func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.URL.Scheme == b.scheme && strings.EqualFold(r.URL.Host, b.host) {
+		r = r.Clone(r.Context()) // a RoundTripper must not change the caller's request
+		r.Header.Set("Authorization", "Bearer "+b.token)
+	}
+	return b.next.RoundTrip(r) //nolint:wrapcheck // the transport's own error, passed through
 }
 
 // Where describes the server this client talks to: a socket path or a URL.

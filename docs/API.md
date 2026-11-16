@@ -33,7 +33,17 @@ curl -s -XPOST localhost:8080/v1/contacts/1/messages -d '{"text":"hey, are you a
 
 ## Access
 
-The same API is served on a Unix socket, `contactd.sock` in the data directory, with permissions `0600`. Nothing else about the API is authenticated: the TCP address is for a trusted network, and the socket is for the user who runs the server. Put a reverse proxy with authentication in front of the TCP address before exposing it anywhere else.
+The same API is served on a Unix socket, `contactd.sock` in the data directory, with permissions `0600`. The socket is for the user who runs the server, and its permissions are its only access control.
+
+The TCP address is open by default, for a trusted network. Start the server with `-api-token` (or `CONTACTD_API_TOKEN`), at least 16 printable characters, and every request on the TCP address must carry it:
+
+```sh
+curl -H "Authorization: Bearer $CONTACTD_API_TOKEN" localhost:8080/v1/contacts
+```
+
+A request without it, or with the wrong one, gets `401` with `WWW-Authenticate: Bearer realm="contactd"` and `{"error":"missing or wrong API token"}`. The token is compared in constant time. It covers `/v1/`, `/metrics` and `/debug/plans`, and the WebSocket handshake of `/live`, which takes the same header. Three things do without it: the Unix socket, `GET /healthz` (so a load balancer needs no secret), and the A2A routes (`/a2a/` and `/.well-known/agent-card.json`), which have their own token; see [A2A](A2A.md#authentication). `contactd chat -url` and `ctxtop -url` send it from `-api-token` or `CONTACTD_API_TOKEN`.
+
+The token travels in clear text over plain HTTP, so put TLS in front of the TCP address (a reverse proxy, or a tailnet) before exposing it beyond a trusted network.
 
 `-socket=off` disables the socket. A data directory whose path is too long for a socket address is logged and skipped unless `-socket` was given by name.
 

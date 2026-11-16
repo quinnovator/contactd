@@ -64,3 +64,28 @@ func TestRequesterOwnershipAndCap(t *testing.T) {
 		t.Fatalf("already stopped: %v", err)
 	}
 }
+
+// An API token on the TCP address must not get in the way of helpers: the
+// A2A routes, the card and push callbacks keep their own authentication.
+func TestHelpersWorkBehindAnAPIToken(t *testing.T) {
+	t.Parallel()
+	cfg := helpers.DefaultConfig()
+	cfg.Token = "a2a-token-0123456789abcdef"
+	s := apitest.Start(t, apitest.Options{Helpers: &cfg, APIToken: "api-token-0123456789abcdef"})
+	c, err := client.New(client.Options{URL: s.URL, Token: "api-token-0123456789abcdef"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := c.Create(t.Context(), client.NewContact{Name: "parent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := requester.New(s.Store, observer{}, requester.Config{AgentURL: s.URL, BaseURL: s.URL, Token: cfg.Token}, obs.Discard())
+	h, err := r.Start(t.Context(), parent, turn.HelperStart{Title: "Watch", Brief: "Read once", Every: time.Minute, For: time.Hour})
+	if err != nil {
+		t.Fatalf("start a helper with an API token on: %v", err)
+	}
+	if _, err := r.Stop(t.Context(), parent, h.Handle); err != nil {
+		t.Fatal(err)
+	}
+}

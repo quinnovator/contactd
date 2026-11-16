@@ -36,6 +36,7 @@ func run() error {
 	dir := fs.String("data-dir", data, "the dev server's data directory")
 	socket := fs.String("socket", os.Getenv("CONTACTD_SOCKET"), "the server's Unix socket")
 	url := fs.String("url", os.Getenv("CONTACTD_URL"), "server HTTP URL instead of a Unix socket")
+	token := fs.String("api-token", os.Getenv("CONTACTD_API_TOKEN"), "with -url: the server's API token ($CONTACTD_API_TOKEN)")
 	contact := fs.String("contact", "", "only show a contact's name or ID; empty shows all contacts")
 	ascii := fs.Bool("ascii", false, "draw with ASCII characters")
 	lifetime := fs.String("lifetime-file", "", "dev launcher: close when this file is removed")
@@ -54,7 +55,7 @@ func run() error {
 	if *socket == "" {
 		*socket = filepath.Join(*dir, "contactd.sock")
 	}
-	c, err := client.New(client.Options{Socket: *socket, URL: *url})
+	c, err := client.New(client.Options{Socket: *socket, URL: *url, Token: *token})
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
 	}
