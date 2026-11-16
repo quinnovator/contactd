@@ -113,6 +113,43 @@ func TestDetect(t *testing.T) {
 			source: memlimit.SourceCgroup, cgroup: 3 * gib, file: "/sys/fs/cgroup/memory/user.slice/memory.limit_in_bytes",
 		},
 		{
+			name: "v1 subtree mount: a limited child under an unlimited mount root",
+			fsys: files(
+				"proc/self/cgroup", "4:memory:/tenant/app\n",
+				"proc/self/mountinfo", "41 37 0:32 /tenant /sys/fs/cgroup/memory rw,relatime - cgroup cgroup rw,memory\n",
+				"sys/fs/cgroup/memory/memory.limit_in_bytes", "9223372036854771712\n",
+				"sys/fs/cgroup/memory/app/memory.limit_in_bytes", "1073741824\n",
+			),
+			source: memlimit.SourceCgroup, cgroup: 1 * gib, file: "/sys/fs/cgroup/memory/app/memory.limit_in_bytes",
+		},
+		{
+			name: "v1 container without its own cgroup namespace",
+			fsys: files(
+				"proc/self/cgroup", "4:memory:/docker/abc\n",
+				"proc/self/mountinfo", "30 25 0:26 / /sys/fs/cgroup ro - tmpfs tmpfs ro,mode=755\n41 30 0:32 /docker/abc /sys/fs/cgroup/memory ro,relatime - cgroup cgroup rw,memory\n",
+				"sys/fs/cgroup/memory/memory.limit_in_bytes", "2147483648\n",
+			),
+			source: memlimit.SourceCgroup, cgroup: 2 * gib, file: "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+		},
+		{
+			name: "v2 mounted somewhere unusual",
+			fsys: files(
+				"proc/self/cgroup", "0::/app\n",
+				"proc/self/mountinfo", "29 23 0:26 / /run/cgroup rw,relatime - cgroup2 cgroup2 rw\n",
+				"run/cgroup/app/memory.max", "536870912\n",
+			),
+			source: memlimit.SourceCgroup, cgroup: 512 * mib, file: "/run/cgroup/app/memory.max",
+		},
+		{
+			name: "mountinfo with no cgroup mounts means no limit",
+			fsys: files(
+				"proc/self/cgroup", "0::/\n",
+				"proc/self/mountinfo", "22 1 8:1 / / rw - ext4 /dev/sda1 rw\n",
+				"sys/fs/cgroup/memory.max", "4294967296\n",
+			),
+			source: memlimit.SourceNone,
+		},
+		{
 			name:   "not Linux: no /proc at all",
 			fsys:   files(),
 			source: memlimit.SourceNone,
