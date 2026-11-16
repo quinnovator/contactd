@@ -86,10 +86,10 @@ Or as a container, with one volume at `/data`:
 ```sh
 mise run models:fetch
 docker build -f deploy/Dockerfile -t contactd .
-docker run -p 8080:8080 -v contactd-data:/data -e DEEPSEEK_API_KEY -e GOMEMLIMIT=3GiB contactd
+docker run -p 8080:8080 -m 4g -v contactd-data:/data -e DEEPSEEK_API_KEY contactd
 ```
 
-`GOMEMLIMIT` is not cgroup-aware: set it to the container's memory limit minus room for ONNX Runtime's native memory. It is supported on linux/amd64, linux/arm64 and macOS on Apple Silicon; Windows has not been tried.
+Under a cgroup memory limit (a container's `-m`, a systemd `MemoryMax`, a Kubernetes limit), contactd sets the Go soft memory limit itself at startup: 75% of the cgroup limit, leaving at least 256 MiB for memory Go can't see (ONNX Runtime, the tokenizer, SQLite's page caches), so `-m 4g` runs with 3 GiB. It reads cgroup v2 `memory.max` or v1 `memory.limit_in_bytes`, takes the tightest limit up the hierarchy, and logs what it chose. With no limit it sets none. An explicit `GOMEMLIMIT` always wins: `GOMEMLIMIT=2GiB` picks your own, and `GOMEMLIMIT=off` turns the limit off. contactd is supported on linux/amd64, linux/arm64 and macOS on Apple Silicon; Windows has not been tried.
 
 ## The terminal client
 
@@ -167,7 +167,7 @@ Every setting is a flag and an environment variable (`CONTACTD_` + the flag name
 | `-models-dir`, `-wasm-dir` | `/models`, `/wasm` | The ONNX models and the WASM runtimes; an empty `-wasm-dir` turns tier-0 tools off |
 | `-sandbox-url` | none | A tier-1 snapshot-sandbox service, for heavier tools |
 | `-sync-full` | off | `synchronous=FULL`: never lose an acknowledged message on power loss |
-| `-max-hydrated` | derived | Contacts held in memory, from `GOMEMLIMIT` |
+| `-max-hydrated` | derived | Contacts held in memory, from the Go memory limit |
 | `-tau`, `-gap`, `-theta`, `-delta`, `-tail-budget` | tuned defaults | Recall and compaction; tune with `cmd/replay` before changing them |
 | `-diagnostics` | off | Serve `/debug/plans` for `ctxtop`; exposes full prompts |
 
