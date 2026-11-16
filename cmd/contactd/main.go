@@ -10,12 +10,10 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"slices"
 	"sync"
 	"syscall"
@@ -67,11 +65,9 @@ func run(cfg *config.Config, log *slog.Logger) (err error) {
 	sigCtx, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stopSignals()
 
-	memLimit := debug.SetMemoryLimit(-1)
-	if memLimit == math.MaxInt64 {
-		// Unlike GOMAXPROCS, GOMEMLIMIT does not read the cgroup limit.
-		log.Warn("GOMEMLIMIT is not set; set it to the container limit minus room for ONNX Runtime's native memory")
-	}
+	// Unlike GOMAXPROCS, GOMEMLIMIT does not read the cgroup limit, so
+	// derive it here before anything sizes itself from it.
+	memLimit := applyMemoryLimit(log)
 
 	// A stack of cleanups, run newest-first on the way out.
 	var cleanups []func()

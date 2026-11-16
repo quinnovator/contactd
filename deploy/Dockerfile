@@ -41,8 +41,9 @@ ENV CONTACTD_DATA_DIR=/data \
     CONTACTD_WASM_DIR=/wasm \
     CONTACTD_ONNX_LIB=/usr/lib/libonnxruntime.so
 # GOMAXPROCS is left unset: Go 1.25+ reads the cgroup CPU limit itself.
-# GOMEMLIMIT is NOT cgroup-aware. Set it at run time to the container memory
-# limit minus room for ONNX Runtime's native memory, e.g. 4 GiB -> 3GiB.
+# GOMEMLIMIT can be left unset too: contactd reads the cgroup memory limit at
+# startup and gives Go 75% of it (at least 256 MiB left for ONNX Runtime and
+# SQLite), e.g. -m 4g -> 3 GiB. Set GOMEMLIMIT to override, or to "off".
 
 # SQLite needs a real filesystem with working locks: a local volume, not an
 # overlay or a network mount.

@@ -44,7 +44,7 @@ That table gives three levers, in order of impact:
 
 **Why Go.** The hot path is I/O plus small CPU bursts, which goroutines handle well. `context.Context` makes interrupting a turn safe and simple, and interruption is a core feature here. The two known costs have known mitigations:
 
-- **GC headroom.** Set `GOMEMLIMIT` explicitly, because unlike GOMAXPROCS it does not read cgroup limits. Leave room for ONNX Runtime's native memory, which sits outside the Go heap.
+- **GC headroom.** Unlike GOMAXPROCS, `GOMEMLIMIT` does not read cgroup limits, so contactd does it at startup (`internal/memlimit`): with no `GOMEMLIMIT` set, Go gets 75% of the cgroup memory limit, and at least 256 MiB is left for ONNX Runtime's sessions, the Rust tokenizer and SQLite's page caches, which C allocates outside the Go heap. An explicit `GOMEMLIMIT`, `off` included, is left alone.
 - **cgo.** ONNX Runtime and the Rust tokenizer need cgo. That cost is paid once, and the cgo SQLite driver is used as well, rather than paying for two worlds.
 
 The toolchain is Go 1.26 (`go.mod`; `mise.toml` pins 1.26.9, the first release without the standard-library vulnerabilities `govulncheck` reports in 1.25). Container-aware GOMAXPROCS and stable `testing/synctest` both come with it.
@@ -145,7 +145,7 @@ Actors don't wait on the commit before streaming. They wait on `done` only befor
 
 **Hydration** reads, on spawn: the hot window (the last 256 events of the conversation; attempt records are not counted), the newest checkpoint wherever it is (it can be much older than the window), the episode rows, and the contact's visit metadata. Message vectors stay on disk. They are only needed to rebuild episodes.
 
-**Memory budget.** Episode centroids are held for search as int8 with a per-vector scale: 384 bytes each, versus 1,536 bytes as float32. That's safe because the cross-encoder in Piece 4 re-scores the shortlist. The registry keeps an approximate LRU of active actors. When the count passes `MaxHydrated` it hibernates the least recently active idle ones, so a traffic spike degrades into rehydration cost instead of an OOM kill. `-max-hydrated` defaults to `GOMEMLIMIT ÷ 2 ÷ -bytes-per-actor` (48 KiB, from `BenchmarkDensity`).
+**Memory budget.** Episode centroids are held for search as int8 with a per-vector scale: 384 bytes each, versus 1,536 bytes as float32. That's safe because the cross-encoder in Piece 4 re-scores the shortlist. The registry keeps an approximate LRU of active actors. When the count passes `MaxHydrated` it hibernates the least recently active idle ones, so a traffic spike degrades into rehydration cost instead of an OOM kill. `-max-hydrated` defaults to the Go memory limit `÷ 2 ÷ -bytes-per-actor` (48 KiB, from `BenchmarkDensity`).
 
 **Unanswered messages are capped per contact** at 128 KiB (`429` beyond it), so a client that sends faster than the model answers cannot grow the prompt without limit. A refused message does not interrupt the turn in flight, so the backlog clears.
 
